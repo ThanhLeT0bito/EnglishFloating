@@ -1,0 +1,21 @@
+<Window x:Class="PteFloatingSentence.Windows.FloatingWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        SizeToContent="WidthAndHeight"
+        ResizeMode="NoResize"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+    <Window.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="Settings" Click="SettingsMenuItem_Click" />
+            <MenuItem Header="Exit" Click="ExitMenuItem_Click" />
+        </ContextMenu>
+    </Window.ContextMenu>
+    <Border x:Name="SentenceBackground" Padding="14" CornerRadius="10">
+        <TextBlock x:Name="SentenceText" MaxWidth="900" TextWrapping="Wrap" />
+    </Border>
+</Window>
