@@ -41,6 +41,8 @@ public partial class App : System.Windows.Application
         _floatingWindow.ApplySettings(_settings);
         _floatingWindow.SettingsRequested += FloatingWindow_SettingsRequested;
         _floatingWindow.ExitRequested += async (_, _) => await ShutdownAsync();
+        _floatingWindow.PreviousRequested += (_, _) => NavigateCurrentSentence(-1);
+        _floatingWindow.NextRequested += (_, _) => NavigateCurrentSentence(1);
         _floatingWindow.PositionChanged += FloatingWindow_PositionChanged;
         _floatingWindow.Show();
     }
@@ -61,6 +63,13 @@ public partial class App : System.Windows.Application
     private void FloatingWindow_PositionChanged(object? sender, (double Left, double Top) position)
     {
         _settings = _settings with { Left = position.Left, Top = position.Top };
+        PersistSettings();
+    }
+
+    private void NavigateCurrentSentence(int direction)
+    {
+        _settings = Core.StudyListRules.MoveCurrentSentence(_settings, direction);
+        _floatingWindow?.ApplySettings(_settings);
         PersistSettings();
     }
 

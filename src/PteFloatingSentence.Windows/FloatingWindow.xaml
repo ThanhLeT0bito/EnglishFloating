@@ -8,6 +8,8 @@
         ShowInTaskbar="False"
         SizeToContent="WidthAndHeight"
         ResizeMode="NoResize"
+        MouseEnter="Window_MouseEnter"
+        MouseLeave="Window_MouseLeave"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
     <Window.ContextMenu>
         <ContextMenu>
@@ -15,7 +17,47 @@
             <MenuItem Header="Exit" Click="ExitMenuItem_Click" />
         </ContextMenu>
     </Window.ContextMenu>
-    <Border x:Name="SentenceBackground" Padding="14" CornerRadius="10">
-        <TextBlock x:Name="SentenceText" MaxWidth="900" TextWrapping="Wrap" />
+    <Border Padding="2" CornerRadius="12">
+        <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#FF3B82F6" Offset="0" />
+                <GradientStop Color="#FF5EEAD4" Offset="1" />
+            </LinearGradientBrush>
+        </Border.Background>
+        <Border x:Name="SentenceBackground" Padding="14,10" CornerRadius="10" Background="#E6121722">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Button x:Name="PreviousButton"
+                        Grid.Column="0"
+                        Margin="0,0,10,0"
+                        Padding="6,2"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Content="&#xE76B;"
+                        FontSize="20"
+                        Foreground="#FFBAE6FD"
+                        Visibility="Collapsed"
+                        Click="PreviousButton_Click" />
+                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                    <TextBlock x:Name="SentenceText" MaxWidth="900" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" />
+                    <TextBlock x:Name="ProgressText" Margin="0,6,0,0" HorizontalAlignment="Center" Foreground="#FF9CA3AF" FontSize="12" />
+                </StackPanel>
+                <Button x:Name="NextButton"
+                        Grid.Column="2"
+                        Margin="10,0,0,0"
+                        Padding="6,2"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Content="&#xE76C;"
+                        FontSize="20"
+                        Foreground="#FFBAE6FD"
+                        Visibility="Collapsed"
+                        Click="NextButton_Click" />
+            </Grid>
+        </Border>
     </Border>
 </Window>
