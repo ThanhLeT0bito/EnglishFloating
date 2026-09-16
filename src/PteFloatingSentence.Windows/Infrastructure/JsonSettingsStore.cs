@@ -24,8 +24,14 @@ public sealed class JsonSettingsStore
         try
         {
             var json = await File.ReadAllTextAsync(FilePath);
+            using var document = JsonDocument.Parse(json);
             var settings = JsonSerializer.Deserialize<AppSettings>(json);
-            return settings is null ? AppSettings.Default : Normalize(settings);
+            if (settings is null)
+                return AppSettings.Default;
+
+            return IsVersion2(document.RootElement)
+                ? NormalizeVersion2(settings)
+                : MigrateVersion1(settings);
         }
         catch (IOException)
         {
@@ -47,11 +53,35 @@ public sealed class JsonSettingsStore
         if (!string.IsNullOrEmpty(directory))
             Directory.CreateDirectory(directory);
 
-        var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+        var json = JsonSerializer.Serialize(NormalizeVersion2(settings), new JsonSerializerOptions { WriteIndented = true });
         await File.WriteAllTextAsync(FilePath, json);
     }
 
-    private static AppSettings Normalize(AppSettings settings)
+    private static bool IsVersion2(JsonElement root) =>
+        root.TryGetProperty(nameof(AppSettings.Version), out var version)
+        && version.ValueKind == JsonValueKind.Number
+        && version.TryGetInt32(out var value)
+        && value >= 2;
+
+    private static AppSettings MigrateVersion1(AppSettings settings)
+    {
+        var legacy = NormalizeDisplay(settings);
+        var migrated = StudyListRules.CreateDefault(legacy.Sentence);
+
+        return migrated with
+        {
+            FontSize = legacy.FontSize,
+            TextColor = legacy.TextColor,
+            BackgroundOpacity = legacy.BackgroundOpacity,
+            Left = legacy.Left,
+            Top = legacy.Top
+        };
+    }
+
+    private static AppSettings NormalizeVersion2(AppSettings settings) =>
+        NormalizeDisplay(StudyListRules.Normalize(settings));
+
+    private static AppSettings NormalizeDisplay(AppSettings settings)
     {
         var defaults = AppSettings.Default;
         return settings with
