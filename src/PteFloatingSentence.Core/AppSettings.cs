@@ -1,0 +1,13 @@
+namespace PteFloatingSentence.Core;
+
+public sealed record AppSettings
+{
+    public int Version { get; init; } = 1;
+    public string Sentence { get; init; } = "Right-click this sentence to open Settings.";
+    public double FontSize { get; init; } = 30;
+    public string TextColor { get; init; } = "#FFFFFFFF";
+    public double BackgroundOpacity { get; init; } = 0.35;
+    public double Left { get; init; } = 100;
+    public double Top { get; init; } = 100;
+    public static AppSettings Default => new();
+}
