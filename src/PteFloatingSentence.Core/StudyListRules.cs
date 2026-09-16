@@ -4,10 +4,11 @@ public static class StudyListRules
 {
     private const int DefaultTargetSentenceCount = 10;
     private const string DefaultListName = "My first list";
+    private const string DefaultSentence = "Right-click this sentence to open Settings.";
 
     public static AppSettings CreateDefault(string legacySentence)
     {
-        var sentence = legacySentence?.Trim() ?? string.Empty;
+        var sentence = NormalizeSentence(legacySentence);
         var list = new StudyList(
             Guid.NewGuid(),
             DefaultListName,
@@ -104,7 +105,7 @@ public static class StudyListRules
             .Select(sentence => sentence with
             {
                 Id = RepairId(sentence.Id, sentenceIds),
-                Text = sentence.Text?.Trim() ?? string.Empty
+                Text = NormalizeSentence(sentence.Text)
             })
             .ToList();
         var currentSentenceIndex = sentences.Count == 0
@@ -114,7 +115,7 @@ public static class StudyListRules
         return list with
         {
             Id = listId,
-            Name = list.Name?.Trim() ?? string.Empty,
+            Name = string.IsNullOrWhiteSpace(list.Name) ? DefaultListName : list.Name.Trim(),
             TargetSentenceCount = list.TargetSentenceCount < 1 ? DefaultTargetSentenceCount : list.TargetSentenceCount,
             CurrentSentenceIndex = currentSentenceIndex,
             Sentences = sentences
@@ -133,5 +134,11 @@ public static class StudyListRules
         }
 
         return id;
+    }
+
+    private static string NormalizeSentence(string? sentence)
+    {
+        var text = sentence?.Trim() ?? string.Empty;
+        return SentenceValidator.Validate(text).IsValid ? text : DefaultSentence;
     }
 }

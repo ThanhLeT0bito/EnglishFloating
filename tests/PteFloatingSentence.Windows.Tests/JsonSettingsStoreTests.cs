@@ -116,6 +116,65 @@ public class JsonSettingsStoreTests
     }
 
     [TestMethod]
+    public async Task LoadAsync_RepairsInvalidVersion2ListFieldsWithSafeDefaults()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        await File.WriteAllTextAsync(path, """
+            {
+              "Version": 2,
+              "Sentence": "Valid root sentence.",
+              "StudyLists": [
+                {
+                  "Id": "00000000-0000-0000-0000-000000000000",
+                  "Name": " ",
+                  "TargetSentenceCount": 0,
+                  "CurrentSentenceIndex": 5,
+                  "Sentences": [
+                    {
+                      "Id": "00000000-0000-0000-0000-000000000000",
+                      "Text": " "
+                    }
+                  ]
+                }
+              ]
+            }
+            """);
+
+        var loaded = await store.LoadAsync();
+        var list = loaded.StudyLists.Single();
+
+        Assert.AreEqual("My first list", list.Name);
+        Assert.AreEqual(10, list.TargetSentenceCount);
+        Assert.AreEqual("Right-click this sentence to open Settings.", list.Sentences.Single().Text);
+        Assert.AreNotEqual(Guid.Empty, list.Id);
+        Assert.AreNotEqual(Guid.Empty, list.Sentences.Single().Id);
+        Assert.AreEqual(0, list.CurrentSentenceIndex);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_MissingVersion2ListsWithBlankRoot_CreatesValidDefaultList()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        await File.WriteAllTextAsync(path, """
+            {
+              "Version": 2,
+              "Sentence": " ",
+              "StudyLists": []
+            }
+            """);
+
+        var loaded = await store.LoadAsync();
+        var list = loaded.StudyLists.Single();
+
+        Assert.AreEqual("Right-click this sentence to open Settings.", loaded.Sentence);
+        Assert.AreEqual("My first list", list.Name);
+        Assert.AreEqual("Right-click this sentence to open Settings.", list.Sentences.Single().Text);
+        Assert.IsTrue(SentenceValidator.Validate(list.Sentences.Single().Text).IsValid);
+    }
+
+    [TestMethod]
     public async Task SaveAsync_RoundTripsNormalizedVersion2StudyLists()
     {
         var path = CreateSettingsPath();

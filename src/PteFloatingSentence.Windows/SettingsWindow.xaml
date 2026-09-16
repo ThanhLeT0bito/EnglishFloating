@@ -84,7 +84,7 @@
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
                         <Button Content="Make active" Click="MakeActiveButton_Click" />
-                        <Button Margin="0" Background="#FFB91C1C" Content="Delete list" Click="DeleteListButton_Click" />
+                        <Button x:Name="DeleteListButton" Margin="0" Background="#FFB91C1C" Content="Delete list" Click="DeleteListButton_Click" />
                     </StackPanel>
                 </Grid>
 

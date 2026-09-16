@@ -9,6 +9,7 @@ using System.Windows.Controls;
 namespace PteFloatingSentence.Windows.Tests;
 
 [TestClass]
+[DoNotParallelize]
 public class SettingsWorkflowTests
 {
     [TestMethod]
@@ -165,6 +166,53 @@ public class SettingsWorkflowTests
     }
 
     [TestMethod]
+    public void SettingsWindow_InvalidTargetDuringListSwitch_PreservesEditorAndSelection()
+    {
+        RunOnSta(() =>
+        {
+            var window = CreateWindowWithTwoLists();
+            var originalListId = DraftFor(window).SelectedListId;
+            var sidebar = Named<ListBox>(window, "StudyListList");
+            Named<TextBox>(window, "ListNameInput").Text = "Uncommitted list";
+            Named<TextBox>(window, "TargetInput").Text = "not a number";
+
+            sidebar.SelectedIndex = 1;
+
+            Assert.AreEqual("Uncommitted list", Named<TextBox>(window, "ListNameInput").Text);
+            Assert.AreEqual("not a number", Named<TextBox>(window, "TargetInput").Text);
+            Assert.AreEqual(originalListId, DraftFor(window).SelectedListId);
+            Assert.AreEqual(originalListId, ((ListBoxItem)sidebar.SelectedItem).Tag);
+        });
+    }
+
+    [TestMethod]
+    public void SettingsWindow_FinalList_DisablesDeleteControl()
+    {
+        RunOnSta(() =>
+        {
+            var window = CreateWindowWithTwoSentences();
+
+            Assert.IsFalse(Named<Button>(window, "DeleteListButton").IsEnabled);
+        });
+    }
+
+    [TestMethod]
+    public void SettingsWindow_SidebarMarksActiveListWhenAnotherListIsSelected()
+    {
+        RunOnSta(() =>
+        {
+            var window = CreateWindowWithTwoLists();
+            var activeListId = DraftFor(window).Settings.ActiveListId;
+            var sidebar = Named<ListBox>(window, "StudyListList");
+
+            sidebar.SelectedIndex = 1;
+
+            var activeItem = sidebar.Items.OfType<ListBoxItem>().Single(item => (Guid)item.Tag == activeListId);
+            StringAssert.Contains(activeItem.Content.ToString(), "Active");
+        });
+    }
+
+    [TestMethod]
     public async Task SettingsPersistenceQueue_AllowsALaterSaveAfterAFailedWrite()
     {
         var queueType = typeof(JsonSettingsStore).Assembly.GetType("PteFloatingSentence.Windows.Infrastructure.SettingsPersistenceQueue");
@@ -293,6 +341,15 @@ public class SettingsWorkflowTests
         var list = new StudyList(Guid.NewGuid(), "Original list", 10, 0,
             [new StudySentence(Guid.NewGuid(), "First sentence."), new StudySentence(Guid.NewGuid(), "Second sentence.")]);
         return new SettingsWindow(new AppSettings { ActiveListId = list.Id, StudyLists = [list] }, _ => { });
+    }
+
+    private static SettingsWindow CreateWindowWithTwoLists()
+    {
+        var first = new StudyList(Guid.NewGuid(), "First list", 10, 0,
+            [new StudySentence(Guid.NewGuid(), "First sentence.")]);
+        var second = new StudyList(Guid.NewGuid(), "Second list", 10, 0,
+            [new StudySentence(Guid.NewGuid(), "Second sentence.")]);
+        return new SettingsWindow(new AppSettings { ActiveListId = first.Id, StudyLists = [first, second] }, _ => { });
     }
 
     private static StudyListDraft DraftFor(SettingsWindow window) =>

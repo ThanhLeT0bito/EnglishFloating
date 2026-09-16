@@ -32,7 +32,7 @@ public partial class SettingsWindow : Window
 
         if (!TryUpdateSelectedList())
         {
-            RefreshUi();
+            RestoreSelectedListSelection();
             return;
         }
 
@@ -144,7 +144,7 @@ public partial class SettingsWindow : Window
                 var item = new ListBoxItem
                 {
                     Tag = list.Id,
-                    Content = FormatListLabel(list)
+                    Content = FormatListLabel(list, list.Id == _draft.Settings.ActiveListId)
                 };
                 StudyListList.Items.Add(item);
                 if (list.Id == _draft.SelectedListId)
@@ -152,6 +152,7 @@ public partial class SettingsWindow : Window
             }
 
             var selected = _draft.SelectedList;
+            DeleteListButton.IsEnabled = _draft.Settings.StudyLists.Count > 1;
             ListNameInput.Text = selected.Name;
             TargetInput.Text = selected.TargetSentenceCount.ToString();
             ActiveListLabel.Text = _draft.Settings.ActiveListId == selected.Id
@@ -180,6 +181,20 @@ public partial class SettingsWindow : Window
 
     private void ShowResult(PteFloatingSentence.Core.ValidationResult result) => ValidationMessage.Text = result.IsValid ? string.Empty : result.Error;
 
-    private static string FormatListLabel(StudyList list) =>
-        $"{list.Name} · {list.Sentences.Count} sentence{(list.Sentences.Count == 1 ? string.Empty : "s")}";
+    private void RestoreSelectedListSelection()
+    {
+        _isRendering = true;
+        try
+        {
+            StudyListList.SelectedItem = StudyListList.Items.OfType<ListBoxItem>()
+                .SingleOrDefault(item => item.Tag is Guid listId && listId == _draft.SelectedListId);
+        }
+        finally
+        {
+            _isRendering = false;
+        }
+    }
+
+    private static string FormatListLabel(StudyList list, bool isActive) =>
+        $"{list.Name} · {list.Sentences.Count} sentence{(list.Sentences.Count == 1 ? string.Empty : "s")}{(isActive ? " · Active" : string.Empty)}";
 }
