@@ -77,7 +77,7 @@ public partial class FloatingWindow : Window
 
     private static bool IsWithinButtonTree(object originalSource, System.Windows.Controls.Button button)
     {
-        for (var current = originalSource as FrameworkElement; current is not null; current = current.Parent as FrameworkElement)
+        for (var current = originalSource as DependencyObject; current is not null; current = GetVisualParent(current))
         {
             if (ReferenceEquals(current, button))
                 return true;
@@ -85,6 +85,11 @@ public partial class FloatingWindow : Window
 
         return false;
     }
+
+    private static DependencyObject? GetVisualParent(DependencyObject element) =>
+        element is Visual or System.Windows.Media.Media3D.Visual3D
+            ? VisualTreeHelper.GetParent(element)
+            : null;
 
     private static bool IsValidFontSize(double value) => !double.IsNaN(value) && !double.IsInfinity(value) && value is >= 12 and <= 96;
 
