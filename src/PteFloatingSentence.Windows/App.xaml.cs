@@ -75,7 +75,7 @@ public partial class App : System.Windows.Application
 
     private void SaveSettings(Core.AppSettings settings)
     {
-        _settings = Core.SettingsUpdateMerger.MergeEditableFields(_settings, settings);
+        _settings = settings with { Left = _settings.Left, Top = _settings.Top };
         _floatingWindow?.ApplySettings(_settings);
         PersistSettings();
     }

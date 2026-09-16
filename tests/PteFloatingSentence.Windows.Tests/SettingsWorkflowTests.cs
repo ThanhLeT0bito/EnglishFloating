@@ -1,4 +1,5 @@
 using PteFloatingSentence.Core;
+using PteFloatingSentence.Windows;
 using PteFloatingSentence.Windows.Infrastructure;
 
 namespace PteFloatingSentence.Windows.Tests;
@@ -6,6 +7,81 @@ namespace PteFloatingSentence.Windows.Tests;
 [TestClass]
 public class SettingsWorkflowTests
 {
+    [TestMethod]
+    public void StudyListDraft_CreateList_UsesUniqueIdAndDefaultTarget()
+    {
+        var settings = AppSettings.Default;
+        var draft = new StudyListDraft(settings, _ => { });
+
+        var created = draft.CreateList();
+
+        Assert.AreNotEqual(Guid.Empty, created.Id);
+        Assert.AreNotEqual(settings.StudyLists.Single().Id, created.Id);
+        Assert.AreEqual("New list", created.Name);
+        Assert.AreEqual(10, created.TargetSentenceCount);
+    }
+
+    [TestMethod]
+    public void StudyListDraft_DeleteLastList_ReturnsExpectedError()
+    {
+        var draft = new StudyListDraft(AppSettings.Default, _ => { });
+
+        var result = draft.DeleteSelectedList();
+
+        Assert.IsFalse(result.IsValid);
+        Assert.AreEqual("Cannot delete the last list.", result.Error);
+    }
+
+    [TestMethod]
+    public void StudyListDraft_AddSentence_RejectsTwentyOneWords()
+    {
+        var draft = new StudyListDraft(AppSettings.Default, _ => { });
+        var sentence = string.Join(' ', Enumerable.Repeat("word", 21));
+
+        var result = draft.AddSentence(sentence);
+
+        Assert.IsFalse(result.IsValid);
+        Assert.AreEqual("Use 20 words or fewer.", result.Error);
+    }
+
+    [TestMethod]
+    public void StudyListDraft_SelectSentence_OnlyChangesSelectedListsCurrentIndex()
+    {
+        var first = new StudyList(Guid.NewGuid(), "First", 10, 0,
+            [new StudySentence(Guid.NewGuid(), "First sentence."), new StudySentence(Guid.NewGuid(), "Second sentence.")]);
+        var second = new StudyList(Guid.NewGuid(), "Second", 10, 0,
+            [new StudySentence(Guid.NewGuid(), "Third sentence."), new StudySentence(Guid.NewGuid(), "Fourth sentence.")]);
+        var draft = new StudyListDraft(new AppSettings { ActiveListId = first.Id, StudyLists = [first, second] }, _ => { });
+
+        draft.SelectSentence(first.Sentences[1].Id);
+
+        Assert.AreEqual(1, draft.Settings.StudyLists.Single(list => list.Id == first.Id).CurrentSentenceIndex);
+        Assert.AreEqual(0, draft.Settings.StudyLists.Single(list => list.Id == second.Id).CurrentSentenceIndex);
+    }
+
+    [TestMethod]
+    public void StudyListDraft_Cancel_DoesNotInvokeSaveCallback()
+    {
+        var callbackInvoked = false;
+        var draft = new StudyListDraft(AppSettings.Default, _ => callbackInvoked = true);
+
+        draft.Cancel();
+
+        Assert.IsFalse(callbackInvoked);
+    }
+
+    [TestMethod]
+    public void StudyListDraft_Save_InvokesCallbackOnlyOnce()
+    {
+        var callbackCount = 0;
+        var draft = new StudyListDraft(AppSettings.Default, _ => callbackCount++);
+
+        Assert.IsTrue(draft.Save().IsValid);
+        Assert.IsTrue(draft.Save().IsValid);
+
+        Assert.AreEqual(1, callbackCount);
+    }
+
     [TestMethod]
     public async Task SettingsPersistenceQueue_AllowsALaterSaveAfterAFailedWrite()
     {
