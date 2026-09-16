@@ -1,0 +1,137 @@
+namespace PteFloatingSentence.Core;
+
+public static class StudyListRules
+{
+    private const int DefaultTargetSentenceCount = 10;
+    private const string DefaultListName = "My first list";
+
+    public static AppSettings CreateDefault(string legacySentence)
+    {
+        var sentence = legacySentence?.Trim() ?? string.Empty;
+        var list = new StudyList(
+            Guid.NewGuid(),
+            DefaultListName,
+            DefaultTargetSentenceCount,
+            0,
+            [new StudySentence(Guid.NewGuid(), sentence)]);
+
+        return new AppSettings
+        {
+            Version = 2,
+            Sentence = sentence,
+            ActiveListId = list.Id,
+            StudyLists = [list]
+        };
+    }
+
+    public static AppSettings Normalize(AppSettings settings)
+    {
+        var normalizedLists = NormalizeLists(settings.StudyLists);
+        if (normalizedLists.Count == 0)
+            normalizedLists = CreateDefault(settings.Sentence).StudyLists;
+
+        var activeListId = normalizedLists.Any(list => list.Id == settings.ActiveListId)
+            ? settings.ActiveListId
+            : normalizedLists[0].Id;
+
+        return settings with
+        {
+            Version = 2,
+            Sentence = settings.Sentence?.Trim() ?? string.Empty,
+            ActiveListId = activeListId,
+            StudyLists = normalizedLists
+        };
+    }
+
+    public static StudyList ActiveList(AppSettings settings)
+    {
+        var normalized = Normalize(settings);
+        return normalized.StudyLists.Single(list => list.Id == normalized.ActiveListId);
+    }
+
+    public static AppSettings MoveCurrentSentence(AppSettings settings, int direction)
+    {
+        var activeList = ActiveList(settings);
+        if (activeList.Sentences.Count == 0)
+            return settings;
+
+        var normalized = Normalize(settings);
+        activeList = normalized.StudyLists.Single(list => list.Id == normalized.ActiveListId);
+        var count = activeList.Sentences.Count;
+        var index = (activeList.CurrentSentenceIndex + direction % count + count) % count;
+        var movedList = activeList with { CurrentSentenceIndex = index };
+
+        return normalized with
+        {
+            StudyLists = normalized.StudyLists.Select(list => list.Id == movedList.Id ? movedList : list).ToList()
+        };
+    }
+
+    public static ValidationResult ValidateList(StudyList list)
+    {
+        if (string.IsNullOrWhiteSpace(list.Name))
+            return new(false, "Enter a list name.");
+
+        if (list.TargetSentenceCount < 1)
+            return new(false, "Target must be at least 1.");
+
+        foreach (var sentence in list.Sentences)
+        {
+            var result = SentenceValidator.Validate(sentence.Text);
+            if (!result.IsValid)
+                return result;
+        }
+
+        return new(true, null);
+    }
+
+    private static IReadOnlyList<StudyList> NormalizeLists(IReadOnlyList<StudyList>? lists)
+    {
+        var listIds = new HashSet<Guid>();
+        var sentenceIds = new HashSet<Guid>();
+
+        return (lists ?? [])
+            .Where(list => list is not null)
+            .Select(list => NormalizeList(list, listIds, sentenceIds))
+            .ToList();
+    }
+
+    private static StudyList NormalizeList(StudyList list, ISet<Guid> listIds, ISet<Guid> sentenceIds)
+    {
+        var listId = RepairId(list.Id, listIds);
+        var sentences = (list.Sentences ?? [])
+            .Where(sentence => sentence is not null)
+            .Select(sentence => sentence with
+            {
+                Id = RepairId(sentence.Id, sentenceIds),
+                Text = sentence.Text?.Trim() ?? string.Empty
+            })
+            .ToList();
+        var currentSentenceIndex = sentences.Count == 0
+            ? 0
+            : Math.Clamp(list.CurrentSentenceIndex, 0, sentences.Count - 1);
+
+        return list with
+        {
+            Id = listId,
+            Name = list.Name?.Trim() ?? string.Empty,
+            TargetSentenceCount = list.TargetSentenceCount < 1 ? DefaultTargetSentenceCount : list.TargetSentenceCount,
+            CurrentSentenceIndex = currentSentenceIndex,
+            Sentences = sentences
+        };
+    }
+
+    private static Guid RepairId(Guid id, ISet<Guid> usedIds)
+    {
+        if (id == Guid.Empty || !usedIds.Add(id))
+        {
+            do
+            {
+                id = Guid.NewGuid();
+            }
+            while (!usedIds.Add(id));
+        }
+
+        return id;
+    }
+}
