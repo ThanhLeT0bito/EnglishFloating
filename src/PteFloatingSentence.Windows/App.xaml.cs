@@ -10,9 +10,16 @@ namespace PteFloatingSentence.Windows;
 public partial class App : System.Windows.Application
 {
     private readonly Infrastructure.JsonSettingsStore _settingsStore = new();
+    private readonly Infrastructure.SettingsPersistenceQueue _persistenceQueue;
     private Core.AppSettings _settings = Core.AppSettings.Default;
     private FloatingWindow? _floatingWindow;
     private SettingsWindow? _settingsWindow;
+    private bool _isShuttingDown;
+
+    public App()
+    {
+        _persistenceQueue = new(_settingsStore.SaveAsync);
+    }
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -32,7 +39,7 @@ public partial class App : System.Windows.Application
         _floatingWindow = new FloatingWindow { Left = position.Left, Top = position.Top };
         _floatingWindow.ApplySettings(_settings);
         _floatingWindow.SettingsRequested += FloatingWindow_SettingsRequested;
-        _floatingWindow.ExitRequested += (_, _) => Shutdown();
+        _floatingWindow.ExitRequested += async (_, _) => await ShutdownAsync();
         _floatingWindow.PositionChanged += FloatingWindow_PositionChanged;
         _floatingWindow.Show();
     }
@@ -58,22 +65,24 @@ public partial class App : System.Windows.Application
 
     private void SaveSettings(Core.AppSettings settings)
     {
-        _settings = settings;
+        _settings = Core.SettingsUpdateMerger.MergeEditableFields(_settings, settings);
         _floatingWindow?.ApplySettings(_settings);
         PersistSettings();
     }
 
-    private void PersistSettings() => _ = PersistSettingsAsync();
-
-    private async Task PersistSettingsAsync()
+    private void PersistSettings()
     {
-        try
-        {
-            await _settingsStore.SaveAsync(_settings);
-        }
-        catch (Exception)
-        {
-            // The overlay must remain usable when the settings file is unavailable.
-        }
+        if (!_isShuttingDown)
+            _persistenceQueue.Queue(_settings);
+    }
+
+    private async Task ShutdownAsync()
+    {
+        if (_isShuttingDown)
+            return;
+
+        _isShuttingDown = true;
+        await _persistenceQueue.FlushAsync();
+        Shutdown();
     }
 }

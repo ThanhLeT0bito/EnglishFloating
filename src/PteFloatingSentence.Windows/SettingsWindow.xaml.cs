@@ -30,13 +30,13 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        if (!double.TryParse(FontSizeInput.Text, out var size) || size is < 12 or > 96)
+        if (!double.TryParse(FontSizeInput.Text, out var size) || !SettingsNumericValidator.IsValidFontSize(size))
         {
             ValidationMessage.Text = "Font size must be from 12 to 96.";
             return;
         }
 
-        if (!double.TryParse(OpacityInput.Text, out var opacity) || opacity is < 0 or > 1)
+        if (!double.TryParse(OpacityInput.Text, out var opacity) || !SettingsNumericValidator.IsValidOpacity(opacity))
         {
             ValidationMessage.Text = "Opacity must be from 0 to 1.";
             return;
