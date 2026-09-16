@@ -26,13 +26,14 @@ public partial class App : System.Windows.Application
         base.OnStartup(e);
 
         _settings = await _settingsStore.LoadAsync();
-        var displays = System.Windows.Forms.Screen.AllScreens
-            .Select(screen => new Core.DisplayBounds(
-                screen.WorkingArea.Left,
-                screen.WorkingArea.Top,
-                screen.WorkingArea.Right,
-                screen.WorkingArea.Bottom))
-            .ToList();
+        var displays = Core.DisplayProjection.PrimaryFirst(System.Windows.Forms.Screen.AllScreens
+            .Select(screen => (
+                new Core.DisplayBounds(
+                    screen.WorkingArea.Left,
+                    screen.WorkingArea.Top,
+                    screen.WorkingArea.Right,
+                    screen.WorkingArea.Bottom),
+                screen.Primary)));
         var position = Core.WindowPlacementNormalizer.Normalize(_settings, displays);
         _settings = _settings with { Left = position.Left, Top = position.Top };
 
