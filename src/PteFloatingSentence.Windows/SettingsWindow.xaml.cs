@@ -84,6 +84,9 @@ public partial class SettingsWindow : Window
 
     private void UpdateSentenceButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!TryUpdateSelectedList())
+            return;
+
         var result = _draft.UpdateSelectedSentence(SentenceInput.Text);
         ShowResult(result);
         if (result.IsValid)
@@ -92,6 +95,9 @@ public partial class SettingsWindow : Window
 
     private void DeleteSentenceButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!TryUpdateSelectedList())
+            return;
+
         _draft.DeleteSelectedSentence();
         ValidationMessage.Text = string.Empty;
         RefreshUi();

@@ -1,6 +1,10 @@
 using PteFloatingSentence.Core;
 using PteFloatingSentence.Windows;
 using PteFloatingSentence.Windows.Infrastructure;
+using System.Reflection;
+using System.Runtime.ExceptionServices;
+using System.Windows;
+using System.Windows.Controls;
 
 namespace PteFloatingSentence.Windows.Tests;
 
@@ -80,6 +84,84 @@ public class SettingsWorkflowTests
         Assert.IsTrue(draft.Save().IsValid);
 
         Assert.AreEqual(1, callbackCount);
+    }
+
+    [TestMethod]
+    public void SettingsWindow_UpdateSelectedSentence_SyncsUnsavedListFields()
+    {
+        RunOnSta(() =>
+        {
+            var window = CreateWindowWithTwoSentences();
+            Named<ListBox>(window, "SentenceList").SelectedIndex = 0;
+            Named<TextBox>(window, "ListNameInput").Text = "Edited list";
+            Named<TextBox>(window, "TargetInput").Text = "12";
+            Named<TextBox>(window, "SentenceInput").Text = "Updated sentence.";
+
+            InvokeClick(window, "UpdateSentenceButton_Click");
+
+            var list = DraftFor(window).SelectedList;
+            Assert.AreEqual("Edited list", list.Name);
+            Assert.AreEqual(12, list.TargetSentenceCount);
+            Assert.AreEqual("Updated sentence.", list.Sentences[0].Text);
+        });
+    }
+
+    [TestMethod]
+    public void SettingsWindow_DeleteSelectedSentence_SyncsUnsavedListFields()
+    {
+        RunOnSta(() =>
+        {
+            var window = CreateWindowWithTwoSentences();
+            Named<ListBox>(window, "SentenceList").SelectedIndex = 0;
+            Named<TextBox>(window, "ListNameInput").Text = "Edited list";
+            Named<TextBox>(window, "TargetInput").Text = "12";
+
+            InvokeClick(window, "DeleteSentenceButton_Click");
+
+            var list = DraftFor(window).SelectedList;
+            Assert.AreEqual("Edited list", list.Name);
+            Assert.AreEqual(12, list.TargetSentenceCount);
+            Assert.AreEqual(1, list.Sentences.Count);
+            Assert.AreEqual("Second sentence.", list.Sentences[0].Text);
+        });
+    }
+
+    [TestMethod]
+    public void SettingsWindow_UpdateSelectedSentence_InvalidListFields_PreservesEditorWithoutRefresh()
+    {
+        RunOnSta(() =>
+        {
+            var window = CreateWindowWithTwoSentences();
+            Named<ListBox>(window, "SentenceList").SelectedIndex = 0;
+            Named<TextBox>(window, "ListNameInput").Text = "Uncommitted list";
+            Named<TextBox>(window, "TargetInput").Text = "not a number";
+            Named<TextBox>(window, "SentenceInput").Text = "Updated sentence.";
+
+            InvokeClick(window, "UpdateSentenceButton_Click");
+
+            Assert.AreEqual("Uncommitted list", Named<TextBox>(window, "ListNameInput").Text);
+            Assert.AreEqual("not a number", Named<TextBox>(window, "TargetInput").Text);
+            Assert.AreEqual("Updated sentence.", Named<TextBox>(window, "SentenceInput").Text);
+            Assert.AreEqual("First sentence.", DraftFor(window).SelectedList.Sentences[0].Text);
+        });
+    }
+
+    [TestMethod]
+    public void SettingsWindow_DeleteSelectedSentence_InvalidListFields_PreservesEditorWithoutRefresh()
+    {
+        RunOnSta(() =>
+        {
+            var window = CreateWindowWithTwoSentences();
+            Named<ListBox>(window, "SentenceList").SelectedIndex = 0;
+            Named<TextBox>(window, "ListNameInput").Text = "Uncommitted list";
+            Named<TextBox>(window, "TargetInput").Text = "not a number";
+
+            InvokeClick(window, "DeleteSentenceButton_Click");
+
+            Assert.AreEqual("Uncommitted list", Named<TextBox>(window, "ListNameInput").Text);
+            Assert.AreEqual("not a number", Named<TextBox>(window, "TargetInput").Text);
+            Assert.AreEqual(2, DraftFor(window).SelectedList.Sentences.Count);
+        });
     }
 
     [TestMethod]
@@ -204,5 +286,44 @@ public class SettingsWorkflowTests
         Assert.AreEqual(44d, merged.FontSize);
         Assert.AreEqual("#FF102030", merged.TextColor);
         Assert.AreEqual(0.7d, merged.BackgroundOpacity);
+    }
+
+    private static SettingsWindow CreateWindowWithTwoSentences()
+    {
+        var list = new StudyList(Guid.NewGuid(), "Original list", 10, 0,
+            [new StudySentence(Guid.NewGuid(), "First sentence."), new StudySentence(Guid.NewGuid(), "Second sentence.")]);
+        return new SettingsWindow(new AppSettings { ActiveListId = list.Id, StudyLists = [list] }, _ => { });
+    }
+
+    private static StudyListDraft DraftFor(SettingsWindow window) =>
+        (StudyListDraft)typeof(SettingsWindow).GetField("_draft", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+
+    private static T Named<T>(SettingsWindow window, string name) where T : FrameworkElement =>
+        (T)window.FindName(name)!;
+
+    private static void InvokeClick(SettingsWindow window, string methodName) =>
+        typeof(SettingsWindow).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(window, [window, new RoutedEventArgs()]);
+
+    private static void RunOnSta(Action action)
+    {
+        Exception? exception = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception caught)
+            {
+                exception = caught;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (exception is not null)
+            ExceptionDispatchInfo.Capture(exception).Throw();
     }
 }
