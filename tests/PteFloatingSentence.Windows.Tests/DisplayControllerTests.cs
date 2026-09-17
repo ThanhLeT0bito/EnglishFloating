@@ -48,7 +48,7 @@ public class DisplayControllerTests
     }
 
     [TestMethod]
-    public void FocusVocabularyItem_CardsDisabled_ShowsRequestedExplanationTemporarily()
+    public void Apply_VocabularyDisabled_RemovesHighlightAndSelectionInteraction()
     {
         RunOnSta(() =>
         {
@@ -66,11 +66,13 @@ public class DisplayControllerTests
             var floating = new FloatingWindow();
 
             floating.ApplySettings(settings);
-            floating.FocusVocabularyItem(itemId);
 
             var panel = (ItemsControl)floating.FindName("VocabularyPanel");
-            Assert.AreEqual(Visibility.Visible, panel.Visibility);
-            Assert.IsNotNull(panel.ItemsSource);
+            var box = (System.Windows.Controls.RichTextBox)floating.FindName("SentenceBox");
+            var paragraph = box.Document.Blocks.OfType<System.Windows.Documents.Paragraph>().Single();
+            Assert.AreEqual(Visibility.Collapsed, panel.Visibility);
+            Assert.IsFalse(box.IsHitTestVisible);
+            Assert.AreEqual(0, paragraph.Inlines.OfType<System.Windows.Documents.Span>().Count());
         });
     }
 

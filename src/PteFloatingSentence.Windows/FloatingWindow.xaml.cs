@@ -77,7 +77,11 @@ public partial class FloatingWindow : Window
 
         var vocabulary = currentSentence?.Vocabulary ?? [];
         _showVocabularyCards = settings.ShowVocabularyCards;
-        var signature = RenderSignature.Create(text, fontSize, settings.TextColor, settings.BackgroundOpacity, vocabulary);
+        SentenceBox.IsHitTestVisible = _showVocabularyCards;
+        SentenceBox.Cursor = _showVocabularyCards ? Cursors.IBeam : Cursors.Arrow;
+        var sentenceVocabulary = _showVocabularyCards ? vocabulary : [];
+        var sentenceSignature = RenderSignature.Create(text, fontSize, settings.TextColor, settings.BackgroundOpacity, sentenceVocabulary);
+        var vocabularySignature = RenderSignature.Create(string.Empty, 0, string.Empty, 0, vocabulary);
         if (!renderContent)
         {
             VocabularyPanel.Visibility = Visibility.Collapsed;
@@ -88,18 +92,18 @@ public partial class FloatingWindow : Window
             return;
         }
 
-        if (_renderSignature != signature)
+        if (_renderSignature != sentenceSignature)
         {
-            RenderSentenceDocument(text, vocabulary, fontSize, foregroundBrush);
-            _renderSignature = signature;
+            RenderSentenceDocument(text, sentenceVocabulary, fontSize, foregroundBrush);
+            _renderSignature = sentenceSignature;
         }
 
-        if (_vocabularyRenderSignature != signature ||
+        if (_vocabularyRenderSignature != vocabularySignature ||
             _vocabularyRenderHighlight != _highlightedItemId ||
             _vocabularyRenderVisibility != _showVocabularyCards)
         {
             RenderVocabularyPanel(vocabulary);
-            _vocabularyRenderSignature = signature;
+            _vocabularyRenderSignature = vocabularySignature;
             _vocabularyRenderHighlight = _highlightedItemId;
             _vocabularyRenderVisibility = _showVocabularyCards;
         }
@@ -111,9 +115,11 @@ public partial class FloatingWindow : Window
     public void FocusVocabularyItem(Guid itemId)
     {
         _highlightedItemId = itemId;
-        RenderVocabularyPanel(_currentVocabulary, forceVisible: true);
-        _vocabularyRenderHighlight = itemId;
-        _vocabularyRenderVisibility = true;
+        if (_showVocabularyCards)
+        {
+            RenderVocabularyPanel(_currentVocabulary);
+            _vocabularyRenderHighlight = itemId;
+        }
     }
 
     private static Dictionary<Guid, Color> BuildColorMap(IReadOnlyList<VocabularyItem>? vocabulary)
@@ -229,9 +235,9 @@ public partial class FloatingWindow : Window
         SentenceDocument.Blocks.Add(paragraph);
     }
 
-    private void RenderVocabularyPanel(IReadOnlyList<VocabularyItem>? vocabulary, bool forceVisible = false)
+    private void RenderVocabularyPanel(IReadOnlyList<VocabularyItem>? vocabulary)
     {
-        if (!_showVocabularyCards && !forceVisible)
+        if (!_showVocabularyCards)
         {
             VocabularyPanel.Visibility = Visibility.Collapsed;
             VocabularyPanel.ItemsSource = null;
