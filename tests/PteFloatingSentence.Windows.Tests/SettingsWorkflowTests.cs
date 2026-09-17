@@ -676,6 +676,54 @@ public class SettingsWorkflowTests
         });
     }
 
+    [TestMethod]
+    public void SetupPage_StartPracticeButton_RaisesStartPracticeRequestedAndPassesSelectedListId()
+    {
+        RunOnSta(() =>
+        {
+            var list = new StudyList(Guid.NewGuid(), "Target Practice List", 10, 0,
+                [new StudySentence(Guid.NewGuid(), "Sentence for practice.")]);
+            var settings = new AppSettings { ActiveListId = list.Id, StudyLists = [list] };
+
+            Guid? requestedListId = null;
+            var window = new SettingsWindow(settings, _ => { });
+            window.StartPracticeRequested += (_, id) => requestedListId = id;
+
+            var startButton = Named<System.Windows.Controls.Button>(window, "StartPracticeButton");
+            startButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+
+            Assert.AreEqual(list.Id, requestedListId);
+        });
+    }
+
+    [TestMethod]
+    public void FloatingWindow_ContextMenu_StartAndExitPractice_TogglesPracticeMode()
+    {
+        RunOnSta(() =>
+        {
+            var list = new StudyList(Guid.NewGuid(), "Practice List", 10, 0,
+                [new StudySentence(Guid.NewGuid(), "Sentence to test context menu.")]);
+            var settings = new AppSettings { ActiveListId = list.Id, StudyLists = [list] };
+
+            var window = new FloatingWindow();
+            window.ApplySettings(settings);
+
+            var practiceItem = (System.Windows.Controls.MenuItem)window.FindName("PracticeMenuItem");
+            Assert.IsFalse(window.IsPracticeMode);
+            Assert.AreEqual("Start Practice", practiceItem.Header);
+
+            // Click menu item -> Start Practice
+            practiceItem.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent));
+            Assert.IsTrue(window.IsPracticeMode);
+            Assert.AreEqual("Exit Practice", practiceItem.Header);
+
+            // Click menu item -> Exit Practice
+            practiceItem.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent));
+            Assert.IsFalse(window.IsPracticeMode);
+            Assert.AreEqual("Start Practice", practiceItem.Header);
+        });
+    }
+
 
     private static SettingsWindow CreateWindowWithTwoSentences()
     {

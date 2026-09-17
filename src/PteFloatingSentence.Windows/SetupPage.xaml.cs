@@ -23,6 +23,7 @@ public partial class SetupPage : UserControl
     public Action? CreateList { get; set; }
     public Action? MakeActive { get; set; }
     public Func<ValidationResult>? DeleteList { get; set; }
+    public event EventHandler<Guid>? StartPracticeRequested;
 
     public SetupPage()
     {
@@ -245,6 +246,19 @@ public partial class SetupPage : UserControl
             return;
 
         DeleteSentence?.Invoke();
+    }
+
+    internal void StartPracticeButton_Click(object sender, RoutedEventArgs e)
+    {
+        var commitRes = CommitListEdits?.Invoke() ?? new ValidationResult(true, null);
+        if (!commitRes.IsValid)
+        {
+            _showResult?.Invoke(commitRes);
+            return;
+        }
+
+        if (_draft is null) return;
+        StartPracticeRequested?.Invoke(this, _draft.SelectedListId);
     }
 
     private void RestoreSelectedListSelection()

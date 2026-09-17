@@ -113,13 +113,13 @@
 - `App.xaml.cs` calls `_floatingWindow.StartPractice(listId)`.
 - Floating window context menu: "Start Practice" starts practice for the active list; "Exit Practice" exits practice.
 
-- [ ] Add failing workflow tests:
+- [x] Add failing workflow tests:
   - Clicking "Start Practice" in Setup page raises event with selected list ID and closes window.
   - Context menu "Start Practice" / "Exit Practice" triggers mode change.
-- [ ] Run tests and verify failure.
-- [ ] Implement the UI button and wire events through `SetupPage`, `SettingsWindow`, and `App.xaml.cs`.
-- [ ] Run tests and verify all pass.
-- [ ] Commit with `feat: wire start practice entry points in settings and context menu`.
+- [x] Run tests and verify failure.
+- [x] Implement the UI button and wire events through `SetupPage`, `SettingsWindow`, and `App.xaml.cs`.
+- [x] Run tests and verify all pass.
+- [x] Commit with `feat: wire start practice entry points in settings and context menu`.
 
 ### Task 5: Verification, memory leak audit, and final check
 

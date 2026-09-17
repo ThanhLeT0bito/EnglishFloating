@@ -128,6 +128,10 @@ public partial class App : System.Windows.Application
 
         _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore);
         _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        _settingsWindow.StartPracticeRequested += (_, listId) =>
+        {
+            _floatingWindow?.StartPractice(listId);
+        };
         _settingsWindow.Show();
     }
 

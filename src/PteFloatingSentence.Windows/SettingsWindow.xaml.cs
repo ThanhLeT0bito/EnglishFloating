@@ -14,6 +14,9 @@ public partial class SettingsWindow : Window
     private bool _isRendering;
     private bool _apiKeyConfigured;
     private bool _apiKeyCleared;
+    private readonly EventHandler<Guid> _setupPageStartPracticeHandler;
+
+    public event EventHandler<Guid>? StartPracticeRequested;
 
     public SettingsPageId SelectedPage { get; private set; } = SettingsPageId.Setup;
 
@@ -96,7 +99,9 @@ public partial class SettingsWindow : Window
         _draft = new StudyListDraft(initial, save);
         _apiKeyStore = apiKeyStore;
         _apiKeyConfigured = initial.GeminiApiKeyConfigured;
+        _setupPageStartPracticeHandler = OnSetupPageStartPracticeRequested;
         SetupPageControl.Initialize(_draft, ShowResult, () => RefreshUi());
+        SetupPageControl.StartPracticeRequested += _setupPageStartPracticeHandler;
         DisplayPageControl.LoadPreferences(_draft.Settings.ShowSentenceOverlay, _draft.Settings.ShowVocabularyCards);
         DisplayPageControl.DisplayPreferencesChanged += OnDisplayPreferencesChanged;
         GeminiPageControl.LoadState(_apiKeyConfigured);
@@ -129,6 +134,10 @@ public partial class SettingsWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
+        if (SetupPageControl is not null)
+        {
+            SetupPageControl.StartPracticeRequested -= _setupPageStartPracticeHandler;
+        }
         if (DisplayPageControl is not null)
         {
             DisplayPageControl.DisplayPreferencesChanged -= OnDisplayPreferencesChanged;
@@ -289,4 +298,17 @@ public partial class SettingsWindow : Window
     }
 
     private void ShowResult(PteFloatingSentence.Core.ValidationResult result) => ValidationMessage.Text = result.IsValid ? string.Empty : result.Error;
+
+    private void OnSetupPageStartPracticeRequested(object? sender, Guid listId)
+    {
+        var res = SetupPageControl.CommitListEdits?.Invoke() ?? new PteFloatingSentence.Core.ValidationResult(true, null);
+        if (!res.IsValid)
+        {
+            ShowResult(res);
+            return;
+        }
+
+        StartPracticeRequested?.Invoke(this, listId);
+        Close();
+    }
 }
