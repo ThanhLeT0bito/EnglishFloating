@@ -8,7 +8,7 @@ namespace PteFloatingSentence.Windows.Infrastructure;
 
 public sealed class GeminiVocabularyExplainer : IVocabularyExplainer, IDisposable
 {
-    private const string DefaultModel = "gemini-2.0-flash";
+    private const string DefaultModel = "gemini-3.6-flash";
     private const int MaxResponseBytes = 64 * 1024; // 64 KB
     private readonly Func<string?> _apiKeyProvider;
     private readonly HttpClient _httpClient;
@@ -106,7 +106,27 @@ public sealed class GeminiVocabularyExplainer : IVocabularyExplainer, IDisposabl
             if (!response.IsSuccessStatusCode)
             {
                 var statusCode = response.StatusCode;
-                throw new HttpRequestException($"Gemini API returned status code {(int)statusCode} ({statusCode}).", null, statusCode);
+                string? errorDetail = null;
+                try
+                {
+                    var errorJson = await response.Content.ReadAsStringAsync(cancellationToken);
+                    using var errDoc = JsonDocument.Parse(errorJson);
+                    if (errDoc.RootElement.TryGetProperty("error", out var errObj) &&
+                        errObj.TryGetProperty("message", out var msgProp))
+                    {
+                        errorDetail = msgProp.GetString();
+                    }
+                }
+                catch
+                {
+                    // Fall back to generic status code if error payload cannot be parsed
+                }
+
+                var message = string.IsNullOrWhiteSpace(errorDetail)
+                    ? $"Gemini API returned status code {(int)statusCode} ({statusCode})."
+                    : $"Gemini API error ({(int)statusCode} {statusCode}): {SanitizeMessage(errorDetail, apiKey)}";
+
+                throw new HttpRequestException(message, null, statusCode);
             }
 
             var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
