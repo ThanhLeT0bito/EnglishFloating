@@ -48,6 +48,33 @@ public class DisplayControllerTests
     }
 
     [TestMethod]
+    public void FocusVocabularyItem_CardsDisabled_ShowsRequestedExplanationTemporarily()
+    {
+        RunOnSta(() =>
+        {
+            var itemId = Guid.NewGuid();
+            var item = new VocabularyItem(itemId, "practice", "practice", Meaning: "To repeat.", Status: VocabularyStatus.Ready);
+            var sentence = new StudySentence(Guid.NewGuid(), "Practice daily.", Vocabulary: [item]);
+            var list = new StudyList(Guid.NewGuid(), "List", 10, 0, [sentence]);
+            var settings = AppSettings.Default with
+            {
+                StudyLists = [list],
+                ActiveListId = list.Id,
+                ShowSentenceOverlay = true,
+                ShowVocabularyCards = false
+            };
+            var floating = new FloatingWindow();
+
+            floating.ApplySettings(settings);
+            floating.FocusVocabularyItem(itemId);
+
+            var panel = (ItemsControl)floating.FindName("VocabularyPanel");
+            Assert.AreEqual(Visibility.Visible, panel.Visibility);
+            Assert.IsNotNull(panel.ItemsSource);
+        });
+    }
+
+    [TestMethod]
     public void Apply_ReenablingCardsWithUnchangedContent_RendersCardsAgain()
     {
         RunOnSta(() =>

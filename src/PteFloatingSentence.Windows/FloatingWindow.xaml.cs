@@ -111,11 +111,9 @@ public partial class FloatingWindow : Window
     public void FocusVocabularyItem(Guid itemId)
     {
         _highlightedItemId = itemId;
-        if (_showVocabularyCards)
-        {
-            RenderVocabularyPanel(_currentVocabulary);
-            _vocabularyRenderHighlight = itemId;
-        }
+        RenderVocabularyPanel(_currentVocabulary, forceVisible: true);
+        _vocabularyRenderHighlight = itemId;
+        _vocabularyRenderVisibility = true;
     }
 
     private static Dictionary<Guid, Color> BuildColorMap(IReadOnlyList<VocabularyItem>? vocabulary)
@@ -231,9 +229,9 @@ public partial class FloatingWindow : Window
         SentenceDocument.Blocks.Add(paragraph);
     }
 
-    private void RenderVocabularyPanel(IReadOnlyList<VocabularyItem>? vocabulary)
+    private void RenderVocabularyPanel(IReadOnlyList<VocabularyItem>? vocabulary, bool forceVisible = false)
     {
-        if (!_showVocabularyCards)
+        if (!_showVocabularyCards && !forceVisible)
         {
             VocabularyPanel.Visibility = Visibility.Collapsed;
             VocabularyPanel.ItemsSource = null;
