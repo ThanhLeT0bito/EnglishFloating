@@ -102,6 +102,7 @@
         <Border x:Name="SentenceCard"
                 Grid.Row="0"
                 Grid.Column="1"
+                VerticalAlignment="Center"
                 Padding="2"
                 CornerRadius="12"
                 SizeChanged="SentenceCard_SizeChanged">

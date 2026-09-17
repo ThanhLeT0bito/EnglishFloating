@@ -141,6 +141,7 @@ public partial class FloatingWindow : Window
             _vocabularyRenderVisibility = _showVocabularyCards;
         }
 
+        SentenceCard.InvalidateMeasure();
         SentenceCard.Measure(new System.Windows.Size(900, double.PositiveInfinity));
         ApplyNavigationButtonSize(SentenceCard.DesiredSize.Height);
     }
@@ -472,10 +473,19 @@ public partial class FloatingWindow : Window
         _practiceSession = null;
         IsPracticeMode = false;
 
+        PracticeProjectionPanel.Children.Clear();
+
+        PreviousButton.Width = double.NaN;
+        PreviousButton.Height = double.NaN;
+        NextButton.Width = double.NaN;
+        NextButton.Height = double.NaN;
+
         SentenceBox.Visibility = Visibility.Visible;
         NormalSentenceContainer.Visibility = Visibility.Visible;
         PracticeContainer.Visibility = Visibility.Collapsed;
         VocabularyPanel.Visibility = _showVocabularyCards ? Visibility.Visible : Visibility.Collapsed;
+
+        ApplySettings(_settings);
 
         var activeList = StudyListRules.ActiveList(_settings);
         _hasMultipleSentences = activeList.Sentences.Count > 1;
@@ -632,6 +642,14 @@ public partial class FloatingWindow : Window
         }
 
         FocusHiddenTextBox(_practiceSession.CurrentHiddenPosition);
+
+        PreviousButton.Width = double.NaN;
+        PreviousButton.Height = double.NaN;
+        NextButton.Width = double.NaN;
+        NextButton.Height = double.NaN;
+        SentenceCard.InvalidateMeasure();
+        SentenceCard.Measure(new System.Windows.Size(900, double.PositiveInfinity));
+        ApplyNavigationButtonSize(SentenceCard.DesiredSize.Height);
     }
 
     public ReviewAnswerResult? SubmitPracticeAnswer(TextBox textBox, string answer)

@@ -910,8 +910,9 @@ public class WindowSurfaceTests
             try
             {
                 var window = new FloatingWindow();
-                var sentence = new StudySentence(Guid.NewGuid(), "You must wear a hard hat on the construction site");
-                var list = new StudyList(Guid.NewGuid(), "Practice List", 10, 0, [sentence]);
+                var s1 = new StudySentence(Guid.NewGuid(), "You must wear a hard hat on the construction site");
+                var s2 = new StudySentence(Guid.NewGuid(), "Second sentence here");
+                var list = new StudyList(Guid.NewGuid(), "Practice List", 10, 0, [s1, s2]);
                 var settings = AppSettings.Default with
                 {
                     StudyLists = [list],
@@ -919,8 +920,17 @@ public class WindowSurfaceTests
                 };
 
                 window.ApplySettings(settings);
+                var prevButton = (System.Windows.Controls.Button)window.FindName("PreviousButton");
+                var nextButton = (System.Windows.Controls.Button)window.FindName("NextButton");
+                var initialButtonHeight = prevButton.Height;
+                Assert.IsTrue(initialButtonHeight > 0);
+
                 window.StartPractice();
                 Assert.IsTrue(window.IsPracticeMode);
+
+                // In practice mode, buttons expand to the taller practice card height
+                prevButton.Height = initialButtonHeight + 40;
+                nextButton.Height = initialButtonHeight + 40;
 
                 window.ExitPractice();
                 Assert.IsFalse(window.IsPracticeMode);
@@ -932,6 +942,8 @@ public class WindowSurfaceTests
                 Assert.AreEqual(System.Windows.Visibility.Visible, sentenceBox.Visibility);
                 Assert.AreEqual(System.Windows.Visibility.Collapsed, practiceContainer.Visibility);
                 Assert.AreEqual("Start Practice", practiceItem.Header);
+                Assert.AreEqual(initialButtonHeight, prevButton.Height);
+                Assert.AreEqual(initialButtonHeight, nextButton.Height);
             }
             catch (Exception ex)
             {
