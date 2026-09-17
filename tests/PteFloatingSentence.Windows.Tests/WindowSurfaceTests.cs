@@ -26,6 +26,34 @@ public class WindowSurfaceTests
     }
 
     [TestMethod]
+    public void FloatingWindow_SizesNavigationButtonsToSentenceCardHeight()
+    {
+        double btnWidth = 0, btnHeight = 0, cardHeight = 0, cardWidth = 0;
+        var thread = new Thread(() =>
+        {
+            var window = new FloatingWindow();
+            window.ApplySettings(AppSettings.Default with
+            {
+                StudyLists = [new StudyList(Guid.NewGuid(), "List", 10, 0, [new StudySentence(Guid.NewGuid(), "First sentence for test."), new StudySentence(Guid.NewGuid(), "Second sentence.")])]
+            });
+            window.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
+            var btn = (System.Windows.Controls.Button)window.FindName("PreviousButton");
+            var card = (System.Windows.FrameworkElement)window.FindName("SentenceCard");
+            btnWidth = btn.Width;
+            btnHeight = btn.Height;
+            cardHeight = card.DesiredSize.Height;
+            cardWidth = card.DesiredSize.Width;
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        Assert.AreEqual(Math.Round(cardHeight), btnWidth);
+        Assert.AreEqual(Math.Round(cardHeight), btnHeight);
+        Assert.IsTrue(btnWidth is >= 30 and <= 150);
+    }
+
+    [TestMethod]
     public void FloatingWindowXaml_UsesHiddenNavigationButtonsAndPolishedSurface()
     {
         var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "FloatingWindow.xaml"));
@@ -33,11 +61,30 @@ public class WindowSurfaceTests
         StringAssert.Contains(xaml, "x:Name=\"PreviousButton\"");
         StringAssert.Contains(xaml, "x:Name=\"NextButton\"");
         Assert.AreEqual(2, Regex.Matches(xaml, "FontFamily=\"Segoe MDL2 Assets\"").Count);
-        Assert.AreEqual(2, Regex.Matches(xaml, "Visibility=\"Collapsed\"").Count);
+        Assert.AreEqual(2, Regex.Matches(xaml, "Visibility=\"Hidden\"").Count);
+        StringAssert.Contains(xaml, "Background=\"#01000000\"");
         StringAssert.Contains(xaml, "LinearGradientBrush");
         StringAssert.Contains(xaml, "Header=\"Settings\"");
         StringAssert.Contains(xaml, "Header=\"Exit\"");
         Assert.AreEqual(2, Regex.Matches(xaml, "<MenuItem\\s").Count);
+    }
+
+    [TestMethod]
+    public void FloatingWindowXaml_PlacesNavigationButtonsOutsideContentWithCircleBorder()
+    {
+        var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "FloatingWindow.xaml"));
+
+        var sentenceBgStart = xaml.IndexOf("x:Name=\"SentenceBackground\"", StringComparison.Ordinal);
+        var sentenceBgEnd = xaml.IndexOf("</Border>", sentenceBgStart, StringComparison.Ordinal);
+        var sentenceBgContent = xaml.Substring(sentenceBgStart, sentenceBgEnd - sentenceBgStart);
+
+        Assert.IsFalse(sentenceBgContent.Contains("PreviousButton"));
+        Assert.IsFalse(sentenceBgContent.Contains("NextButton"));
+        StringAssert.Contains(xaml, "CircleNavButtonStyle");
+        StringAssert.Contains(xaml, "x:Name=\"CircleBorder\"");
+        StringAssert.Contains(xaml, "CornerRadius=\"999\"");
+        StringAssert.Contains(xaml, "x:Name=\"SentenceCard\"");
+        StringAssert.Contains(xaml, "SizeChanged=\"SentenceCard_SizeChanged\"");
     }
 
     [TestMethod]

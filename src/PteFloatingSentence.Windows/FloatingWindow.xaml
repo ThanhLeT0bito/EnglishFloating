@@ -17,49 +17,84 @@
             <MenuItem Header="Exit" Click="ExitMenuItem_Click" />
         </ContextMenu>
     </Window.ContextMenu>
-    <Border Padding="2" CornerRadius="12">
-        <Border.Background>
-            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#FF3B82F6" Offset="0" />
-                <GradientStop Color="#FF5EEAD4" Offset="1" />
-            </LinearGradientBrush>
-        </Border.Background>
-        <Border x:Name="SentenceBackground" Padding="14,10" CornerRadius="10" Background="#E6121722">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <Button x:Name="PreviousButton"
-                        Grid.Column="0"
-                        Margin="0,0,10,0"
-                        Padding="6,2"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Content="&#xE76B;"
-                        FontFamily="Segoe MDL2 Assets"
-                        FontSize="20"
-                        Foreground="#FFBAE6FD"
-                        Visibility="Collapsed"
-                        Click="PreviousButton_Click" />
-                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+    <Window.Resources>
+        <Style x:Key="CircleNavButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="48" />
+            <Setter Property="Height" Value="48" />
+            <Setter Property="Background" Value="#E6121722" />
+            <Setter Property="BorderBrush" Value="#FF3B82F6" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#FFBAE6FD" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="CircleBorder"
+                                CornerRadius="999"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CircleBorder" Property="Background" Value="#FF1E293B" />
+                                <Setter TargetName="CircleBorder" Property="BorderBrush" Value="#FF5EEAD4" />
+                                <Setter Property="Foreground" Value="#FFFFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="CircleBorder" Property="Background" Value="#FF0F172A" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="CircleBorder" Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Grid Background="#01000000">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Button x:Name="PreviousButton"
+                Grid.Column="0"
+                Style="{StaticResource CircleNavButtonStyle}"
+                Margin="6,0,8,0"
+                VerticalAlignment="Center"
+                Content="&#xE76B;"
+                FontFamily="Segoe MDL2 Assets"
+                Visibility="Hidden"
+                Click="PreviousButton_Click" />
+        <Border x:Name="SentenceCard"
+                Grid.Column="1"
+                Padding="2"
+                CornerRadius="12"
+                SizeChanged="SentenceCard_SizeChanged">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#FF3B82F6" Offset="0" />
+                    <GradientStop Color="#FF5EEAD4" Offset="1" />
+                </LinearGradientBrush>
+            </Border.Background>
+            <Border x:Name="SentenceBackground" Padding="18,10" CornerRadius="10" Background="#E6121722">
+                <StackPanel HorizontalAlignment="Center">
                     <TextBlock x:Name="SentenceText" MaxWidth="900" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" />
                     <TextBlock x:Name="ProgressText" Margin="0,6,0,0" HorizontalAlignment="Center" Foreground="#FF9CA3AF" FontSize="12" />
                 </StackPanel>
-                <Button x:Name="NextButton"
-                        Grid.Column="2"
-                        Margin="10,0,0,0"
-                        Padding="6,2"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Content="&#xE76C;"
-                        FontFamily="Segoe MDL2 Assets"
-                        FontSize="20"
-                        Foreground="#FFBAE6FD"
-                        Visibility="Collapsed"
-                        Click="NextButton_Click" />
-            </Grid>
+            </Border>
         </Border>
-    </Border>
+        <Button x:Name="NextButton"
+                Grid.Column="2"
+                Style="{StaticResource CircleNavButtonStyle}"
+                Margin="8,0,6,0"
+                VerticalAlignment="Center"
+                Content="&#xE76C;"
+                FontFamily="Segoe MDL2 Assets"
+                Visibility="Hidden"
+                Click="NextButton_Click" />
+    </Grid>
 </Window>

@@ -37,6 +37,9 @@ public partial class FloatingWindow : Window
         SentenceText.FontSize = IsValidFontSize(settings.FontSize) ? settings.FontSize : defaults.FontSize;
         SentenceText.Foreground = ToBrush(settings.TextColor, defaults.TextColor);
         SentenceBackground.Background = ToBlackBackground(settings.BackgroundOpacity, defaults.BackgroundOpacity);
+
+        SentenceCard.Measure(new System.Windows.Size(900, double.PositiveInfinity));
+        ApplyNavigationButtonSize(SentenceCard.DesiredSize.Height);
     }
 
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -70,9 +73,36 @@ public partial class FloatingWindow : Window
 
     private void UpdateNavigationVisibility(bool isPointerOver)
     {
-        var visibility = _hasMultipleSentences && isPointerOver ? Visibility.Visible : Visibility.Collapsed;
+        if (!_hasMultipleSentences)
+        {
+            PreviousButton.Visibility = Visibility.Collapsed;
+            NextButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var visibility = isPointerOver ? Visibility.Visible : Visibility.Hidden;
         PreviousButton.Visibility = visibility;
         NextButton.Visibility = visibility;
+    }
+
+    private void SentenceCard_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        ApplyNavigationButtonSize(e.NewSize.Height);
+    }
+
+    private void ApplyNavigationButtonSize(double height)
+    {
+        var clampedHeight = Math.Round(height);
+        if (clampedHeight is >= 24 and <= 250)
+        {
+            PreviousButton.Width = clampedHeight;
+            PreviousButton.Height = clampedHeight;
+            NextButton.Width = clampedHeight;
+            NextButton.Height = clampedHeight;
+            var iconSize = Math.Max(14, Math.Round(clampedHeight * 0.38));
+            PreviousButton.FontSize = iconSize;
+            NextButton.FontSize = iconSize;
+        }
     }
 
     private static bool IsWithinButtonTree(object originalSource, System.Windows.Controls.Button button)
