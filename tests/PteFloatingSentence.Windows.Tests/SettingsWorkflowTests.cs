@@ -596,6 +596,87 @@ public class SettingsWorkflowTests
         });
     }
 
+    [TestMethod]
+    public void SettingsWindow_ReviewPractice_UsesSelectedListAndCurrentCompletion()
+    {
+        RunOnSta(() =>
+        {
+            var window = CreateWindowWithTwoLists();
+            window.NavigateTo(SettingsPageId.ReviewPractice);
+
+            var practiceControl = Named<ReviewPracticePage>(window, "ReviewPracticePageControl");
+            Assert.IsNotNull(practiceControl);
+
+            var progressLabel = (TextBlock)practiceControl.FindName("ProgressLabel");
+            Assert.AreEqual("Sentence 1 of 1", progressLabel.Text);
+        });
+    }
+
+    [TestMethod]
+    public void SettingsWindow_ReviewPractice_CompletingSentence_PersistsOnSaveAndRefreshesReview()
+    {
+        RunOnSta(() =>
+        {
+            AppSettings? saved = null;
+            var sentence = new StudySentence(Guid.NewGuid(), "Alpha beta gamma.");
+            var list = new StudyList(Guid.NewGuid(), "Practice List", 10, 0, [sentence]);
+            var settings = new AppSettings { ActiveListId = list.Id, StudyLists = [list] };
+
+            var window = new SettingsWindow(settings, s => saved = s);
+            window.NavigateTo(SettingsPageId.ReviewPractice);
+
+            var practiceControl = Named<ReviewPracticePage>(window, "ReviewPracticePageControl");
+            var session = (ReviewPracticeSession)typeof(ReviewPracticePage).GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(practiceControl)!;
+
+            for (var i = 0; i < session.CurrentReview.HiddenTokenIndexes.Count; i++)
+            {
+                var token = session.CurrentReview.Tokens[session.CurrentReview.HiddenTokenIndexes[i]];
+                session.Submit(token.SourceText.Trim('.', ','));
+            }
+
+            Assert.IsTrue(session.IsComplete);
+
+            var reviewControl = Named<ReviewPage>(window, "ReviewPageControl");
+            var reviewList = (ItemsControl)reviewControl.FindName("ReviewList");
+            var summaries = (IReadOnlyList<ListReviewSummary>)reviewList.ItemsSource;
+            Assert.AreEqual(1, summaries.Single().CompletedSentenceCount);
+
+            InvokeClick(window, "SaveButton_Click");
+
+            Assert.IsNotNull(saved);
+            Assert.IsTrue(saved.StudyLists.Single().Sentences.Single().IsCompleted);
+        });
+    }
+
+    [TestMethod]
+    public void SettingsWindow_ReviewPractice_Cancel_DoesNotPersistCompletion()
+    {
+        RunOnSta(() =>
+        {
+            var saveInvoked = false;
+            var sentence = new StudySentence(Guid.NewGuid(), "Alpha beta gamma.");
+            var list = new StudyList(Guid.NewGuid(), "Practice List", 10, 0, [sentence]);
+            var settings = new AppSettings { ActiveListId = list.Id, StudyLists = [list] };
+
+            var window = new SettingsWindow(settings, _ => saveInvoked = true);
+            window.NavigateTo(SettingsPageId.ReviewPractice);
+
+            var practiceControl = Named<ReviewPracticePage>(window, "ReviewPracticePageControl");
+            var session = (ReviewPracticeSession)typeof(ReviewPracticePage).GetField("_session", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(practiceControl)!;
+
+            for (var i = 0; i < session.CurrentReview.HiddenTokenIndexes.Count; i++)
+            {
+                var token = session.CurrentReview.Tokens[session.CurrentReview.HiddenTokenIndexes[i]];
+                session.Submit(token.SourceText.Trim('.', ','));
+            }
+
+            InvokeClick(window, "CancelButton_Click");
+
+            Assert.IsFalse(saveInvoked);
+        });
+    }
+
+
     private static SettingsWindow CreateWindowWithTwoSentences()
     {
         var list = new StudyList(Guid.NewGuid(), "Original list", 10, 0,

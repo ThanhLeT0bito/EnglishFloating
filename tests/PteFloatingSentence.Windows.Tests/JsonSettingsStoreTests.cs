@@ -400,6 +400,27 @@ public class JsonSettingsStoreTests
         }
     }
 
+    [TestMethod]
+    public async Task SaveAsync_RoundTripsSentenceCompletionState()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        var s1 = new StudySentence(Guid.NewGuid(), "Completed sentence.", IsCompleted: true);
+        var s2 = new StudySentence(Guid.NewGuid(), "Incomplete sentence.", IsCompleted: false);
+        var list = new StudyList(Guid.NewGuid(), "List", 10, 0, [s1, s2]);
+        var settings = AppSettings.Default with
+        {
+            StudyLists = [list],
+            ActiveListId = list.Id
+        };
+
+        await store.SaveAsync(settings);
+        var loaded = await store.LoadAsync();
+
+        Assert.IsTrue(loaded.StudyLists[0].Sentences[0].IsCompleted);
+        Assert.IsFalse(loaded.StudyLists[0].Sentences[1].IsCompleted);
+    }
+
     private string CreateSettingsPath()
     {
         var directory = Path.Combine(TestContext.TestRunDirectory!, Guid.NewGuid().ToString("N"));
