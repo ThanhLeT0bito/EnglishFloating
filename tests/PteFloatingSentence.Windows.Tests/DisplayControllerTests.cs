@@ -48,6 +48,25 @@ public class DisplayControllerTests
     }
 
     [TestMethod]
+    public void Apply_ReenablingCardsWithUnchangedContent_RendersCardsAgain()
+    {
+        RunOnSta(() =>
+        {
+            var floating = CreateFloatingWindowWithVocabulary();
+            var launcher = new OverlayLauncherWindow();
+            using var controller = new DisplayController(floating, launcher);
+            var settings = CreateSettings(showSentence: true, showCards: true);
+
+            controller.Apply(settings with { ShowVocabularyCards = false });
+            controller.Apply(settings);
+
+            var vocabPanel = (ItemsControl)floating.FindName("VocabularyPanel");
+            Assert.AreEqual(Visibility.Visible, vocabPanel.Visibility);
+            Assert.IsNotNull(vocabPanel.ItemsSource);
+        });
+    }
+
+    [TestMethod]
     public void Apply_SentenceFalseCardsTrue_SentenceHidden_LauncherVisible()
     {
         RunOnSta(() =>

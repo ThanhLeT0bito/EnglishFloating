@@ -48,6 +48,7 @@ public partial class FloatingWindow : Window
     private bool _showVocabularyCards = true;
     private RenderSignature? _vocabularyRenderSignature;
     private Guid? _vocabularyRenderHighlight;
+    private bool? _vocabularyRenderVisibility;
 
     public void ApplySettings(AppSettings settings) => ApplySettings(settings, renderContent: true);
 
@@ -90,11 +91,14 @@ public partial class FloatingWindow : Window
             _renderSignature = signature;
         }
 
-        if (_vocabularyRenderSignature != signature || _vocabularyRenderHighlight != _highlightedItemId)
+        if (_vocabularyRenderSignature != signature ||
+            _vocabularyRenderHighlight != _highlightedItemId ||
+            _vocabularyRenderVisibility != _showVocabularyCards)
         {
             RenderVocabularyPanel(vocabulary);
             _vocabularyRenderSignature = signature;
             _vocabularyRenderHighlight = _highlightedItemId;
+            _vocabularyRenderVisibility = _showVocabularyCards;
         }
 
         SentenceCard.Measure(new System.Windows.Size(900, double.PositiveInfinity));

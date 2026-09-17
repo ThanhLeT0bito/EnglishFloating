@@ -50,7 +50,7 @@ public partial class App : System.Windows.Application
         _displayController.ShowSettingsRequested += (_, _) => OpenSettings();
         _displayController.RestoreOverlayRequested += (_, _) =>
         {
-            _settings = _settings with { ShowSentenceOverlay = true, ShowVocabularyCards = true };
+            _settings = _settings with { ShowSentenceOverlay = true };
             _displayController.Apply(_settings);
             PersistSettings();
         };
