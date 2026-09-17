@@ -127,12 +127,12 @@
 - Modify: `tests/PteFloatingSentence.Windows.Tests/WindowSurfaceTests.cs`
 - Modify: `docs/plans/2026-09-17-floating-review-practice-plan.md`
 
-- [ ] Run memory leak and event lifecycle checklist:
+- [x] Run memory leak and event lifecycle checklist:
   - Verify all routed handlers on `PracticeProjectionPanel` are detached in `ExitPractice` and `OnClosed`.
   - Verify context menu handler cleanup.
-- [ ] Run sequentially:
+- [x] Run sequentially:
   - `dotnet test tests/PteFloatingSentence.Core.Tests/PteFloatingSentence.Core.Tests.csproj --configuration Debug --no-restore`
   - `dotnet test tests/PteFloatingSentence.Windows.Tests/PteFloatingSentence.Windows.Tests.csproj --configuration Debug --no-restore`
   - `dotnet build PteFloatingSentence.sln --configuration Release --no-restore`
-- [ ] Run `git diff --check`.
-- [ ] Update plan checkboxes and commit with `test: verify floating review practice mode`.
+- [x] Run `git diff --check`.
+- [x] Update plan checkboxes and commit with `test: verify floating review practice mode`.

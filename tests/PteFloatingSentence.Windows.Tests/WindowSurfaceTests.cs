@@ -87,7 +87,8 @@ public class WindowSurfaceTests
         StringAssert.Contains(xaml, "LinearGradientBrush");
         StringAssert.Contains(xaml, "Header=\"Settings\"");
         StringAssert.Contains(xaml, "Header=\"Exit\"");
-        Assert.AreEqual(2, Regex.Matches(xaml, "<MenuItem\\s").Count);
+        StringAssert.Contains(xaml, "x:Name=\"PracticeMenuItem\"");
+        Assert.AreEqual(3, Regex.Matches(xaml, "<MenuItem\\s").Count);
     }
 
     [TestMethod]
