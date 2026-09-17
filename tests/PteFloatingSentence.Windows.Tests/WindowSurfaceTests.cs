@@ -7,6 +7,26 @@ namespace PteFloatingSentence.Windows.Tests;
 public class WindowSurfaceTests
 {
     [TestMethod]
+    public void RenderSignature_IsStableForEquivalentSentenceState()
+    {
+        var first = RenderSignature.Create("Practice this sentence.", 30, "#FFFFFFFF", 0.35, []);
+        var second = RenderSignature.Create("Practice this sentence.", 30, "#FFFFFFFF", 0.35, []);
+
+        Assert.AreEqual(first, second);
+    }
+
+    [TestMethod]
+    public void RenderSignature_ChangesWhenVocabularyStateChanges()
+    {
+        var item = new VocabularyItem(Guid.NewGuid(), "Practice", "practice", Status: VocabularyStatus.Pending);
+        var first = RenderSignature.Create("Practice this sentence.", 30, "#FFFFFFFF", 0.35, [item]);
+        var second = RenderSignature.Create("Practice this sentence.", 30, "#FFFFFFFF", 0.35,
+            [item with { Status = VocabularyStatus.Ready, Meaning = "To repeat." }]);
+
+        Assert.AreNotEqual(first, second);
+    }
+
+    [TestMethod]
     public void FloatingWindow_ProvidesApplySettingsApi()
     {
         var floatingWindowType = typeof(App).Assembly.GetType("PteFloatingSentence.Windows.FloatingWindow");

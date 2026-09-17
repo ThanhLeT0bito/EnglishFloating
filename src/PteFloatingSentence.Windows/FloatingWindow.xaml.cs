@@ -43,6 +43,7 @@ public partial class FloatingWindow : Window
 
     private IReadOnlyList<VocabularyItem>? _currentVocabulary;
     private Guid? _highlightedItemId;
+    private RenderSignature? _renderSignature;
 
     public void ApplySettings(AppSettings settings)
     {
@@ -67,8 +68,14 @@ public partial class FloatingWindow : Window
         var foregroundBrush = ToBrush(settings.TextColor, defaults.TextColor);
         SentenceBackground.Background = ToBlackBackground(settings.BackgroundOpacity, defaults.BackgroundOpacity);
 
-        RenderSentenceDocument(text, currentSentence?.Vocabulary, fontSize, foregroundBrush);
-        RenderVocabularyPanel(currentSentence?.Vocabulary);
+        var vocabulary = currentSentence?.Vocabulary ?? [];
+        var signature = RenderSignature.Create(text, fontSize, settings.TextColor, settings.BackgroundOpacity, vocabulary);
+        if (_renderSignature != signature)
+        {
+            RenderSentenceDocument(text, vocabulary, fontSize, foregroundBrush);
+            RenderVocabularyPanel(vocabulary);
+            _renderSignature = signature;
+        }
 
         SentenceCard.Measure(new System.Windows.Size(900, double.PositiveInfinity));
         ApplyNavigationButtonSize(SentenceCard.DesiredSize.Height);
