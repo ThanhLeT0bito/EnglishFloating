@@ -309,6 +309,63 @@ public class WindowSurfaceTests
     }
 
     [TestMethod]
+    public void FloatingWindow_VocabularySpanQueryCursor_SetsHandCursorAndHandlesEvent()
+    {
+        var thread = new Thread(() =>
+        {
+            var window = new FloatingWindow();
+            var item = new VocabularyItem(Guid.NewGuid(), "cursor-test", "cursor-test", Status: VocabularyStatus.Ready);
+
+            var sentence = new StudySentence(
+                Guid.NewGuid(),
+                "Testing cursor-test phrase.",
+                IsCompleted: false,
+                Vocabulary: [item]);
+
+            var list = new StudyList(Guid.NewGuid(), "List", 10, 0, [sentence]);
+            window.ApplySettings(AppSettings.Default with
+            {
+                StudyLists = [list],
+                ActiveListId = list.Id
+            });
+
+            var doc = (System.Windows.Documents.FlowDocument)window.FindName("SentenceDocument");
+            var paragraph = (System.Windows.Documents.Paragraph)doc.Blocks.FirstBlock;
+            var span = paragraph.Inlines.OfType<System.Windows.Documents.Span>().Single();
+
+            // Query cursor on Span
+            var queryCursorArgs = new System.Windows.Input.QueryCursorEventArgs(
+                System.Windows.Input.Mouse.PrimaryDevice, 0)
+            {
+                RoutedEvent = System.Windows.Input.Mouse.QueryCursorEvent
+            };
+
+            span.RaiseEvent(queryCursorArgs);
+
+            Assert.IsTrue(queryCursorArgs.Handled, "QueryCursor must be marked Handled so RichTextBox cannot override it.");
+            Assert.AreEqual(System.Windows.Input.Cursors.Hand, queryCursorArgs.Cursor, "Cursor over vocabulary phrase must remain Hand cursor.");
+
+            // Also test Run inside Span
+            var run = span.Inlines.OfType<System.Windows.Documents.Run>().Single();
+            var runQueryArgs = new System.Windows.Input.QueryCursorEventArgs(
+                System.Windows.Input.Mouse.PrimaryDevice, 0)
+            {
+                RoutedEvent = System.Windows.Input.Mouse.QueryCursorEvent
+            };
+
+            run.RaiseEvent(runQueryArgs);
+
+            Assert.IsTrue(runQueryArgs.Handled, "QueryCursor on child Run must be marked Handled.");
+            Assert.AreEqual(System.Windows.Input.Cursors.Hand, runQueryArgs.Cursor, "Cursor over vocabulary run must be Hand cursor.");
+
+            window.Close();
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
+
+    [TestMethod]
     public void FloatingWindow_HideAndRetryButtons_FireRequestedEvents()
     {
         var thread = new Thread(() =>
@@ -408,6 +465,7 @@ public class WindowSurfaceTests
 
             Assert.AreEqual(existingId, clickedId, "Selecting existing phrase should trigger VocabularyClicked.");
             Assert.IsNull(selectedPhrase, "Selecting existing phrase must NOT trigger VocabularySelected.");
+            Assert.IsTrue(box.Selection.IsEmpty, "Selection should be collapsed after clicking existing vocabulary.");
 
             // 2. Select the new word "new"
             clickedId = null;

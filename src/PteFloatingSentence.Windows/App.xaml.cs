@@ -60,7 +60,11 @@ public partial class App : System.Windows.Application
                 var existing = Core.VocabularyRules.FindEquivalent(currentSentence.Vocabulary, selection);
                 if (existing is not null)
                 {
-                    _vocabularyWorkflow.SetHidden(currentSentence.Id, existing.Id, false);
+                    if (existing.IsHidden)
+                    {
+                        _vocabularyWorkflow.SetHidden(currentSentence.Id, existing.Id, false);
+                    }
+
                     _floatingWindow.FocusVocabularyItem(existing.Id);
                     return;
                 }
@@ -74,7 +78,12 @@ public partial class App : System.Windows.Application
             if (activeList.Sentences.Count > 0 && _vocabularyWorkflow is not null)
             {
                 var currentSentence = activeList.Sentences[activeList.CurrentSentenceIndex];
-                _vocabularyWorkflow.SetHidden(currentSentence.Id, itemId, false);
+                var item = currentSentence.Vocabulary.FirstOrDefault(v => v.Id == itemId);
+                if (item is not null && item.IsHidden)
+                {
+                    _vocabularyWorkflow.SetHidden(currentSentence.Id, itemId, false);
+                }
+
                 _floatingWindow.FocusVocabularyItem(itemId);
             }
         };

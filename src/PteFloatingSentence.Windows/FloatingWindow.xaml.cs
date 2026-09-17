@@ -159,7 +159,11 @@ public partial class FloatingWindow : Window
             var hoverBrush = new SolidColorBrush(hoverColor);
             var hoverBackground = new SolidColorBrush(Color.FromArgb(0x33, itemColor.R, itemColor.G, itemColor.B));
 
-            var run = new Run(text.Substring(start, length)) { Tag = item.Id };
+            var run = new Run(text.Substring(start, length))
+            {
+                Tag = item.Id,
+                Cursor = Cursors.Hand
+            };
             var span = new Span(run)
             {
                 Tag = item.Id,
@@ -174,6 +178,8 @@ public partial class FloatingWindow : Window
 
             span.MouseEnter += OnVocabularySpanMouseEnter;
             span.MouseLeave += OnVocabularySpanMouseLeave;
+            span.QueryCursor += OnVocabularySpanQueryCursor;
+            run.QueryCursor += OnVocabularySpanQueryCursor;
 
             paragraph.Inlines.Add(span);
             cursor = start + length;
@@ -238,13 +244,16 @@ public partial class FloatingWindow : Window
         }
 
         var mousePos = e.GetPosition(SentenceBox);
-        var pointer = SentenceBox.GetPositionFromPoint(mousePos, snapToText: true);
+        var pointer = SentenceBox.GetPositionFromPoint(mousePos, snapToText: false);
         if (pointer is not null)
         {
             var itemId = FindVocabularyItemId(pointer.Parent as TextElement);
             if (itemId.HasValue)
             {
+                e.Handled = true;
                 VocabularyClicked?.Invoke(this, itemId.Value);
+                SentenceBox.Selection.Select(SentenceBox.Document.ContentStart, SentenceBox.Document.ContentStart);
+                Focus();
             }
         }
     }
@@ -266,7 +275,8 @@ public partial class FloatingWindow : Window
         if (itemIdFromSpan.HasValue)
         {
             VocabularyClicked?.Invoke(this, itemIdFromSpan.Value);
-            SentenceBox.Selection.Select(SentenceBox.Selection.Start, SentenceBox.Selection.Start);
+            SentenceBox.Selection.Select(SentenceBox.Document.ContentStart, SentenceBox.Document.ContentStart);
+            Focus();
             return;
         }
 
@@ -275,7 +285,8 @@ public partial class FloatingWindow : Window
         if (existing is not null)
         {
             VocabularyClicked?.Invoke(this, existing.Id);
-            SentenceBox.Selection.Select(SentenceBox.Selection.Start, SentenceBox.Selection.Start);
+            SentenceBox.Selection.Select(SentenceBox.Document.ContentStart, SentenceBox.Document.ContentStart);
+            Focus();
             return;
         }
 
@@ -446,10 +457,32 @@ public partial class FloatingWindow : Window
                     {
                         span.MouseEnter -= OnVocabularySpanMouseEnter;
                         span.MouseLeave -= OnVocabularySpanMouseLeave;
+                        span.QueryCursor -= OnVocabularySpanQueryCursor;
+                        foreach (var child in span.Inlines)
+                        {
+                            child.QueryCursor -= OnVocabularySpanQueryCursor;
+                        }
                     }
                 }
             }
         }
+    }
+
+    private void SentenceBox_QueryCursor(object sender, QueryCursorEventArgs e)
+    {
+        var mousePos = Mouse.GetPosition(SentenceBox);
+        var pointer = SentenceBox.GetPositionFromPoint(mousePos, snapToText: false);
+        if (pointer is not null && FindVocabularyItemId(pointer.Parent as TextElement).HasValue)
+        {
+            e.Cursor = Cursors.Hand;
+            e.Handled = true;
+        }
+    }
+
+    private static void OnVocabularySpanQueryCursor(object sender, QueryCursorEventArgs e)
+    {
+        e.Cursor = Cursors.Hand;
+        e.Handled = true;
     }
 
     private static Color GetHoverColor(Color baseColor)

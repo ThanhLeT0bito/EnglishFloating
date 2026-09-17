@@ -122,6 +122,7 @@
                                  Margin="0"
                                  Focusable="True"
                                  Cursor="IBeam"
+                                 QueryCursor="SentenceBox_QueryCursor"
                                  PreviewMouseLeftButtonUp="SentenceBox_PreviewMouseLeftButtonUp">
                         <RichTextBox.Resources>
                             <Style TargetType="FlowDocument">
