@@ -137,4 +137,58 @@ public class ReviewPracticeSessionTests
         Assert.AreEqual(currentExpected, vm.RevealedAnswer);
         Assert.IsFalse(vm.IsComplete);
     }
+
+    [TestMethod]
+    public void Session_WrongAnswers_DoNotAdvanceAndDoNotMarkCompletion()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "One two three four five.");
+        var list = new StudyList(Guid.NewGuid(), "Test List", 10, 0, [sentence]);
+        var completed = false;
+
+        var session = new ReviewPracticeSession(list, seed: 10, onSentenceCompleted: (_, _) => completed = true);
+        var res = session.Submit("wrong_answer");
+
+        Assert.IsFalse(res.IsCorrect);
+        Assert.IsFalse(res.IsComplete);
+        Assert.IsFalse(session.IsComplete);
+        Assert.AreEqual(0, session.CurrentHiddenPosition);
+        Assert.IsFalse(completed);
+    }
+
+    [TestMethod]
+    public void Session_Reopening_RecreatesSameHiddenWordPattern()
+    {
+        var sentenceId = Guid.NewGuid();
+        var sentence = new StudySentence(sentenceId, "The architectural design requires careful planning and execution.");
+        var list = new StudyList(Guid.NewGuid(), "Test List", 10, 0, [sentence]);
+
+        var session1 = new ReviewPracticeSession(list);
+        var session2 = new ReviewPracticeSession(list);
+
+        CollectionAssert.AreEqual(
+            session1.CurrentReview.HiddenTokenIndexes.ToArray(),
+            session2.CurrentReview.HiddenTokenIndexes.ToArray());
+    }
+
+    [TestMethod]
+    public void Session_ShowVocabularyCardsDisabled_HasNoImpactOnSessionOrAnswerChecking()
+    {
+        var vocab = new VocabularyItem(Guid.NewGuid(), "Alpha", "alpha", Status: VocabularyStatus.Ready, Meaning: "First");
+        var sentence = new StudySentence(Guid.NewGuid(), "Alpha beta gamma.", Vocabulary: [vocab]);
+        var list = new StudyList(Guid.NewGuid(), "Test List", 10, 0, [sentence]);
+
+        var settings = AppSettings.Default with
+        {
+            StudyLists = [list],
+            ShowVocabularyCards = false
+        };
+
+        var session = new ReviewPracticeSession(settings.StudyLists[0], seed: 42);
+        Assert.IsNotNull(session.CurrentReview);
+        Assert.IsTrue(session.CurrentReview.HiddenTokenIndexes.Count > 0);
+
+        var firstWord = session.CurrentReview.Tokens[session.CurrentReview.HiddenTokenIndexes[0]].SourceText.Trim('.', ',');
+        var result = session.Submit(firstWord);
+        Assert.IsTrue(result.IsCorrect);
+    }
 }

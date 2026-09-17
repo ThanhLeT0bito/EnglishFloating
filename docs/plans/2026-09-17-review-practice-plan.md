@@ -37,8 +37,8 @@
   - `ReviewSentence CreateProjection(StudySentence sentence, int? seed = null)`.
   - `ReviewAnswerResult CheckAnswer(ReviewSentence review, int hiddenPosition, string answer)`.
 
-- [ ] Write failing tests for tokenizing punctuation, preserving original text, and representing hidden words with exactly one `_` display token.
-- [ ] Write a failing test for the example sentence:
+- [x] Write failing tests for tokenizing punctuation, preserving original text, and representing hidden words with exactly one `_` display token.
+- [x] Write a failing test for the example sentence:
 
 ```csharp
 var review = ReviewPracticeRules.CreateProjection(
@@ -48,11 +48,11 @@ var review = ReviewPracticeRules.CreateProjection(
 Assert.AreEqual("_ _ wear _ _ on _ _ site", review.DisplayText);
 ```
 
-- [ ] Run `dotnet test tests/PteFloatingSentence.Core.Tests/PteFloatingSentence.Core.Tests.csproj --filter FullyQualifiedName~ReviewPractice` and verify failure because the review types do not exist.
-- [ ] Implement immutable contracts and a tokenizer that treats whitespace-separated words as tokens while retaining punctuation in `SourceText`.
-- [ ] Add a deterministic `DisplayText` projection that joins token `DisplayText` values with the original whitespace boundaries.
-- [ ] Run focused tests and confirm they pass.
-- [ ] Commit with `feat: define review practice projection contracts`.
+- [x] Run `dotnet test tests/PteFloatingSentence.Core.Tests/PteFloatingSentence.Core.Tests.csproj --filter FullyQualifiedName~ReviewPractice` and verify failure because the review types do not exist.
+- [x] Implement immutable contracts and a tokenizer that treats whitespace-separated words as tokens while retaining punctuation in `SourceText`.
+- [x] Add a deterministic `DisplayText` projection that joins token `DisplayText` values with the original whitespace boundaries.
+- [x] Run focused tests and confirm they pass.
+- [x] Commit with `feat: define review practice projection contracts`.
 
 ### Task 2: Implement deterministic hidden-word selection
 
@@ -69,13 +69,13 @@ Assert.AreEqual("_ _ wear _ _ on _ _ site", review.DisplayText);
 - Use a seeded deterministic selection for tests and a stable sentence-ID-derived seed in production so reopening the same session does not reshuffle unexpectedly.
 - Do not hide punctuation-only tokens.
 
-- [ ] Add failing tests for 1-, 3-, 6-, and 10-word sentences and assert hidden index bounds.
-- [ ] Add a test proving the same sentence ID/seed produces the same hidden indexes.
-- [ ] Add a test proving a sentence with punctuation such as `"Really? Yes!"` keeps punctuation attached to its source token.
-- [ ] Run focused tests and verify failure.
-- [ ] Implement selection with a local `Random(seed)` and stable ordering; do not use global mutable random state.
-- [ ] Run Core tests and verify no existing study-list behavior changes.
-- [ ] Commit with `feat: select deterministic hidden review words`.
+- [x] Add failing tests for 1-, 3-, 6-, and 10-word sentences and assert hidden index bounds.
+- [x] Add a test proving the same sentence ID/seed produces the same hidden indexes.
+- [x] Add a test proving a sentence with punctuation such as `"Really? Yes!"` keeps punctuation attached to its source token.
+- [x] Run focused tests and verify failure.
+- [x] Implement selection with a local `Random(seed)` and stable ordering; do not use global mutable random state.
+- [x] Run Core tests and verify no existing study-list behavior changes.
+- [x] Commit with `feat: select deterministic hidden review words`.
 
 ### Task 3: Implement answer checking and completion transitions
 
@@ -91,13 +91,14 @@ Assert.AreEqual("_ _ wear _ _ on _ _ site", review.DisplayText);
 - A wrong answer returns `IsCorrect=false`, keeps the same hidden position, and returns a short user-facing error such as `Try again.`.
 - Add `StudyListRules.MarkSentenceCompleted(AppSettings settings, Guid listId, Guid sentenceId, bool completed)` returning a new normalized `AppSettings`.
 
-- [ ] Add failing tests for exact match, case-insensitive match, whitespace trimming, wrong answer, retry after wrong answer, and final-answer completion.
-- [ ] Add a failing test that marking one sentence complete does not alter other sentences or the current list index.
-- [ ] Run tests and confirm expected failures.
-- [ ] Implement validation using normalized token text while preserving the original text for display.
-- [ ] Implement immutable completion update through `with` expressions and list projections.
-- [ ] Run Core tests and verify all pass.
-- [ ] Commit with `feat: validate review answers and persist completion`.
+- [x] Add failing tests for exact match, case-insensitive match, whitespace trimming, wrong answer, retry after wrong answer, and final-answer completion.
+- [x] Add a failing test that marking one sentence complete does not alter other sentences or the current list index.
+- [x] Run tests and confirm expected failures.
+- [x] Implement validation using normalized token text while preserving the original text for display.
+- [x] Implement immutable completion update through `with` expressions and list projections.
+- [x] Run Core tests and verify all pass.
+- [x] Commit with `feat: validate review answers and persist completion`.
+
 
 ### Task 4: Add Review Practice state and page view model
 
@@ -118,11 +119,11 @@ Assert.AreEqual("_ _ wear _ _ on _ _ site", review.DisplayText);
 - Session construction selects the first incomplete sentence; if all are complete, it selects the first sentence and exposes an all-complete state.
 - Session does not mutate settings directly; it emits a completion callback `(sentenceId, completed)` to the host.
 
-- [ ] Add failing tests for selecting the first incomplete sentence, all-complete lists, answer progression, and sentence navigation resetting hidden position.
-- [ ] Implement session state as a small testable class independent of WPF controls.
-- [ ] Add a view model exposing display tokens, current input, progress text (`Sentence 2 of 10`), error text, and `CanSubmit`.
-- [ ] Run Windows test project filtered to `ReviewPracticeSession` and verify pass.
-- [ ] Commit with `feat: add review practice session state`.
+- [x] Add failing tests for selecting the first incomplete sentence, all-complete lists, answer progression, and sentence navigation resetting hidden position.
+- [x] Implement session state as a small testable class independent of WPF controls.
+- [x] Add a view model exposing display tokens, current input, progress text (`Sentence 2 of 10`), error text, and `CanSubmit`.
+- [x] Run Windows test project filtered to `ReviewPracticeSession` and verify pass.
+- [x] Commit with `feat: add review practice session state`.
 
 ### Task 5: Build the Review Practice WPF page
 
@@ -145,12 +146,12 @@ Assert.AreEqual("_ _ wear _ _ on _ _ site", review.DisplayText);
 - `Show answer` reveals the current token but does not mark it correct or complete.
 - `Next sentence` and `Previous sentence` navigate without mutating completion.
 
-- [ ] Add failing surface tests for the Review Practice page, placeholder count, progress label, Check/Show answer controls, and all-complete empty state.
-- [ ] Implement the page with existing dark Settings Center resources and no external UI library.
-- [ ] Add a small completion panel with `Completed` state and a button to restart the list from the first sentence.
-- [ ] Ensure keyboard focus is visible and the page remains usable at the Settings window minimum size.
-- [ ] Run WPF surface tests and manually inspect the page with the example sentence.
-- [ ] Commit with `feat: add review practice page`.
+- [x] Add failing surface tests for the Review Practice page, placeholder count, progress label, Check/Show answer controls, and all-complete empty state.
+- [x] Implement the page with existing dark Settings Center resources and no external UI library.
+- [x] Add a small completion panel with `Completed` state and a button to restart the list from the first sentence.
+- [x] Ensure keyboard focus is visible and the page remains usable at the Settings window minimum size.
+- [x] Run WPF surface tests and manually inspect the page with the example sentence.
+- [x] Commit with `feat: add review practice page`.
 
 ### Task 6: Integrate Review Practice with Settings and persistence
 
@@ -167,13 +168,13 @@ Assert.AreEqual("_ _ wear _ _ on _ _ site", review.DisplayText);
 - SettingsWindow passes the current `AppSettings` snapshot and a save callback to the page.
 - Completion callback updates the draft/settings through `StudyListRules.MarkSentenceCompleted`, then queues persistence through the existing app callback.
 
-- [ ] Add failing tests that opening Review Practice for a selected list uses the correct list and current completion state.
-- [ ] Add a test that completing the final hidden token updates `IsCompleted` in settings JSON after Save.
-- [ ] Add a test that Cancel does not persist completion changes made in the unsaved session, unless the product explicitly chooses immediate progress persistence.
-- [ ] Implement page navigation without instantiating a Gemini request or vocabulary workflow.
-- [ ] Refresh Review summaries after practice completion.
-- [ ] Run Settings workflow and persistence tests.
-- [ ] Commit with `feat: integrate review practice into settings center`.
+- [x] Add failing tests that opening Review Practice for a selected list uses the correct list and current completion state.
+- [x] Add a test that completing the final hidden token updates `IsCompleted` in settings JSON after Save.
+- [x] Add a test that Cancel does not persist completion changes made in the unsaved session, unless the product explicitly chooses immediate progress persistence.
+- [x] Implement page navigation without instantiating a Gemini request or vocabulary workflow.
+- [x] Refresh Review summaries after practice completion.
+- [x] Run Settings workflow and persistence tests.
+- [x] Commit with `feat: integrate review practice into settings center`.
 
 ### Task 7: Verification and performance pass
 
@@ -183,17 +184,18 @@ Assert.AreEqual("_ _ wear _ _ on _ _ site", review.DisplayText);
 - Modify: `tests/PteFloatingSentence.Windows.Tests/WindowSurfaceTests.cs`
 - Optional modify: `docs/plans/2026-09-17-review-practice-plan.md`
 
-- [ ] Verify sentences with punctuation, repeated words, apostrophes, hyphenated words, and multiple spaces.
-- [ ] Verify empty lists, one-sentence lists, and fully completed lists.
-- [ ] Verify wrong answers do not advance and cannot mark completion.
-- [ ] Verify `ShowVocabularyCards=false` does not affect Review Practice rendering or answer checking.
-- [ ] Verify reopening the page recreates the same hidden-word pattern for the same sentence/list session seed.
-- [ ] Run sequentially:
+- [x] Verify sentences with punctuation, repeated words, apostrophes, hyphenated words, and multiple spaces.
+- [x] Verify empty lists, one-sentence lists, and fully completed lists.
+- [x] Verify wrong answers do not advance and cannot mark completion.
+- [x] Verify `ShowVocabularyCards=false` does not affect Review Practice rendering or answer checking.
+- [x] Verify reopening the page recreates the same hidden-word pattern for the same sentence/list session seed.
+- [x] Run sequentially:
   - `dotnet test tests/PteFloatingSentence.Core.Tests/PteFloatingSentence.Core.Tests.csproj --configuration Debug --no-restore`
   - `dotnet test tests/PteFloatingSentence.Windows.Tests/PteFloatingSentence.Windows.Tests.csproj --configuration Debug --no-restore`
   - `dotnet build PteFloatingSentence.sln --configuration Release --no-restore`
-- [ ] Run `git diff --check`, inspect memory while switching review sentences, and confirm no retained event handlers or per-keystroke `FlowDocument` rebuilds.
-- [ ] Commit with `test: verify review practice mode`.
+- [x] Run `git diff --check`, inspect memory while switching review sentences, and confirm no retained event handlers or per-keystroke `FlowDocument` rebuilds.
+- [x] Commit with `test: verify review practice mode`.
+
 
 ## Explicitly Deferred
 

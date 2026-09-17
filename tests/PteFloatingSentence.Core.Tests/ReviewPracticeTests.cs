@@ -188,4 +188,28 @@ public class ReviewPracticeTests
         Assert.IsTrue(res2.IsCorrect);
         Assert.IsTrue(res2.IsComplete);
     }
+
+    [TestMethod]
+    public void CreateProjection_HandlesMultipleSpacesRepeatedWordsApostrophesAndHyphens()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "Don't   forget   state-of-the-art   tools,   don't   they?");
+        var review = ReviewPracticeRules.CreateProjection(sentence, seed: 100);
+
+        Assert.AreEqual(6, review.Tokens.Count);
+        Assert.AreEqual("Don't", review.Tokens[0].SourceText);
+        Assert.AreEqual("forget", review.Tokens[1].SourceText);
+        Assert.AreEqual("state-of-the-art", review.Tokens[2].SourceText);
+        Assert.AreEqual("tools,", review.Tokens[3].SourceText);
+        Assert.AreEqual("don't", review.Tokens[4].SourceText);
+        Assert.AreEqual("they?", review.Tokens[5].SourceText);
+
+        // Check answer for don't with punctuation
+        var sentenceApos = new StudySentence(Guid.NewGuid(), "Don't forget!");
+        var reviewApos = ReviewPracticeRules.CreateProjection(sentenceApos, seed: 1);
+        Assert.AreEqual(1, reviewApos.HiddenTokenIndexes.Count);
+        Assert.AreEqual(0, reviewApos.HiddenTokenIndexes[0]);
+
+        var checkApos = ReviewPracticeRules.CheckAnswer(reviewApos, 0, "don't");
+        Assert.IsTrue(checkApos.IsCorrect);
+    }
 }
