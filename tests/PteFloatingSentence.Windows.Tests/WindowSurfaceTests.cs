@@ -989,6 +989,75 @@ public class WindowSurfaceTests
                 {
                     Assert.AreEqual("_", boxes[b].Text);
                 }
+
+                // Verify inputs have no box border and transparent background
+                foreach (var box in boxes)
+                {
+                    Assert.AreEqual(new System.Windows.Thickness(0), box.BorderThickness);
+                    Assert.AreEqual(System.Windows.Media.Brushes.Transparent, box.Background);
+                }
+            }
+            catch (Exception ex)
+            {
+                threadEx = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (threadEx is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(threadEx).Throw();
+        }
+    }
+
+    [TestMethod]
+    public void FloatingWindow_PracticeInput_SpaceKeyAdvancesFocusLikeEnter()
+    {
+        Exception? threadEx = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var window = new FloatingWindow();
+                var sentence = new StudySentence(Guid.NewGuid(), "You must wear a hard hat on the construction site");
+                var list = new StudyList(Guid.NewGuid(), "Practice List", 10, 0, [sentence]);
+                var settings = AppSettings.Default with
+                {
+                    StudyLists = [list],
+                    ActiveListId = list.Id
+                };
+
+                window.ApplySettings(settings);
+                window.StartPractice();
+
+                var projectionPanel = (System.Windows.Controls.WrapPanel)window.FindName("PracticeProjectionPanel");
+                var feedbackLabel = (System.Windows.Controls.TextBlock)window.FindName("PracticeFeedbackLabel");
+                var projection = ReviewPracticeRules.CreateProjection(sentence);
+
+                var boxes = projectionPanel.Children.OfType<System.Windows.Controls.TextBox>().ToList();
+                var firstTextBox = boxes[0];
+                var firstHiddenIndex = projection.HiddenTokenIndexes[0];
+                var expectedWord = projection.Tokens[firstHiddenIndex].SourceText.Trim('.', ',', '!', '?');
+
+                firstTextBox.Text = expectedWord;
+
+                // Simulate Space key press routed event
+                var keyEventArgs = new System.Windows.Input.KeyEventArgs(
+                    System.Windows.Input.Keyboard.PrimaryDevice,
+                    new System.Windows.Interop.HwndSource(0, 0, 0, 0, 0, "", IntPtr.Zero),
+                    0,
+                    System.Windows.Input.Key.Space)
+                {
+                    RoutedEvent = System.Windows.UIElement.KeyDownEvent
+                };
+                firstTextBox.RaiseEvent(keyEventArgs);
+
+                Assert.IsTrue(keyEventArgs.Handled);
+                Assert.IsTrue(firstTextBox.IsReadOnly);
+                Assert.AreEqual(expectedWord, firstTextBox.Text);
+                Assert.AreEqual(System.Windows.Visibility.Collapsed, feedbackLabel.Visibility);
             }
             catch (Exception ex)
             {

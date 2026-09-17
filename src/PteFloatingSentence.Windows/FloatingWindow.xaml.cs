@@ -598,10 +598,9 @@ public partial class FloatingWindow : Window
                         Text = token.SourceText,
                         FontSize = fontSize,
                         Foreground = new SolidColorBrush(Color.FromRgb(0x34, 0xD3, 0x99)),
-                        Background = new SolidColorBrush(Color.FromArgb(0x44, 0x1E, 0x29, 0x3B)),
-                        BorderBrush = new SolidColorBrush(Color.FromRgb(0x10, 0xB9, 0x81)),
-                        BorderThickness = new Thickness(1),
-                        Padding = new Thickness(4, 1, 4, 1),
+                        Background = Brushes.Transparent,
+                        BorderThickness = new Thickness(0),
+                        Padding = new Thickness(2, 0, 2, 0),
                         Margin = new Thickness(2, 2, 4, 2),
                         TextAlignment = TextAlignment.Center,
                         VerticalAlignment = VerticalAlignment.Center,
@@ -618,14 +617,13 @@ public partial class FloatingWindow : Window
                         Text = "_",
                         FontSize = fontSize,
                         Foreground = new SolidColorBrush(Color.FromRgb(0x9C, 0xA3, 0xAF)),
-                        Background = new SolidColorBrush(Color.FromArgb(0x44, 0x1E, 0x29, 0x3B)),
-                        BorderBrush = new SolidColorBrush(Color.FromArgb(0x88, 0x38, 0xBD, 0xF8)),
-                        BorderThickness = new Thickness(1),
-                        Padding = new Thickness(4, 1, 4, 1),
+                        Background = Brushes.Transparent,
+                        BorderThickness = new Thickness(0),
+                        Padding = new Thickness(2, 0, 2, 0),
                         Margin = new Thickness(2, 2, 4, 2),
                         TextAlignment = TextAlignment.Center,
                         VerticalAlignment = VerticalAlignment.Center,
-                        MinWidth = Math.Max(28, token.SourceText.Length * (fontSize * 0.58)),
+                        MinWidth = Math.Max(20, token.SourceText.Length * (fontSize * 0.58)),
                         Tag = hiddenPos
                     };
                     PracticeProjectionPanel.Children.Add(box);
@@ -648,7 +646,8 @@ public partial class FloatingWindow : Window
             var correctWord = _practiceSession.CurrentReview.Tokens[tokenIndex].SourceText;
             textBox.Text = correctWord;
             textBox.Foreground = new SolidColorBrush(Color.FromRgb(0x34, 0xD3, 0x99));
-            textBox.BorderBrush = new SolidColorBrush(Color.FromRgb(0x10, 0xB9, 0x81));
+            textBox.Background = Brushes.Transparent;
+            textBox.BorderThickness = new Thickness(0);
             textBox.IsReadOnly = true;
             textBox.Focusable = false;
             PracticeFeedbackLabel.Visibility = Visibility.Collapsed;
@@ -664,7 +663,7 @@ public partial class FloatingWindow : Window
         }
         else
         {
-            textBox.BorderBrush = new SolidColorBrush(Color.FromRgb(0xEF, 0x44, 0x44));
+            textBox.Foreground = new SolidColorBrush(Color.FromRgb(0xEF, 0x44, 0x44));
             PracticeFeedbackLabel.Text = result.Error ?? "Try again.";
             PracticeFeedbackLabel.Visibility = Visibility.Visible;
             textBox.SelectAll();
@@ -701,10 +700,10 @@ public partial class FloatingWindow : Window
 
     private void PracticeProjectionPanel_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter && e.OriginalSource is TextBox textBox && textBox.Tag is int hiddenPos)
+        if ((e.Key == Key.Enter || e.Key == Key.Space) && e.OriginalSource is TextBox textBox && textBox.Tag is int hiddenPos)
         {
             e.Handled = true;
-            var text = textBox.Text == "_" ? string.Empty : textBox.Text;
+            var text = textBox.Text == "_" ? string.Empty : textBox.Text.Trim();
             SubmitPracticeAnswer(textBox, text);
         }
     }
@@ -716,12 +715,12 @@ public partial class FloatingWindow : Window
             if (textBox.Text == "_")
             {
                 textBox.Text = string.Empty;
-                textBox.Foreground = ToBrush(_settings.TextColor, AppSettings.Default.TextColor);
             }
             else
             {
                 textBox.SelectAll();
             }
+            textBox.Foreground = ToBrush(_settings.TextColor, AppSettings.Default.TextColor);
         }
     }
 
@@ -733,7 +732,6 @@ public partial class FloatingWindow : Window
             {
                 textBox.Text = "_";
                 textBox.Foreground = new SolidColorBrush(Color.FromRgb(0x9C, 0xA3, 0xAF));
-                textBox.BorderBrush = new SolidColorBrush(Color.FromArgb(0x88, 0x38, 0xBD, 0xF8));
             }
         }
     }
