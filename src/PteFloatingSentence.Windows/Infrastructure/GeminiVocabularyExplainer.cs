@@ -8,15 +8,20 @@ namespace PteFloatingSentence.Windows.Infrastructure;
 
 public sealed class GeminiVocabularyExplainer : IVocabularyExplainer, IDisposable
 {
-    private const string DefaultModel = "gemini-3.6-flash";
+    private static readonly string[] DefaultCandidateModels = ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"];
     private const int MaxResponseBytes = 64 * 1024; // 64 KB
     private readonly Func<string?> _apiKeyProvider;
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
+    private readonly IReadOnlyList<string> _candidateModels;
 
-    public GeminiVocabularyExplainer(Func<string?> apiKeyProvider, HttpClient? httpClient = null)
+    public GeminiVocabularyExplainer(
+        Func<string?> apiKeyProvider,
+        HttpClient? httpClient = null,
+        IReadOnlyList<string>? candidateModels = null)
     {
         _apiKeyProvider = apiKeyProvider ?? throw new ArgumentNullException(nameof(apiKeyProvider));
+        _candidateModels = candidateModels is { Count: > 0 } ? candidateModels : DefaultCandidateModels;
         if (httpClient is null)
         {
             _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
@@ -42,8 +47,6 @@ public sealed class GeminiVocabularyExplainer : IVocabularyExplainer, IDisposabl
         var apiKey = _apiKeyProvider()?.Trim();
         if (string.IsNullOrEmpty(apiKey))
             throw new InvalidOperationException("Gemini API key is not configured.");
-
-        var endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/{DefaultModel}:generateContent?key={Uri.EscapeDataString(apiKey)}";
 
         var requestPayload = new
         {
@@ -77,77 +80,111 @@ public sealed class GeminiVocabularyExplainer : IVocabularyExplainer, IDisposabl
             }
         };
 
-        var jsonContent = new StringContent(
-            JsonSerializer.Serialize(requestPayload),
-            Encoding.UTF8,
-            "application/json");
+        var jsonPayload = JsonSerializer.Serialize(requestPayload);
+        HttpRequestException? lastTransientException = null;
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        for (int attempt = 0; attempt < 2; attempt++)
         {
-            Content = jsonContent
-        };
-
-        HttpResponseMessage response;
-        try
-        {
-            response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        }
-        catch (HttpRequestException ex)
-        {
-            throw new HttpRequestException(SanitizeMessage(ex.Message, apiKey), ex.InnerException, ex.StatusCode);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            throw new InvalidOperationException(SanitizeMessage(ex.Message, apiKey));
-        }
-
-        using (response)
-        {
-            if (!response.IsSuccessStatusCode)
+            foreach (var model in _candidateModels)
             {
-                var statusCode = response.StatusCode;
-                string? errorDetail = null;
+                var endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={Uri.EscapeDataString(apiKey)}";
+
+                using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+                {
+                    Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json")
+                };
+
+                HttpResponseMessage response;
                 try
                 {
-                    var errorJson = await response.Content.ReadAsStringAsync(cancellationToken);
-                    using var errDoc = JsonDocument.Parse(errorJson);
-                    if (errDoc.RootElement.TryGetProperty("error", out var errObj) &&
-                        errObj.TryGetProperty("message", out var msgProp))
-                    {
-                        errorDetail = msgProp.GetString();
-                    }
+                    response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                 }
-                catch
+                catch (HttpRequestException ex)
                 {
-                    // Fall back to generic status code if error payload cannot be parsed
+                    lastTransientException = new HttpRequestException(SanitizeMessage(ex.Message, apiKey), ex.InnerException, ex.StatusCode);
+                    continue;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    throw new InvalidOperationException(SanitizeMessage(ex.Message, apiKey));
                 }
 
-                var message = string.IsNullOrWhiteSpace(errorDetail)
-                    ? $"Gemini API returned status code {(int)statusCode} ({statusCode})."
-                    : $"Gemini API error ({(int)statusCode} {statusCode}): {SanitizeMessage(errorDetail, apiKey)}";
+                using (response)
+                {
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                        using var limitedStream = new MemoryStream();
+                        var buffer = new byte[4096];
+                        int bytesRead;
+                        int totalBytes = 0;
 
-                throw new HttpRequestException(message, null, statusCode);
+                        while ((bytesRead = await responseStream.ReadAsync(buffer, cancellationToken)) > 0)
+                        {
+                            totalBytes += bytesRead;
+                            if (totalBytes > MaxResponseBytes)
+                                throw new InvalidOperationException("Gemini response exceeded maximum allowable size.");
+
+                            limitedStream.Write(buffer, 0, bytesRead);
+                        }
+
+                        var responseJson = Encoding.UTF8.GetString(limitedStream.ToArray());
+                        return ParseGeminiResponse(responseJson);
+                    }
+
+                    var statusCode = response.StatusCode;
+                    string? errorDetail = null;
+                    try
+                    {
+                        var errorJson = await response.Content.ReadAsStringAsync(cancellationToken);
+                        using var errDoc = JsonDocument.Parse(errorJson);
+                        if (errDoc.RootElement.TryGetProperty("error", out var errObj) &&
+                            errObj.TryGetProperty("message", out var msgProp))
+                        {
+                            errorDetail = msgProp.GetString();
+                        }
+                    }
+                    catch
+                    {
+                        // Fall back to generic status code if error payload cannot be parsed
+                    }
+
+                    var message = string.IsNullOrWhiteSpace(errorDetail)
+                        ? $"Gemini API returned status code {(int)statusCode} ({statusCode})."
+                        : $"Gemini API error ({(int)statusCode} {statusCode}): {SanitizeMessage(errorDetail, apiKey)}";
+
+                    var httpEx = new HttpRequestException(message, null, statusCode);
+
+                    if (IsTransientOrModelError(statusCode))
+                    {
+                        lastTransientException = httpEx;
+                        continue;
+                    }
+
+                    // Client errors (400, 401, 403, etc.) are non-transient and fail immediately
+                    throw httpEx;
+                }
             }
 
-            var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            using var limitedStream = new MemoryStream();
-            var buffer = new byte[4096];
-            int bytesRead;
-            int totalBytes = 0;
-
-            while ((bytesRead = await responseStream.ReadAsync(buffer, cancellationToken)) > 0)
+            if (attempt == 0 && lastTransientException is not null)
             {
-                totalBytes += bytesRead;
-                if (totalBytes > MaxResponseBytes)
-                    throw new InvalidOperationException("Gemini response exceeded maximum allowable size.");
-
-                limitedStream.Write(buffer, 0, bytesRead);
+                await Task.Delay(1000, cancellationToken);
             }
-
-            var responseJson = Encoding.UTF8.GetString(limitedStream.ToArray());
-            return ParseGeminiResponse(responseJson);
         }
+
+        if (lastTransientException is not null)
+            throw lastTransientException;
+
+        throw new InvalidOperationException("No Gemini model candidates were available.");
     }
+
+    private static bool IsTransientOrModelError(System.Net.HttpStatusCode? statusCode) =>
+        statusCode is System.Net.HttpStatusCode.ServiceUnavailable
+                   or System.Net.HttpStatusCode.TooManyRequests
+                   or System.Net.HttpStatusCode.NotFound
+                   or System.Net.HttpStatusCode.InternalServerError
+                   or System.Net.HttpStatusCode.BadGateway
+                   or System.Net.HttpStatusCode.GatewayTimeout;
 
     private static VocabularyExplanation ParseGeminiResponse(string responseJson)
     {

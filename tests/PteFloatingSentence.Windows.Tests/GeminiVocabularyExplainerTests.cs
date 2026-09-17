@@ -106,7 +106,57 @@ public sealed class GeminiVocabularyExplainerTests
     }
 
     [TestMethod]
-    public async Task ExplainAsync_UsesGemini36FlashModel()
+    public async Task ExplainAsync_Transient503OnFirstModel_FallsBackToSecondModelAndSucceeds()
+    {
+        var attempts = 0;
+        string? secondModelUri = null;
+        var jsonResponse = """
+            {
+              "candidates": [
+                {
+                  "content": {
+                    "parts": [
+                      {
+                        "text": "{\n  \"meaning\": \"test meaning\",\n  \"example\": \"test example\",\n  \"pronunciationIpa\": \"/test/\"\n}"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+            """;
+
+        var handler = new FakeHttpMessageHandler(req =>
+        {
+            attempts++;
+            if (attempts == 1)
+            {
+                return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+                {
+                    Content = new StringContent("{\"error\":{\"message\":\"High demand\"}}", Encoding.UTF8, "application/json")
+                };
+            }
+
+            secondModelUri = req.RequestUri?.ToString();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
+            };
+        });
+
+        var client = new HttpClient(handler);
+        var explainer = new GeminiVocabularyExplainer(() => SecretApiKey, client, ["gemini-3.5-flash", "gemini-3.6-flash"]);
+
+        var result = await explainer.ExplainAsync("word", "A sentence with word.");
+
+        Assert.AreEqual(2, attempts);
+        Assert.AreEqual("test meaning", result.Meaning);
+        Assert.IsNotNull(secondModelUri);
+        Assert.IsTrue(secondModelUri.Contains("models/gemini-3.6-flash:generateContent"));
+    }
+
+    [TestMethod]
+    public async Task ExplainAsync_UsesConfiguredCandidateModel()
     {
         HttpRequestMessage? capturedRequest = null;
         var jsonResponse = """
@@ -135,7 +185,7 @@ public sealed class GeminiVocabularyExplainerTests
         });
 
         var client = new HttpClient(handler);
-        var explainer = new GeminiVocabularyExplainer(() => SecretApiKey, client);
+        var explainer = new GeminiVocabularyExplainer(() => SecretApiKey, client, ["gemini-3.6-flash"]);
 
         await explainer.ExplainAsync("word", "A sentence with word.");
 
