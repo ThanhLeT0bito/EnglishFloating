@@ -1,18 +1,25 @@
 using System.Windows;
 using System.Windows.Controls;
 using PteFloatingSentence.Core;
+using PteFloatingSentence.Windows.Infrastructure;
 
 namespace PteFloatingSentence.Windows;
 
 public partial class SettingsWindow : Window
 {
     private readonly StudyListDraft _draft;
+    private readonly ProtectedApiKeyStore? _apiKeyStore;
     private bool _isRendering;
+    private bool _apiKeyConfigured;
+    private bool _apiKeyCleared;
 
-    public SettingsWindow(AppSettings initial, Action<AppSettings> save)
+    public SettingsWindow(AppSettings initial, Action<AppSettings> save, ProtectedApiKeyStore? apiKeyStore = null)
     {
         InitializeComponent();
         _draft = new StudyListDraft(initial, save);
+        _apiKeyStore = apiKeyStore;
+        _apiKeyConfigured = initial.GeminiApiKeyConfigured;
+        UpdateApiKeyStatus();
         RefreshUi();
     }
 
@@ -103,11 +110,32 @@ public partial class SettingsWindow : Window
         RefreshUi();
     }
 
+    private void ClearApiKeyButton_Click(object sender, RoutedEventArgs e)
+    {
+        _apiKeyCleared = true;
+        _apiKeyConfigured = false;
+        ApiKeyInput.Password = string.Empty;
+        UpdateApiKeyStatus();
+    }
+
     private void SaveButton_Click(object sender, RoutedEventArgs e)
     {
         if (!TryUpdateSelectedList())
             return;
 
+        var newKey = ApiKeyInput.Password?.Trim();
+        if (!string.IsNullOrEmpty(newKey))
+        {
+            _apiKeyStore?.SaveAsync(newKey).GetAwaiter().GetResult();
+            _apiKeyConfigured = true;
+        }
+        else if (_apiKeyCleared)
+        {
+            _apiKeyStore?.ClearAsync().GetAwaiter().GetResult();
+            _apiKeyConfigured = false;
+        }
+
+        _draft.SetApiKeyConfigured(_apiKeyConfigured);
         var result = _draft.Save();
         ShowResult(result);
         if (result.IsValid)
@@ -118,6 +146,12 @@ public partial class SettingsWindow : Window
     {
         _draft.Cancel();
         Close();
+    }
+
+    private void UpdateApiKeyStatus()
+    {
+        ApiKeyStatusLabel.Text = _apiKeyConfigured ? "Key configured" : "No key configured";
+        ClearApiKeyButton.IsEnabled = _apiKeyConfigured;
     }
 
     private bool TryUpdateSelectedList()

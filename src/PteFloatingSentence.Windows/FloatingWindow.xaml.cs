@@ -1,6 +1,10 @@
 using System.Windows;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using Brush = System.Windows.Media.Brush;
+using Color = System.Windows.Media.Color;
+using Cursors = System.Windows.Input.Cursors;
 using PteFloatingSentence.Core;
 
 namespace PteFloatingSentence.Windows;
@@ -8,6 +12,7 @@ namespace PteFloatingSentence.Windows;
 public partial class FloatingWindow : Window
 {
     private bool _hasMultipleSentences;
+    private Guid _currentSentenceId;
 
     public FloatingWindow()
     {
@@ -19,6 +24,10 @@ public partial class FloatingWindow : Window
     public event EventHandler? PreviousRequested;
     public event EventHandler? NextRequested;
     public event EventHandler<(double Left, double Top)>? PositionChanged;
+    public event EventHandler<string>? VocabularySelected;
+    public event EventHandler<Guid>? VocabularyClicked;
+    public event EventHandler<(Guid SentenceId, Guid ItemId)>? HideVocabularyRequested;
+    public event EventHandler<(Guid SentenceId, Guid ItemId)>? RetryVocabularyRequested;
 
     public void ApplySettings(AppSettings settings)
     {
@@ -30,22 +39,182 @@ public partial class FloatingWindow : Window
         NextButton.IsEnabled = _hasMultipleSentences;
         UpdateNavigationVisibility(isPointerOver: IsMouseOver);
 
-        SentenceText.Text = sentenceCount == 0
+        StudySentence? currentSentence = sentenceCount == 0 ? null : activeList.Sentences[activeList.CurrentSentenceIndex];
+        _currentSentenceId = currentSentence?.Id ?? Guid.Empty;
+
+        var text = currentSentence is null
             ? "Add a sentence in Settings."
-            : activeList.Sentences[activeList.CurrentSentenceIndex].Text;
+            : currentSentence.Text;
+
         ProgressText.Text = $"{activeList.Name} · {(sentenceCount == 0 ? 0 : activeList.CurrentSentenceIndex + 1)} / {sentenceCount}";
-        SentenceText.FontSize = IsValidFontSize(settings.FontSize) ? settings.FontSize : defaults.FontSize;
-        SentenceText.Foreground = ToBrush(settings.TextColor, defaults.TextColor);
+        var fontSize = IsValidFontSize(settings.FontSize) ? settings.FontSize : defaults.FontSize;
+        var foregroundBrush = ToBrush(settings.TextColor, defaults.TextColor);
         SentenceBackground.Background = ToBlackBackground(settings.BackgroundOpacity, defaults.BackgroundOpacity);
+
+        RenderSentenceDocument(text, currentSentence?.Vocabulary, fontSize, foregroundBrush);
+        RenderVocabularyPanel(currentSentence?.Vocabulary);
 
         SentenceCard.Measure(new System.Windows.Size(900, double.PositiveInfinity));
         ApplyNavigationButtonSize(SentenceCard.DesiredSize.Height);
     }
 
+    private void RenderSentenceDocument(string text, IReadOnlyList<VocabularyItem>? vocabulary, double fontSize, Brush foregroundBrush)
+    {
+        SentenceDocument.Blocks.Clear();
+        var paragraph = new Paragraph
+        {
+            FontSize = fontSize,
+            Foreground = foregroundBrush,
+            TextAlignment = TextAlignment.Center,
+            Margin = new Thickness(0),
+            Padding = new Thickness(0)
+        };
+
+        if (vocabulary is null || vocabulary.Count == 0)
+        {
+            paragraph.Inlines.Add(new Run(text));
+            SentenceDocument.Blocks.Add(paragraph);
+            return;
+        }
+
+        // Highlight matching vocabulary phrases
+        var sortedVocab = vocabulary
+            .Where(v => !string.IsNullOrWhiteSpace(v.Phrase))
+            .OrderByDescending(v => v.Phrase.Length)
+            .ToList();
+
+        var matches = new List<(int Start, int Length, VocabularyItem Item)>();
+        foreach (var item in sortedVocab)
+        {
+            var searchIndex = 0;
+            while (searchIndex < text.Length)
+            {
+                var index = text.IndexOf(item.Phrase, searchIndex, StringComparison.OrdinalIgnoreCase);
+                if (index < 0)
+                    break;
+
+                var length = item.Phrase.Length;
+                var overlaps = matches.Any(m => Math.Max(m.Start, index) < Math.Min(m.Start + m.Length, index + length));
+                if (!overlaps)
+                {
+                    matches.Add((index, length, item));
+                }
+
+                searchIndex = index + Math.Max(1, length);
+            }
+        }
+
+        matches = matches.OrderBy(m => m.Start).ToList();
+
+        var cursor = 0;
+        foreach (var (start, length, item) in matches)
+        {
+            if (start > cursor)
+            {
+                paragraph.Inlines.Add(new Run(text.Substring(cursor, start - cursor)));
+            }
+
+            var span = new Span(new Run(text.Substring(start, length)))
+            {
+                Foreground = new SolidColorBrush(Color.FromRgb(0x5E, 0xEA, 0xD4)),
+                TextDecorations = TextDecorations.Underline,
+                Cursor = Cursors.Hand
+            };
+            var itemId = item.Id;
+            span.MouseLeftButtonDown += (_, e) =>
+            {
+                e.Handled = true;
+                VocabularyClicked?.Invoke(this, itemId);
+            };
+
+            paragraph.Inlines.Add(span);
+            cursor = start + length;
+        }
+
+        if (cursor < text.Length)
+        {
+            paragraph.Inlines.Add(new Run(text.Substring(cursor)));
+        }
+
+        SentenceDocument.Blocks.Add(paragraph);
+    }
+
+    private void RenderVocabularyPanel(IReadOnlyList<VocabularyItem>? vocabulary)
+    {
+        var visibleItems = (vocabulary ?? [])
+            .Where(item => !item.IsHidden)
+            .ToList();
+
+        if (visibleItems.Count == 0)
+        {
+            VocabularyPanel.Visibility = Visibility.Collapsed;
+            VocabularyPanel.ItemsSource = null;
+            return;
+        }
+
+        var cards = visibleItems.Select(item => new VocabularyCardViewModel
+        {
+            ItemId = item.Id,
+            Phrase = item.Phrase,
+            Meaning = item.Meaning,
+            Example = item.Example,
+            PronunciationIpa = item.PronunciationIpa,
+            Status = item.Status,
+            ErrorMessage = item.LastError
+        }).ToList();
+
+        VocabularyPanel.ItemsSource = cards;
+        VocabularyPanel.Visibility = Visibility.Visible;
+    }
+
+    private void SentenceBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        HandleSelection();
+    }
+
+    private void SentenceBox_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        HandleSelection();
+    }
+
+    private void HandleSelection()
+    {
+        var selection = SentenceBox.Selection.Text;
+        if (string.IsNullOrWhiteSpace(selection))
+            return;
+
+        var trimmed = selection.Trim();
+        if (trimmed.Length > 0)
+        {
+            VocabularySelected?.Invoke(this, trimmed);
+        }
+    }
+
+    private void HideVocabularyButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: Guid itemId })
+        {
+            HideVocabularyRequested?.Invoke(this, (_currentSentenceId, itemId));
+        }
+    }
+
+    private void RetryVocabularyButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: Guid itemId })
+        {
+            RetryVocabularyRequested?.Invoke(this, (_currentSentenceId, itemId));
+        }
+    }
+
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (IsWithinButtonTree(e.OriginalSource, PreviousButton) || IsWithinButtonTree(e.OriginalSource, NextButton))
+        if (IsWithinButtonTree(e.OriginalSource, PreviousButton) ||
+            IsWithinButtonTree(e.OriginalSource, NextButton) ||
+            IsWithinElementTree(e.OriginalSource, SentenceBox) ||
+            IsWithinElementTree(e.OriginalSource, VocabularyPanel))
+        {
             return;
+        }
 
         DragMove();
         PositionChanged?.Invoke(this, (Left, Top));
@@ -116,6 +285,17 @@ public partial class FloatingWindow : Window
         return false;
     }
 
+    private static bool IsWithinElementTree(object originalSource, FrameworkElement element)
+    {
+        for (var current = originalSource as DependencyObject; current is not null; current = GetVisualParent(current))
+        {
+            if (ReferenceEquals(current, element))
+                return true;
+        }
+
+        return false;
+    }
+
     private static DependencyObject? GetVisualParent(DependencyObject element) =>
         element is Visual or System.Windows.Media.Media3D.Visual3D
             ? VisualTreeHelper.GetParent(element)
@@ -143,4 +323,30 @@ public partial class FloatingWindow : Window
             : fallbackOpacity;
         return new SolidColorBrush(System.Windows.Media.Color.FromArgb((byte)Math.Round(selectedOpacity * byte.MaxValue), 0, 0, 0));
     }
+}
+
+public sealed class VocabularyCardViewModel
+{
+    public Guid ItemId { get; init; }
+    public string Phrase { get; init; } = string.Empty;
+    public string? Meaning { get; init; }
+    public string? Example { get; init; }
+    public string? PronunciationIpa { get; init; }
+    public VocabularyStatus Status { get; init; }
+    public string? ErrorMessage { get; init; }
+
+    public Visibility IpaVisibility => string.IsNullOrWhiteSpace(PronunciationIpa) ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility ContentVisibility => Status == VocabularyStatus.Ready ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility ErrorVisibility => Status == VocabularyStatus.Failed ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility StatusVisibility => Status == VocabularyStatus.Pending ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility RetryVisibility => Status == VocabularyStatus.Failed ? Visibility.Visible : Visibility.Collapsed;
+    public string StatusText => Status switch
+    {
+        VocabularyStatus.Pending => "Loading explanation...",
+        VocabularyStatus.Failed => "Failed",
+        _ => string.Empty
+    };
+    public Brush StatusBrush => Status == VocabularyStatus.Failed
+        ? new SolidColorBrush(Color.FromRgb(0xFC, 0xA5, 0xA5))
+        : new SolidColorBrush(Color.FromRgb(0x94, 0xA3, 0xB8));
 }

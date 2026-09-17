@@ -1,6 +1,7 @@
-﻿using System.Configuration;
+using System.Configuration;
 using System.Data;
 using System.Windows;
+using PteFloatingSentence.Windows.Infrastructure;
 
 namespace PteFloatingSentence.Windows;
 
@@ -9,8 +10,11 @@ namespace PteFloatingSentence.Windows;
 /// </summary>
 public partial class App : System.Windows.Application
 {
-    private readonly Infrastructure.JsonSettingsStore _settingsStore = new();
-    private readonly Infrastructure.SettingsPersistenceQueue _persistenceQueue;
+    private readonly JsonSettingsStore _settingsStore = new();
+    private readonly SettingsPersistenceQueue _persistenceQueue;
+    private readonly ProtectedApiKeyStore _apiKeyStore = new();
+    private GeminiVocabularyExplainer? _explainer;
+    private VocabularyWorkflow? _vocabularyWorkflow;
     private Core.AppSettings _settings = Core.AppSettings.Default;
     private FloatingWindow? _floatingWindow;
     private SettingsWindow? _settingsWindow;
@@ -37,6 +41,9 @@ public partial class App : System.Windows.Application
         var position = Core.WindowPlacementNormalizer.Normalize(_settings, displays);
         _settings = _settings with { Left = position.Left, Top = position.Top };
 
+        _explainer = new GeminiVocabularyExplainer(() => _apiKeyStore.LoadAsync().GetAwaiter().GetResult());
+        _vocabularyWorkflow = new VocabularyWorkflow(_explainer, () => _settings, SaveSettings);
+
         _floatingWindow = new FloatingWindow { Left = position.Left, Top = position.Top };
         _floatingWindow.ApplySettings(_settings);
         _floatingWindow.SettingsRequested += FloatingWindow_SettingsRequested;
@@ -44,6 +51,25 @@ public partial class App : System.Windows.Application
         _floatingWindow.PreviousRequested += (_, _) => NavigateCurrentSentence(-1);
         _floatingWindow.NextRequested += (_, _) => NavigateCurrentSentence(1);
         _floatingWindow.PositionChanged += FloatingWindow_PositionChanged;
+        _floatingWindow.VocabularySelected += async (_, selection) =>
+        {
+            var activeList = Core.StudyListRules.ActiveList(_settings);
+            if (activeList.Sentences.Count > 0 && _vocabularyWorkflow is not null)
+            {
+                var currentSentence = activeList.Sentences[activeList.CurrentSentenceIndex];
+                await _vocabularyWorkflow.AddAsync(currentSentence, selection);
+            }
+        };
+        _floatingWindow.HideVocabularyRequested += (_, args) =>
+        {
+            _vocabularyWorkflow?.SetHidden(args.SentenceId, args.ItemId, true);
+        };
+        _floatingWindow.RetryVocabularyRequested += async (_, args) =>
+        {
+            if (_vocabularyWorkflow is not null)
+                await _vocabularyWorkflow.RetryAsync(args.SentenceId, args.ItemId);
+        };
+
         _floatingWindow.Show();
     }
 
@@ -55,7 +81,7 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        _settingsWindow = new SettingsWindow(_settings, SaveSettings);
+        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore);
         _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         _settingsWindow.Show();
     }
@@ -92,6 +118,8 @@ public partial class App : System.Windows.Application
             return;
 
         _isShuttingDown = true;
+        _vocabularyWorkflow?.Dispose();
+        _explainer?.Dispose();
         await _persistenceQueue.FlushAsync();
         Shutdown();
     }

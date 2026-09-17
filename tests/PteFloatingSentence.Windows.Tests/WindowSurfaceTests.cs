@@ -118,6 +118,92 @@ public class WindowSurfaceTests
         CollectionAssert.AreEqual(new[] { true, false }, forwardActive.Sentences.Select(sentence => sentence.IsCompleted).ToArray());
     }
 
+    [TestMethod]
+    public void ProjectFiles_HaveNoWebView2Dependency()
+    {
+        var windowsCsproj = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "PteFloatingSentence.Windows.csproj"));
+        StringAssert.DoesNotMatch(windowsCsproj, new Regex("WebView2", RegexOptions.IgnoreCase));
+    }
+
+    [TestMethod]
+    public void FloatingWindow_ProvidesVocabularyEvents()
+    {
+        var floatingWindowType = typeof(App).Assembly.GetType("PteFloatingSentence.Windows.FloatingWindow");
+        Assert.IsNotNull(floatingWindowType);
+        Assert.IsNotNull(floatingWindowType.GetEvent("VocabularySelected"));
+        Assert.IsNotNull(floatingWindowType.GetEvent("VocabularyClicked"));
+        Assert.IsNotNull(floatingWindowType.GetEvent("HideVocabularyRequested"));
+        Assert.IsNotNull(floatingWindowType.GetEvent("RetryVocabularyRequested"));
+    }
+
+    [TestMethod]
+    public void FloatingWindowXaml_UsesSelectableFlowDocumentAndVocabularyPanel()
+    {
+        var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "FloatingWindow.xaml"));
+
+        // Must use FlowDocument or RichTextBox, not a plain non-selectable TextBlock for sentence text
+        Assert.IsTrue(xaml.Contains("RichTextBox") || xaml.Contains("FlowDocumentScrollViewer"));
+        Assert.IsFalse(xaml.Contains("<TextBlock x:Name=\"SentenceText\""));
+
+        // Must contain VocabularyPanel and buttons for Hide and Retry
+        StringAssert.Contains(xaml, "x:Name=\"VocabularyPanel\"");
+        StringAssert.Contains(xaml, "Hide");
+        StringAssert.Contains(xaml, "Retry");
+    }
+
+    [TestMethod]
+    public void FloatingWindow_ApplySettings_RendersVocabularyCardsAndHighlights()
+    {
+        var thread = new Thread(() =>
+        {
+            var window = new FloatingWindow();
+            var vocabItem = new VocabularyItem(
+                Id: Guid.NewGuid(),
+                Phrase: "practice",
+                NormalizedPhrase: "practice",
+                Meaning: "To do something repeatedly.",
+                Example: "Practice helps progress.",
+                PronunciationIpa: "/ˈpræktɪs/",
+                Status: VocabularyStatus.Ready,
+                IsHidden: false);
+
+            var hiddenItem = new VocabularyItem(
+                Id: Guid.NewGuid(),
+                Phrase: "hidden",
+                NormalizedPhrase: "hidden",
+                Status: VocabularyStatus.Ready,
+                IsHidden: true);
+
+            var sentence = new StudySentence(
+                Guid.NewGuid(),
+                "Practice makes progress and stays hidden.",
+                IsCompleted: false,
+                Vocabulary: [vocabItem, hiddenItem]);
+
+            var list = new StudyList(Guid.NewGuid(), "List", 10, 0, [sentence]);
+            window.ApplySettings(AppSettings.Default with
+            {
+                StudyLists = [list],
+                ActiveListId = list.Id
+            });
+
+            var panel = (System.Windows.Controls.ItemsControl)window.FindName("VocabularyPanel");
+            Assert.AreEqual(System.Windows.Visibility.Visible, panel.Visibility);
+            var items = (System.Collections.IEnumerable)panel.ItemsSource;
+            var count = 0;
+            foreach (var item in items)
+            {
+                count++;
+            }
+
+            // Only 1 item visible (the non-hidden one)
+            Assert.AreEqual(1, count);
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
+
     private static string FindWorkspaceFile(params string[] segments)
     {
         for (var directory = new DirectoryInfo(Directory.GetCurrentDirectory()); directory is not null; directory = directory.Parent)
@@ -131,3 +217,4 @@ public class WindowSurfaceTests
         return string.Empty;
     }
 }
+

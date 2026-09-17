@@ -336,6 +336,66 @@ public class SettingsWorkflowTests
         Assert.AreEqual(0.7d, merged.BackgroundOpacity);
     }
 
+    [TestMethod]
+    public void SettingsWindow_SaveWithApiKey_SavesProtectedKeyAndUpdatesConfiguredFlag()
+    {
+        RunOnSta(() =>
+        {
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                var store = new ProtectedApiKeyStore("PteFloatingSentence", tempDir);
+                AppSettings? savedSettings = null;
+                var window = new SettingsWindow(AppSettings.Default, s => savedSettings = s, store);
+
+                Named<PasswordBox>(window, "ApiKeyInput").Password = "my-new-secret-gemini-key";
+                InvokeClick(window, "SaveButton_Click");
+
+                Assert.IsNotNull(savedSettings);
+                Assert.IsTrue(savedSettings.GeminiApiKeyConfigured);
+
+                var loadedKey = store.LoadAsync().GetAwaiter().GetResult();
+                Assert.AreEqual("my-new-secret-gemini-key", loadedKey);
+            }
+            finally
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+        });
+    }
+
+    [TestMethod]
+    public void SettingsWindow_ClearApiKey_RemovesKeyAndClearsConfiguredFlag()
+    {
+        RunOnSta(() =>
+        {
+            var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                var store = new ProtectedApiKeyStore("PteFloatingSentence", tempDir);
+                store.SaveAsync("existing-key").GetAwaiter().GetResult();
+
+                AppSettings? savedSettings = null;
+                var window = new SettingsWindow(AppSettings.Default with { GeminiApiKeyConfigured = true }, s => savedSettings = s, store);
+
+                InvokeClick(window, "ClearApiKeyButton_Click");
+                InvokeClick(window, "SaveButton_Click");
+
+                Assert.IsNotNull(savedSettings);
+                Assert.IsFalse(savedSettings.GeminiApiKeyConfigured);
+
+                var loadedKey = store.LoadAsync().GetAwaiter().GetResult();
+                Assert.IsNull(loadedKey);
+            }
+            finally
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+        });
+    }
+
     private static SettingsWindow CreateWindowWithTwoSentences()
     {
         var list = new StudyList(Guid.NewGuid(), "Original list", 10, 0,
