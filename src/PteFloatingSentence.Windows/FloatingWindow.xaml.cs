@@ -82,6 +82,9 @@ public partial class FloatingWindow : Window
         {
             VocabularyPanel.Visibility = Visibility.Collapsed;
             VocabularyPanel.ItemsSource = null;
+            _vocabularyRenderSignature = null;
+            _vocabularyRenderHighlight = null;
+            _vocabularyRenderVisibility = null;
             return;
         }
 
