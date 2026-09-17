@@ -52,6 +52,13 @@ public sealed class StudyListDraft
 
     public void SetApiKeyConfigured(bool configured) => _settings = _settings with { GeminiApiKeyConfigured = configured };
 
+    public void SetDisplayPreferences(bool showSentence, bool showVocabulary) =>
+        _settings = _settings with
+        {
+            ShowSentenceOverlay = showSentence,
+            ShowVocabularyCards = showVocabulary
+        };
+
     public ValidationResult DeleteSelectedList()
     {
         if (_settings.StudyLists.Count == 1)

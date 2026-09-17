@@ -396,6 +396,206 @@ public class SettingsWorkflowTests
         });
     }
 
+    [TestMethod]
+    public void StudyListDraft_SetDisplayPreferences_UpdatesSettingsWithoutAlteringLists()
+    {
+        var draft = new StudyListDraft(AppSettings.Default, _ => { });
+        draft.SetDisplayPreferences(false, false);
+
+        Assert.IsFalse(draft.Settings.ShowSentenceOverlay);
+        Assert.IsFalse(draft.Settings.ShowVocabularyCards);
+    }
+
+    [TestMethod]
+    public void SettingsWindow_SaveDisplayPreferences_SavesUncheckedValues()
+    {
+        RunOnSta(() =>
+        {
+            AppSettings? saved = null;
+            var window = new SettingsWindow(AppSettings.Default, s => saved = s);
+
+            var showSentenceBox = Named<CheckBox>(window, "ShowSentenceOverlayInput");
+            var showVocabBox = Named<CheckBox>(window, "ShowVocabularyCardsInput");
+
+            Assert.IsTrue(showSentenceBox.IsChecked);
+            Assert.IsTrue(showVocabBox.IsChecked);
+
+            showSentenceBox.IsChecked = false;
+            showVocabBox.IsChecked = false;
+
+            InvokeClick(window, "SaveButton_Click");
+
+            Assert.IsNotNull(saved);
+            Assert.IsFalse(saved.ShowSentenceOverlay);
+            Assert.IsFalse(saved.ShowVocabularyCards);
+        });
+    }
+
+    [TestMethod]
+    public void SettingsWindow_LoadsDisplayPreferencesFromSettings()
+    {
+        RunOnSta(() =>
+        {
+            var initial = AppSettings.Default with
+            {
+                ShowSentenceOverlay = false,
+                ShowVocabularyCards = true
+            };
+            var window = new SettingsWindow(initial, _ => { });
+
+            var showSentenceBox = Named<CheckBox>(window, "ShowSentenceOverlayInput");
+            var showVocabBox = Named<CheckBox>(window, "ShowVocabularyCardsInput");
+
+            Assert.IsFalse(showSentenceBox.IsChecked);
+            Assert.IsTrue(showVocabBox.IsChecked);
+        });
+    }
+
+    [TestMethod]
+    public void SettingsWindow_ReviewTab_TogglesVisibilityAndPopulatesReviewList()
+    {
+        RunOnSta(() =>
+        {
+            var window = CreateWindowWithTwoSentences();
+            var setupSection = Named<Grid>(window, "SetupSection");
+            var reviewSection = Named<Grid>(window, "ReviewSection");
+            var reviewTab = Named<RadioButton>(window, "ReviewTabButton");
+            var setupTab = Named<RadioButton>(window, "SetupTabButton");
+            var reviewList = Named<ItemsControl>(window, "ReviewList");
+            var emptyLabel = Named<TextBlock>(window, "ReviewEmptyStateLabel");
+
+            Assert.AreEqual(Visibility.Visible, setupSection.Visibility);
+            Assert.AreEqual(Visibility.Collapsed, reviewSection.Visibility);
+
+            reviewTab.IsChecked = true;
+
+            Assert.AreEqual(Visibility.Collapsed, setupSection.Visibility);
+            Assert.AreEqual(Visibility.Visible, reviewSection.Visibility);
+            Assert.AreEqual(Visibility.Collapsed, emptyLabel.Visibility);
+            Assert.AreEqual(Visibility.Visible, reviewList.Visibility);
+            Assert.IsNotNull(reviewList.ItemsSource);
+
+            setupTab.IsChecked = true;
+
+            Assert.AreEqual(Visibility.Visible, setupSection.Visibility);
+            Assert.AreEqual(Visibility.Collapsed, reviewSection.Visibility);
+        });
+    }
+
+    [TestMethod]
+    public void SettingsNavigation_DefaultsToSetupPage()
+    {
+        RunOnSta(() =>
+        {
+            var window = CreateWindowWithTwoSentences();
+            Assert.AreEqual(SettingsPageId.Setup, window.SelectedPage);
+        });
+    }
+
+    [TestMethod]
+    public void SettingsNavigation_NavigateTo_ChangesSelectedPage()
+    {
+        RunOnSta(() =>
+        {
+            var window = CreateWindowWithTwoSentences();
+
+            window.NavigateTo(SettingsPageId.Display);
+            Assert.AreEqual(SettingsPageId.Display, window.SelectedPage);
+
+            window.NavigateTo(SettingsPageId.Review);
+            Assert.AreEqual(SettingsPageId.Review, window.SelectedPage);
+
+            window.NavigateTo(SettingsPageId.Gemini);
+            Assert.AreEqual(SettingsPageId.Gemini, window.SelectedPage);
+
+            window.NavigateTo(SettingsPageId.Setup);
+            Assert.AreEqual(SettingsPageId.Setup, window.SelectedPage);
+        });
+    }
+
+    [TestMethod]
+    public void SettingsNavigation_PreservesDraftStateAcrossPageSwitches()
+    {
+        RunOnSta(() =>
+        {
+            var window = CreateWindowWithTwoSentences();
+            var draft = DraftFor(window);
+            var initialListId = draft.SelectedListId;
+
+            window.NavigateTo(SettingsPageId.Display);
+            window.NavigateTo(SettingsPageId.Review);
+            window.NavigateTo(SettingsPageId.Gemini);
+            window.NavigateTo(SettingsPageId.Setup);
+
+            Assert.AreEqual(initialListId, DraftFor(window).SelectedListId);
+            Assert.AreEqual(2, DraftFor(window).SelectedList.Sentences.Count);
+        });
+    }
+
+    [TestMethod]
+    public void SettingsNavigation_SwitchingPages_PreservesUnsavedUserInputsAcrossAllPages()
+    {
+        RunOnSta(() =>
+        {
+            var window = CreateWindowWithTwoSentences();
+            var listNameInput = Named<TextBox>(window, "ListNameInput");
+            var sentenceInput = Named<TextBox>(window, "SentenceInput");
+            var apiKeyInput = Named<PasswordBox>(window, "ApiKeyInput");
+
+            listNameInput.Text = "Unsaved List Name";
+            sentenceInput.Text = "Unsaved Sentence Text";
+            apiKeyInput.Password = "UnsavedApiKey123";
+
+            window.NavigateTo(SettingsPageId.Display);
+            window.NavigateTo(SettingsPageId.Review);
+            window.NavigateTo(SettingsPageId.Gemini);
+
+            Assert.AreEqual("UnsavedApiKey123", apiKeyInput.Password);
+
+            window.NavigateTo(SettingsPageId.Setup);
+
+            Assert.AreEqual("Unsaved List Name", listNameInput.Text);
+            Assert.AreEqual("Unsaved Sentence Text", sentenceInput.Text);
+        });
+    }
+
+    [TestMethod]
+    public void DisplayPage_LoadsPreferences_AndEmitsDisplayPreferencesChangedOnToggle()
+    {
+        RunOnSta(() =>
+        {
+            var page = new DisplayPage();
+            page.LoadPreferences(showSentenceOverlay: true, showVocabularyCards: false);
+
+            var sentenceCheck = (CheckBox)page.FindName("ShowSentenceOverlayInput");
+            var vocabCheck = (CheckBox)page.FindName("ShowVocabularyCardsInput");
+
+            Assert.IsNotNull(sentenceCheck);
+            Assert.IsNotNull(vocabCheck);
+            Assert.IsTrue(sentenceCheck.IsChecked);
+            Assert.IsFalse(vocabCheck.IsChecked);
+
+            bool? emittedSentence = null;
+            bool? emittedVocab = null;
+            Action<bool, bool> handler = (s, v) =>
+            {
+                emittedSentence = s;
+                emittedVocab = v;
+            };
+            page.DisplayPreferencesChanged += handler;
+            try
+            {
+                vocabCheck.IsChecked = true;
+                Assert.AreEqual(true, emittedSentence);
+                Assert.AreEqual(true, emittedVocab);
+            }
+            finally
+            {
+                page.DisplayPreferencesChanged -= handler;
+            }
+        });
+    }
+
     private static SettingsWindow CreateWindowWithTwoSentences()
     {
         var list = new StudyList(Guid.NewGuid(), "Original list", 10, 0,
@@ -415,12 +615,66 @@ public class SettingsWorkflowTests
     private static StudyListDraft DraftFor(SettingsWindow window) =>
         (StudyListDraft)typeof(SettingsWindow).GetField("_draft", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
 
-    private static T Named<T>(SettingsWindow window, string name) where T : FrameworkElement =>
-        (T)window.FindName(name)!;
+    private static T Named<T>(SettingsWindow window, string name) where T : FrameworkElement
+    {
+        var found = window.FindName(name) as T;
+        if (found is not null)
+            return found;
 
-    private static void InvokeClick(SettingsWindow window, string methodName) =>
-        typeof(SettingsWindow).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(window, [window, new RoutedEventArgs()]);
+        return FindDescendantByName<T>(window, name)
+            ?? throw new InvalidOperationException($"Control '{name}' of type {typeof(T).Name} not found in SettingsWindow.");
+    }
+
+    private static T? FindDescendantByName<T>(DependencyObject parent, string name) where T : FrameworkElement
+    {
+        if (parent is FrameworkElement fe)
+        {
+            var found = fe.FindName(name) as T;
+            if (found is not null)
+                return found;
+        }
+
+        if (parent is ContentControl cc && cc.Content is DependencyObject contentChild)
+        {
+            var matchInContent = FindDescendantByName<T>(contentChild, name);
+            if (matchInContent is not null)
+                return matchInContent;
+        }
+
+        foreach (var child in LogicalTreeHelper.GetChildren(parent))
+        {
+            if (child is DependencyObject dChild)
+            {
+                var result = FindDescendantByName<T>(dChild, name);
+                if (result is not null)
+                    return result;
+            }
+        }
+        return null;
+    }
+
+    private static void InvokeClick(SettingsWindow window, string methodName)
+    {
+        var method = typeof(SettingsWindow).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+        if (method is not null)
+        {
+            method.Invoke(window, [window, new RoutedEventArgs()]);
+            return;
+        }
+
+        var setupPage = typeof(SettingsWindow).GetField("_setupPage", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(window);
+        if (setupPage is not null)
+        {
+            var pageMethod = setupPage.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+            if (pageMethod is not null)
+            {
+                pageMethod.Invoke(setupPage, [setupPage, new RoutedEventArgs()]);
+                return;
+            }
+        }
+
+        throw new InvalidOperationException($"Method '{methodName}' not found on SettingsWindow or SetupPage.");
+    }
 
     private static void RunOnSta(Action action)
     {

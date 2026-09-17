@@ -12,5 +12,7 @@ public sealed record AppSettings
     public double Left { get; init; } = 100;
     public double Top { get; init; } = 100;
     public bool GeminiApiKeyConfigured { get; init; } = false;
+    public bool ShowSentenceOverlay { get; init; } = true;
+    public bool ShowVocabularyCards { get; init; } = true;
     public static AppSettings Default => StudyListRules.CreateDefault("Right-click this sentence to open Settings.");
 }

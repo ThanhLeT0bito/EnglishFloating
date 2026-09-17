@@ -31,11 +31,11 @@
 - `SettingsWindow.SelectedPage` exposes the current page for UI tests.
 - `SettingsWindow.NavigateTo(SettingsPageId page)` changes the selected navigation item without changing draft data.
 
-- [ ] Add failing tests for the default page (`Setup`), navigation to each page, and preserving the draft while navigating.
-- [ ] Run `dotnet test tests/PteFloatingSentence.Windows.Tests/PteFloatingSentence.Windows.Tests.csproj --filter FullyQualifiedName~SettingsNavigation` and verify failure because the contract does not exist.
-- [ ] Add the enum and minimal shell navigation state.
-- [ ] Run focused tests and verify they pass.
-- [ ] Commit with `feat: define settings center navigation contract`.
+- [x] Add failing tests for the default page (`Setup`), navigation to each page, and preserving the draft while navigating.
+- [x] Run `dotnet test tests/PteFloatingSentence.Windows.Tests/PteFloatingSentence.Windows.Tests.csproj --filter FullyQualifiedName~SettingsNavigation` and verify failure because the contract does not exist.
+- [x] Add the enum and minimal shell navigation state.
+- [x] Run focused tests and verify they pass.
+- [x] Commit with `feat: define settings center navigation contract`.
 
 ### Task 2: Create the Settings Center shell and visual system
 
@@ -49,12 +49,12 @@
 - Required named elements: `SettingsNavigation`, `PageTitle`, `PageSubtitle`, `PageContentHost`, `SaveButton`, and `CancelButton`.
 - Navigation items use `SettingsPageId` in their `Tag` property.
 
-- [ ] Add failing surface tests for the navigation rail, all four navigation labels, page content host, and footer buttons.
-- [ ] Replace the current single-grid form layout with the shell structure while preserving the existing window class and event handlers.
-- [ ] Add shared resources for panel backgrounds, borders, muted text, accent, primary, secondary, and danger buttons.
-- [ ] Add selected navigation styling and keyboard focus visibility without relying on external icons.
-- [ ] Run XAML/build tests and verify the shell loads at the current minimum size.
-- [ ] Commit with `ui: add extensible settings center shell`.
+- [x] Add failing surface tests for the navigation rail, all four navigation labels, page content host, and footer buttons.
+- [x] Replace the current single-grid form layout with the shell structure while preserving the existing window class and event handlers.
+- [x] Add shared resources for panel backgrounds, borders, muted text, accent, primary, secondary, and danger buttons.
+- [x] Add selected navigation styling and keyboard focus visibility without relying on external icons.
+- [x] Run XAML/build tests and verify the shell loads at the current minimum size.
+- [x] Commit with `ui: add extensible settings center shell`.
 
 ### Task 3: Extract SetupPage
 
@@ -76,12 +76,12 @@
   - `Action DeleteSentence`
 - It raises `ListChanged`/`SentenceChanged` notifications to the shell only through existing draft updates.
 
-- [ ] Add failing tests proving SetupPage exposes the list editor controls and that selecting a sentence updates the editor text.
-- [ ] Move the current list/sentence XAML into SetupPage without changing labels or validation semantics.
-- [ ] Move corresponding event handlers into SetupPage and have SettingsWindow refresh the page through one explicit `RefreshFromDraft()` method.
-- [ ] Keep destructive actions visually separated and require the existing delete confirmation for lists.
-- [ ] Run Setup-focused tests and verify all existing list/sentence workflow tests remain green.
-- [ ] Commit with `refactor: extract setup settings page`.
+- [x] Add failing tests proving SetupPage exposes the list editor controls and that selecting a sentence updates the editor text.
+- [x] Move the current list/sentence XAML into SetupPage without changing labels or validation semantics.
+- [x] Move corresponding event handlers into SetupPage and have SettingsWindow refresh the page through one explicit `RefreshFromDraft()` method.
+- [x] Keep destructive actions visually separated and require the existing delete confirmation for lists.
+- [x] Run Setup-focused tests and verify all existing list/sentence workflow tests remain green.
+- [x] Commit with `refactor: extract setup settings page`.
 
 ### Task 4: Extract DisplayPage
 
@@ -97,11 +97,11 @@
 - The page emits a single `DisplayPreferencesChanged` event carrying both boolean values.
 - SettingsWindow persists the values through the existing draft/settings save path; the page does not write JSON directly.
 
-- [ ] Add failing tests for loading current preference values and emitting updated values when checkboxes change.
-- [ ] Implement a clean Display card with grouped toggles and future-ready helper text.
-- [ ] Add a disabled/preview-only row for future pronunciation or navigation controls only if it is visually clear; do not create fake behavior.
-- [ ] Run Display tests and confirm save/cancel semantics: Save persists, Cancel discards.
-- [ ] Commit with `feat: add display settings page`.
+- [x] Add failing tests for loading current preference values and emitting updated values when checkboxes change.
+- [x] Implement a clean Display card with grouped toggles and future-ready helper text.
+- [x] Add a disabled/preview-only row for future pronunciation or navigation controls only if it is visually clear; do not create fake behavior.
+- [x] Run Display tests and confirm save/cancel semantics: Save persists, Cancel discards.
+- [x] Commit with `feat: add display settings page`.
 
 ### Task 5: Add ReviewPage and GeminiPage shells
 
@@ -119,11 +119,11 @@
 - `GeminiPage` owns API key input, configured status, and clear/save callbacks using the existing `ProtectedApiKeyStore`.
 - Neither page owns `AppSettings` persistence directly.
 
-- [ ] Add failing tests for Review empty state, Review list summary rendering, and Gemini key/status controls.
-- [ ] Implement Review as a stable placeholder for future quiz navigation, with no answer input yet.
-- [ ] Move existing API key controls and handlers into GeminiPage while preserving DPAPI storage and clear behavior.
-- [ ] Run page-focused tests and verify no API key is exposed in labels, logs, or ordinary settings JSON.
-- [ ] Commit with `feat: add review and gemini settings pages`.
+- [x] Add failing tests for Review empty state, Review list summary rendering, and Gemini key/status controls.
+- [x] Implement Review as a stable placeholder for future quiz navigation, with no answer input yet.
+- [x] Move existing API key controls and handlers into GeminiPage while preserving DPAPI storage and clear behavior.
+- [x] Run page-focused tests and verify no API key is exposed in labels, logs, or ordinary settings JSON.
+- [x] Commit with `feat: add review and gemini settings pages`.
 
 ### Task 6: Integrate page lifecycle and verify responsive behavior
 
@@ -133,15 +133,15 @@
 - Modify: `tests/PteFloatingSentence.Windows.Tests/WindowSurfaceTests.cs`
 - Modify: `tests/PteFloatingSentence.Windows.Tests/SettingsWorkflowTests.cs`
 
-- [ ] Add a single `RenderSelectedPage()` path that clears/replaces the content host and refreshes only the active page.
-- [ ] Ensure switching pages does not lose unsaved list, sentence, display, or API key edits.
-- [ ] Ensure Save validates the active page and all draft data before closing; Cancel closes without persistence.
-- [ ] Add minimum-size and scrollability checks for Setup and Review content.
-- [ ] Run sequential verification:
+- [x] Add a single `RenderSelectedPage()` path that clears/replaces the content host and refreshes only the active page.
+- [x] Ensure switching pages does not lose unsaved list, sentence, display, or API key edits.
+- [x] Ensure Save validates the active page and all draft data before closing; Cancel closes without persistence.
+- [x] Add minimum-size and scrollability checks for Setup and Review content.
+- [x] Run sequential verification:
   - `dotnet test tests/PteFloatingSentence.Core.Tests/PteFloatingSentence.Core.Tests.csproj --configuration Debug --no-restore`
   - `dotnet test tests/PteFloatingSentence.Windows.Tests/PteFloatingSentence.Windows.Tests.csproj --configuration Debug --no-restore`
   - `dotnet build PteFloatingSentence.sln --configuration Debug --no-restore`
-- [ ] Run `git diff --check`, inspect the rendered Settings window manually, and commit with `ui: complete settings center page integration`.
+- [x] Run `git diff --check`, inspect the rendered Settings window manually, and commit with `ui: complete settings center page integration`.
 
 ## Deferred Follow-up
 

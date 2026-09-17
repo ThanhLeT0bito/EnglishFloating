@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using TextBox = System.Windows.Controls.TextBox;
+using ListBoxItem = System.Windows.Controls.ListBoxItem;
 using PteFloatingSentence.Core;
 using PteFloatingSentence.Windows.Infrastructure;
 
@@ -13,14 +15,118 @@ public partial class SettingsWindow : Window
     private bool _apiKeyConfigured;
     private bool _apiKeyCleared;
 
+    public SettingsPageId SelectedPage { get; private set; } = SettingsPageId.Setup;
+
+    public void NavigateTo(SettingsPageId page)
+    {
+        SelectedPage = page;
+        SyncNavigationSelection();
+        UpdatePageHeader();
+        RenderSelectedPage();
+    }
+
+    private void RenderSelectedPage()
+    {
+        if (SetupSection is not null)
+            SetupSection.Visibility = SelectedPage == SettingsPageId.Setup ? Visibility.Visible : Visibility.Collapsed;
+        if (DisplaySection is not null)
+            DisplaySection.Visibility = SelectedPage == SettingsPageId.Display ? Visibility.Visible : Visibility.Collapsed;
+        if (ReviewSection is not null)
+            ReviewSection.Visibility = SelectedPage == SettingsPageId.Review ? Visibility.Visible : Visibility.Collapsed;
+        if (GeminiSection is not null)
+            GeminiSection.Visibility = SelectedPage == SettingsPageId.Gemini ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void SyncNavigationSelection()
+    {
+        if (SettingsNavigation is null)
+            return;
+
+        foreach (ListBoxItem item in SettingsNavigation.Items)
+        {
+            if (item.Tag is SettingsPageId id && id == SelectedPage)
+            {
+                if (!item.IsSelected)
+                {
+                    _isRendering = true;
+                    try
+                    {
+                        SettingsNavigation.SelectedItem = item;
+                    }
+                    finally
+                    {
+                        _isRendering = false;
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    private void SettingsNavigation_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isRendering || SettingsNavigation.SelectedItem is not ListBoxItem item || item.Tag is not SettingsPageId pageId)
+            return;
+
+        NavigateTo(pageId);
+    }
+
+    private void UpdatePageHeader()
+    {
+        if (PageTitle is null || PageSubtitle is null)
+            return;
+
+        (PageTitle.Text, PageSubtitle.Text) = SelectedPage switch
+        {
+            SettingsPageId.Setup => ("Setup", "Manage study lists and sentence practice order"),
+            SettingsPageId.Display => ("Display", "Configure floating sentence and vocabulary overlay preferences"),
+            SettingsPageId.Review => ("Review", "Track vocabulary mastery and study progress"),
+            SettingsPageId.Gemini => ("Gemini", "Configure Gemini API key for vocabulary explanations"),
+            _ => ("Settings", string.Empty)
+        };
+    }
+
     public SettingsWindow(AppSettings initial, Action<AppSettings> save, ProtectedApiKeyStore? apiKeyStore = null)
     {
         InitializeComponent();
         _draft = new StudyListDraft(initial, save);
         _apiKeyStore = apiKeyStore;
         _apiKeyConfigured = initial.GeminiApiKeyConfigured;
+        SetupPageControl.Initialize(_draft, ShowResult, () => RefreshUi());
+        DisplayPageControl.LoadPreferences(_draft.Settings.ShowSentenceOverlay, _draft.Settings.ShowVocabularyCards);
+        DisplayPageControl.DisplayPreferencesChanged += OnDisplayPreferencesChanged;
+        GeminiPageControl.LoadState(_apiKeyConfigured);
+        GeminiPageControl.ClearKeyRequested += OnClearKeyRequested;
         UpdateApiKeyStatus();
+        SyncNavigationSelection();
+        UpdatePageHeader();
+        RenderSelectedPage();
         RefreshUi();
+    }
+
+    private void OnDisplayPreferencesChanged(bool showSentence, bool showVocab)
+    {
+        _draft.SetDisplayPreferences(showSentence, showVocab);
+    }
+
+    private void OnClearKeyRequested()
+    {
+        _apiKeyCleared = true;
+        _apiKeyConfigured = false;
+        UpdateApiKeyStatus();
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        if (DisplayPageControl is not null)
+        {
+            DisplayPageControl.DisplayPreferencesChanged -= OnDisplayPreferencesChanged;
+        }
+        if (GeminiPageControl is not null)
+        {
+            GeminiPageControl.ClearKeyRequested -= OnClearKeyRequested;
+        }
     }
 
     private void NewListButton_Click(object sender, RoutedEventArgs e)
@@ -34,17 +140,6 @@ public partial class SettingsWindow : Window
 
     private void StudyListList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_isRendering || StudyListList.SelectedItem is not ListBoxItem item || item.Tag is not Guid listId)
-            return;
-
-        if (!TryUpdateSelectedList())
-        {
-            RestoreSelectedListSelection();
-            return;
-        }
-
-        _draft.SelectList(listId);
-        RefreshUi();
     }
 
     private void MakeActiveButton_Click(object sender, RoutedEventArgs e)
@@ -70,12 +165,6 @@ public partial class SettingsWindow : Window
 
     private void SentenceList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_isRendering || SentenceList.SelectedItem is not ListBoxItem item || item.Tag is not Guid sentenceId)
-            return;
-
-        _draft.SelectSentence(sentenceId);
-        SentenceInput.Text = _draft.SelectedList.Sentences.Single(sentence => sentence.Id == sentenceId).Text;
-        ValidationMessage.Text = string.Empty;
     }
 
     private void AddSentenceButton_Click(object sender, RoutedEventArgs e)
@@ -83,7 +172,8 @@ public partial class SettingsWindow : Window
         if (!TryUpdateSelectedList())
             return;
 
-        var result = _draft.AddSentence(SentenceInput.Text);
+        var sentenceInput = (TextBox)SetupPageControl.FindName("SentenceInput");
+        var result = _draft.AddSentence(sentenceInput?.Text ?? string.Empty);
         ShowResult(result);
         if (result.IsValid)
             RefreshUi();
@@ -94,7 +184,8 @@ public partial class SettingsWindow : Window
         if (!TryUpdateSelectedList())
             return;
 
-        var result = _draft.UpdateSelectedSentence(SentenceInput.Text);
+        var sentenceInput = (TextBox)SetupPageControl.FindName("SentenceInput");
+        var result = _draft.UpdateSelectedSentence(sentenceInput?.Text ?? string.Empty);
         ShowResult(result);
         if (result.IsValid)
             RefreshUi();
@@ -112,10 +203,7 @@ public partial class SettingsWindow : Window
 
     private void ClearApiKeyButton_Click(object sender, RoutedEventArgs e)
     {
-        _apiKeyCleared = true;
-        _apiKeyConfigured = false;
-        ApiKeyInput.Password = string.Empty;
-        UpdateApiKeyStatus();
+        GeminiPageControl.ClearApiKey();
     }
 
     private void SaveButton_Click(object sender, RoutedEventArgs e)
@@ -123,7 +211,7 @@ public partial class SettingsWindow : Window
         if (!TryUpdateSelectedList())
             return;
 
-        var newKey = ApiKeyInput.Password?.Trim();
+        var newKey = GeminiPageControl.CurrentKey;
         if (!string.IsNullOrEmpty(newKey))
         {
             _apiKeyStore?.Save(newKey);
@@ -136,6 +224,8 @@ public partial class SettingsWindow : Window
         }
 
         _draft.SetApiKeyConfigured(_apiKeyConfigured);
+        if (DisplayPageControl is not null)
+            _draft.SetDisplayPreferences(DisplayPageControl.ShowSentenceOverlay, DisplayPageControl.ShowVocabularyCards);
         var result = _draft.Save();
         ShowResult(result);
         if (result.IsValid)
@@ -150,21 +240,15 @@ public partial class SettingsWindow : Window
 
     private void UpdateApiKeyStatus()
     {
-        ApiKeyStatusLabel.Text = _apiKeyConfigured ? "Key configured" : "No key configured";
-        ClearApiKeyButton.IsEnabled = _apiKeyConfigured;
+        GeminiPageControl?.LoadState(_apiKeyConfigured);
     }
 
     private bool TryUpdateSelectedList()
     {
-        if (!int.TryParse(TargetInput.Text, out var target))
-        {
-            ValidationMessage.Text = "Target must be a whole number.";
-            return false;
-        }
+        if (SetupPageControl is null)
+            return true;
 
-        _draft.UpdateSelectedList(ListNameInput.Text, target);
-        ValidationMessage.Text = string.Empty;
-        return true;
+        return SetupPageControl.TryCommitListEditsInternal().IsValid;
     }
 
     private void RefreshUi()
@@ -172,63 +256,26 @@ public partial class SettingsWindow : Window
         _isRendering = true;
         try
         {
-            StudyListList.Items.Clear();
-            foreach (var list in _draft.Settings.StudyLists)
-            {
-                var item = new ListBoxItem
-                {
-                    Tag = list.Id,
-                    Content = FormatListLabel(list, list.Id == _draft.Settings.ActiveListId)
-                };
-                StudyListList.Items.Add(item);
-                if (list.Id == _draft.SelectedListId)
-                    StudyListList.SelectedItem = item;
-            }
-
-            var selected = _draft.SelectedList;
-            DeleteListButton.IsEnabled = _draft.Settings.StudyLists.Count > 1;
-            ListNameInput.Text = selected.Name;
-            TargetInput.Text = selected.TargetSentenceCount.ToString();
-            ActiveListLabel.Text = _draft.Settings.ActiveListId == selected.Id
-                ? "This list is active"
-                : "Choose Make active to show this list in the widget";
-
-            SentenceList.Items.Clear();
-            for (var index = 0; index < selected.Sentences.Count; index++)
-            {
-                var sentence = selected.Sentences[index];
-                var item = new ListBoxItem { Tag = sentence.Id, Content = $"{index + 1}. {sentence.Text}" };
-                SentenceList.Items.Add(item);
-                if (sentence.Id == _draft.SelectedSentenceId)
-                    SentenceList.SelectedItem = item;
-            }
-
-            SentenceInput.Text = _draft.SelectedSentenceId is Guid selectedSentenceId
-                ? selected.Sentences.Single(sentence => sentence.Id == selectedSentenceId).Text
-                : string.Empty;
+            SetupPageControl.RefreshFromDraft(_draft);
+            DisplayPageControl?.LoadPreferences(_draft.Settings.ShowSentenceOverlay, _draft.Settings.ShowVocabularyCards);
+            ReviewPageControl?.LoadData(new ReviewViewModel(_draft.Settings));
+            GeminiPageControl?.LoadState(_apiKeyConfigured);
         }
         finally
         {
             _isRendering = false;
         }
+    }
+
+    private void TabButton_Checked(object sender, RoutedEventArgs e)
+    {
+        if (SetupSection is null || ReviewSection is null)
+            return;
+
+        var isReview = ReviewTabButton.IsChecked == true;
+        SetupSection.Visibility = isReview ? Visibility.Collapsed : Visibility.Visible;
+        ReviewSection.Visibility = isReview ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void ShowResult(PteFloatingSentence.Core.ValidationResult result) => ValidationMessage.Text = result.IsValid ? string.Empty : result.Error;
-
-    private void RestoreSelectedListSelection()
-    {
-        _isRendering = true;
-        try
-        {
-            StudyListList.SelectedItem = StudyListList.Items.OfType<ListBoxItem>()
-                .SingleOrDefault(item => item.Tag is Guid listId && listId == _draft.SelectedListId);
-        }
-        finally
-        {
-            _isRendering = false;
-        }
-    }
-
-    private static string FormatListLabel(StudyList list, bool isActive) =>
-        $"{list.Name} · {list.Sentences.Count} sentence{(list.Sentences.Count == 1 ? string.Empty : "s")}{(isActive ? " · Active" : string.Empty)}";
 }
