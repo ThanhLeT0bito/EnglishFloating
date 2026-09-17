@@ -276,8 +276,11 @@ public partial class FloatingWindow : Window
             return;
 
         // 1. Check if the selection is inside an existing vocabulary span
-        var itemIdFromSpan = FindVocabularyItemId(SentenceBox.Selection.Start.Parent as TextElement)
-                          ?? FindVocabularyItemId(SentenceBox.Selection.End.Parent as TextElement);
+        var startItemId = FindVocabularyItemId(SentenceBox.Selection.Start.Parent as TextElement);
+        var endItemId = FindVocabularyItemId(SentenceBox.Selection.End.Parent as TextElement);
+        var itemIdFromSpan = startItemId.HasValue && startItemId == endItemId
+            ? startItemId
+            : null;
 
         if (itemIdFromSpan.HasValue)
         {

@@ -513,6 +513,40 @@ public class WindowSurfaceTests
         thread.Join();
     }
 
+    [TestMethod]
+    public void FloatingWindow_HandleSelection_PreservesMultiWordSelectionOverlappingVocabulary()
+    {
+        var thread = new Thread(() =>
+        {
+            var window = new FloatingWindow();
+            var existingId = Guid.NewGuid();
+            var item = new VocabularyItem(existingId, "toys", "toys", Status: VocabularyStatus.Ready);
+            var sentence = new StudySentence(Guid.NewGuid(), "This is about small toys.", false, Vocabulary: [item]);
+            var list = new StudyList(Guid.NewGuid(), "List", 10, 0, [sentence]);
+            window.ApplySettings(AppSettings.Default with { StudyLists = [list], ActiveListId = list.Id });
+
+            string? selectedPhrase = null;
+            window.VocabularySelected += (_, phrase) => selectedPhrase = phrase;
+
+            var box = (System.Windows.Controls.RichTextBox)window.FindName("SentenceBox");
+            var run = box.Document.Blocks.OfType<System.Windows.Documents.Paragraph>().Single()
+                .Inlines.OfType<System.Windows.Documents.Run>().First(r => r.Text.Contains("small "));
+            var start = run.ContentStart.GetPositionAtOffset(run.Text.IndexOf("small", StringComparison.Ordinal));
+            var toysSpan = box.Document.Blocks.OfType<System.Windows.Documents.Paragraph>().Single()
+                .Inlines.OfType<System.Windows.Documents.Span>().Single();
+            box.Selection.Select(start!, toysSpan.ContentEnd);
+
+            typeof(FloatingWindow).GetMethod("HandleSelection", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .Invoke(window, null);
+
+            Assert.AreEqual("small toys", selectedPhrase);
+            window.Close();
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
+
     private static string FindWorkspaceFile(params string[] segments)
     {
         for (var directory = new DirectoryInfo(Directory.GetCurrentDirectory()); directory is not null; directory = directory.Parent)
