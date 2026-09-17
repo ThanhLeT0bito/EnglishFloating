@@ -165,8 +165,8 @@
                             CornerRadius="10"
                             Padding="14,10"
                             Margin="0,4"
-                            BorderBrush="#3338BDF8"
-                            BorderThickness="1">
+                            BorderBrush="{Binding BorderBrush}"
+                            BorderThickness="{Binding CardBorderThickness}">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -174,7 +174,7 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding Phrase}" FontWeight="Bold" FontSize="14" Foreground="#FF5EEAD4" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Phrase}" FontWeight="Bold" FontSize="14" Foreground="{Binding AccentBrush}" VerticalAlignment="Center" />
                                     <TextBlock Text="{Binding PronunciationIpa}" Margin="8,0,0,0" FontSize="12" Foreground="#FF94A3B8" FontStyle="Italic" VerticalAlignment="Center" Visibility="{Binding IpaVisibility}" />
                                     <TextBlock Text="{Binding StatusText}" Margin="8,0,0,0" FontSize="11" Foreground="{Binding StatusBrush}" VerticalAlignment="Center" Visibility="{Binding StatusVisibility}" />
                                 </StackPanel>

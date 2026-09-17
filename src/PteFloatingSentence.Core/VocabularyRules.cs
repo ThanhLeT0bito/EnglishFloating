@@ -26,17 +26,40 @@ public static partial class VocabularyRules
             : new(false, "Use 20 words or fewer.");
     }
 
-    public static bool ContainsEquivalent(IEnumerable<VocabularyItem>? items, string phrase)
+    private static readonly char[] PunctuationChars = ['.', ',', ';', '!', '?', ':', '"', '\'', '(', ')', '[', ']', '“', '”', '‘', '’'];
+
+    public static string TrimPunctuation(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+
+        return text.Trim().Trim(PunctuationChars);
+    }
+
+    public static VocabularyItem? FindEquivalent(IEnumerable<VocabularyItem>? items, string phrase)
     {
         if (items is null)
-            return false;
+            return null;
 
         var normalized = NormalizePhrase(phrase).ToLowerInvariant();
         if (string.IsNullOrEmpty(normalized))
-            return false;
+            return null;
 
-        return items.Any(item => string.Equals(item.NormalizedPhrase, normalized, StringComparison.OrdinalIgnoreCase));
+        var direct = items.FirstOrDefault(item => string.Equals(item.NormalizedPhrase, normalized, StringComparison.OrdinalIgnoreCase));
+        if (direct is not null)
+            return direct;
+
+        var unpunctuated = NormalizePhrase(TrimPunctuation(phrase)).ToLowerInvariant();
+        if (!string.IsNullOrEmpty(unpunctuated) && unpunctuated != normalized)
+        {
+            return items.FirstOrDefault(item => string.Equals(item.NormalizedPhrase, unpunctuated, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return null;
     }
+
+    public static bool ContainsEquivalent(IEnumerable<VocabularyItem>? items, string phrase) =>
+        FindEquivalent(items, phrase) is not null;
 
     public static VocabularyItem CreatePending(string phrase)
     {

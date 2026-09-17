@@ -45,6 +45,37 @@ public sealed class VocabularyRulesTests
     }
 
     [TestMethod]
+    public void FindEquivalent_MatchesExactCaseInsensitiveAndPunctuation()
+    {
+        var existingItem = VocabularyRules.CreatePending("questions");
+        var items = new[] { existingItem };
+
+        var exact = VocabularyRules.FindEquivalent(items, "questions");
+        var upper = VocabularyRules.FindEquivalent(items, "QUESTIONS");
+        var punctuated = VocabularyRules.FindEquivalent(items, "questions.");
+        var quoted = VocabularyRules.FindEquivalent(items, "\"questions\"");
+        var none = VocabularyRules.FindEquivalent(items, "answers");
+
+        Assert.IsNotNull(exact);
+        Assert.AreEqual(existingItem.Id, exact.Id);
+        Assert.IsNotNull(upper);
+        Assert.AreEqual(existingItem.Id, upper.Id);
+        Assert.IsNotNull(punctuated);
+        Assert.AreEqual(existingItem.Id, punctuated.Id);
+        Assert.IsNotNull(quoted);
+        Assert.AreEqual(existingItem.Id, quoted.Id);
+        Assert.IsNull(none);
+    }
+
+    [TestMethod]
+    public void TrimPunctuation_RemovesLeadingAndTrailingPunctuation()
+    {
+        Assert.AreEqual("hello", VocabularyRules.TrimPunctuation("...hello!?"));
+        Assert.AreEqual("by attending meeting", VocabularyRules.TrimPunctuation("“by attending meeting”"));
+        Assert.AreEqual(string.Empty, VocabularyRules.TrimPunctuation("   "));
+    }
+
+    [TestMethod]
     public void CreatePending_SetsInitialPropertiesCorrectly()
     {
         var item = VocabularyRules.CreatePending("  Fluent English  ");

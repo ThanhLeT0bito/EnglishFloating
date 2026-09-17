@@ -57,7 +57,25 @@ public partial class App : System.Windows.Application
             if (activeList.Sentences.Count > 0 && _vocabularyWorkflow is not null)
             {
                 var currentSentence = activeList.Sentences[activeList.CurrentSentenceIndex];
+                var existing = Core.VocabularyRules.FindEquivalent(currentSentence.Vocabulary, selection);
+                if (existing is not null)
+                {
+                    _vocabularyWorkflow.SetHidden(currentSentence.Id, existing.Id, false);
+                    _floatingWindow.FocusVocabularyItem(existing.Id);
+                    return;
+                }
+
                 await _vocabularyWorkflow.AddAsync(currentSentence, selection);
+            }
+        };
+        _floatingWindow.VocabularyClicked += (_, itemId) =>
+        {
+            var activeList = Core.StudyListRules.ActiveList(_settings);
+            if (activeList.Sentences.Count > 0 && _vocabularyWorkflow is not null)
+            {
+                var currentSentence = activeList.Sentences[activeList.CurrentSentenceIndex];
+                _vocabularyWorkflow.SetHidden(currentSentence.Id, itemId, false);
+                _floatingWindow.FocusVocabularyItem(itemId);
             }
         };
         _floatingWindow.HideVocabularyRequested += (_, args) =>

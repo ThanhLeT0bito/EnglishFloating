@@ -29,6 +29,21 @@ public partial class FloatingWindow : Window
     public event EventHandler<(Guid SentenceId, Guid ItemId)>? HideVocabularyRequested;
     public event EventHandler<(Guid SentenceId, Guid ItemId)>? RetryVocabularyRequested;
 
+    private static readonly Color[] VocabularyPalette =
+    [
+        Color.FromRgb(0x5E, 0xEA, 0xD4), // Teal (#5EEAD4)
+        Color.FromRgb(0xFB, 0xBF, 0x24), // Amber / Warm Gold (#FBBF24)
+        Color.FromRgb(0x38, 0xBD, 0xF8), // Sky Blue (#38BDF8)
+        Color.FromRgb(0xF4, 0x72, 0xB6), // Pink (#F472B6)
+        Color.FromRgb(0xA7, 0x8B, 0xFA), // Lavender / Purple (#A78BFA)
+        Color.FromRgb(0xFB, 0x92, 0x3C), // Coral / Orange (#FB923C)
+        Color.FromRgb(0x4A, 0xDE, 0x80), // Mint Green (#4ADE80)
+        Color.FromRgb(0xE8, 0x79, 0xF9), // Fuchsia (#E879F9)
+    ];
+
+    private IReadOnlyList<VocabularyItem>? _currentVocabulary;
+    private Guid? _highlightedItemId;
+
     public void ApplySettings(AppSettings settings)
     {
         var defaults = AppSettings.Default;
@@ -41,6 +56,7 @@ public partial class FloatingWindow : Window
 
         StudySentence? currentSentence = sentenceCount == 0 ? null : activeList.Sentences[activeList.CurrentSentenceIndex];
         _currentSentenceId = currentSentence?.Id ?? Guid.Empty;
+        _currentVocabulary = currentSentence?.Vocabulary;
 
         var text = currentSentence is null
             ? "Add a sentence in Settings."
@@ -56,6 +72,26 @@ public partial class FloatingWindow : Window
 
         SentenceCard.Measure(new System.Windows.Size(900, double.PositiveInfinity));
         ApplyNavigationButtonSize(SentenceCard.DesiredSize.Height);
+    }
+
+    public void FocusVocabularyItem(Guid itemId)
+    {
+        _highlightedItemId = itemId;
+        RenderVocabularyPanel(_currentVocabulary);
+    }
+
+    private static Dictionary<Guid, Color> BuildColorMap(IReadOnlyList<VocabularyItem>? vocabulary)
+    {
+        var map = new Dictionary<Guid, Color>();
+        if (vocabulary is null)
+            return map;
+
+        for (int i = 0; i < vocabulary.Count; i++)
+        {
+            map[vocabulary[i].Id] = VocabularyPalette[i % VocabularyPalette.Length];
+        }
+
+        return map;
     }
 
     private void RenderSentenceDocument(string text, IReadOnlyList<VocabularyItem>? vocabulary, double fontSize, Brush foregroundBrush)
@@ -76,6 +112,8 @@ public partial class FloatingWindow : Window
             SentenceDocument.Blocks.Add(paragraph);
             return;
         }
+
+        var colorMap = BuildColorMap(vocabulary);
 
         // Highlight matching vocabulary phrases
         var sortedVocab = vocabulary
@@ -114,17 +152,16 @@ public partial class FloatingWindow : Window
                 paragraph.Inlines.Add(new Run(text.Substring(cursor, start - cursor)));
             }
 
-            var span = new Span(new Run(text.Substring(start, length)))
+            var itemColor = colorMap.TryGetValue(item.Id, out var c) ? c : VocabularyPalette[0];
+            var itemBrush = new SolidColorBrush(itemColor);
+            var run = new Run(text.Substring(start, length)) { Tag = item.Id };
+            var span = new Span(run)
             {
-                Foreground = new SolidColorBrush(Color.FromRgb(0x5E, 0xEA, 0xD4)),
+                Tag = item.Id,
+                Foreground = itemBrush,
                 TextDecorations = TextDecorations.Underline,
-                Cursor = Cursors.Hand
-            };
-            var itemId = item.Id;
-            span.MouseLeftButtonDown += (_, e) =>
-            {
-                e.Handled = true;
-                VocabularyClicked?.Invoke(this, itemId);
+                Cursor = Cursors.Hand,
+                ToolTip = "Click to view explanation"
             };
 
             paragraph.Inlines.Add(span);
@@ -152,15 +189,28 @@ public partial class FloatingWindow : Window
             return;
         }
 
-        var cards = visibleItems.Select(item => new VocabularyCardViewModel
+        var colorMap = BuildColorMap(vocabulary);
+
+        var cards = visibleItems.Select(item =>
         {
-            ItemId = item.Id,
-            Phrase = item.Phrase,
-            Meaning = item.Meaning,
-            Example = item.Example,
-            PronunciationIpa = item.PronunciationIpa,
-            Status = item.Status,
-            ErrorMessage = item.LastError
+            var itemColor = colorMap.TryGetValue(item.Id, out var c) ? c : VocabularyPalette[0];
+            var isHighlighted = _highlightedItemId == item.Id;
+
+            return new VocabularyCardViewModel
+            {
+                ItemId = item.Id,
+                Phrase = item.Phrase,
+                Meaning = item.Meaning,
+                Example = item.Example,
+                PronunciationIpa = item.PronunciationIpa,
+                Status = item.Status,
+                ErrorMessage = item.LastError,
+                AccentBrush = new SolidColorBrush(itemColor),
+                BorderBrush = isHighlighted
+                    ? new SolidColorBrush(Color.FromArgb(0xFF, itemColor.R, itemColor.G, itemColor.B))
+                    : new SolidColorBrush(Color.FromArgb(0x44, itemColor.R, itemColor.G, itemColor.B)),
+                CardBorderThickness = isHighlighted ? new Thickness(2) : new Thickness(1)
+            };
         }).ToList();
 
         VocabularyPanel.ItemsSource = cards;
@@ -174,7 +224,23 @@ public partial class FloatingWindow : Window
 
     private void SentenceBox_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        HandleSelection();
+        var selection = SentenceBox.Selection.Text;
+        if (!string.IsNullOrWhiteSpace(selection))
+        {
+            HandleSelection();
+            return;
+        }
+
+        var mousePos = e.GetPosition(SentenceBox);
+        var pointer = SentenceBox.GetPositionFromPoint(mousePos, snapToText: true);
+        if (pointer is not null)
+        {
+            var itemId = FindVocabularyItemId(pointer.Parent as TextElement);
+            if (itemId.HasValue)
+            {
+                VocabularyClicked?.Invoke(this, itemId.Value);
+            }
+        }
     }
 
     private void HandleSelection()
@@ -184,10 +250,29 @@ public partial class FloatingWindow : Window
             return;
 
         var trimmed = selection.Trim();
-        if (trimmed.Length > 0)
+        if (trimmed.Length == 0)
+            return;
+
+        var existing = VocabularyRules.FindEquivalent(_currentVocabulary, trimmed);
+        if (existing is not null)
         {
-            VocabularySelected?.Invoke(this, trimmed);
+            VocabularyClicked?.Invoke(this, existing.Id);
+            SentenceBox.Selection.Select(SentenceBox.Selection.Start, SentenceBox.Selection.Start);
+            return;
         }
+
+        VocabularySelected?.Invoke(this, trimmed);
+    }
+
+    private static Guid? FindVocabularyItemId(TextElement? element)
+    {
+        for (var cur = element; cur is not null; cur = cur.Parent as TextElement)
+        {
+            if (cur.Tag is Guid id)
+                return id;
+        }
+
+        return null;
     }
 
     private void HideVocabularyButton_Click(object sender, RoutedEventArgs e)
@@ -334,6 +419,9 @@ public sealed class VocabularyCardViewModel
     public string? PronunciationIpa { get; init; }
     public VocabularyStatus Status { get; init; }
     public string? ErrorMessage { get; init; }
+    public Brush AccentBrush { get; init; } = new SolidColorBrush(Color.FromRgb(0x5E, 0xEA, 0xD4));
+    public Brush BorderBrush { get; init; } = new SolidColorBrush(Color.FromArgb(0x44, 0x38, 0xBD, 0xF8));
+    public Thickness CardBorderThickness { get; init; } = new Thickness(1);
 
     public Visibility IpaVisibility => string.IsNullOrWhiteSpace(PronunciationIpa) ? Visibility.Collapsed : Visibility.Visible;
     public Visibility ContentVisibility => Status == VocabularyStatus.Ready ? Visibility.Visible : Visibility.Collapsed;

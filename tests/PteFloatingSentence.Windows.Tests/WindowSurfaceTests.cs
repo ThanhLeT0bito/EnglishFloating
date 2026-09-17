@@ -211,6 +211,50 @@ public class WindowSurfaceTests
         thread.Join();
     }
 
+    [TestMethod]
+    public void FloatingWindow_MultipleVocabularyItems_RenderWithDistinctColorsAndUnderline()
+    {
+        var thread = new Thread(() =>
+        {
+            var window = new FloatingWindow();
+            var item1 = new VocabularyItem(Guid.NewGuid(), "first", "first", Status: VocabularyStatus.Ready);
+            var item2 = new VocabularyItem(Guid.NewGuid(), "second", "second", Status: VocabularyStatus.Ready);
+
+            var sentence = new StudySentence(
+                Guid.NewGuid(),
+                "The first and second items.",
+                IsCompleted: false,
+                Vocabulary: [item1, item2]);
+
+            var list = new StudyList(Guid.NewGuid(), "List", 10, 0, [sentence]);
+            window.ApplySettings(AppSettings.Default with
+            {
+                StudyLists = [list],
+                ActiveListId = list.Id
+            });
+
+            var doc = (System.Windows.Documents.FlowDocument)window.FindName("SentenceDocument");
+            var paragraph = (System.Windows.Documents.Paragraph)doc.Blocks.FirstBlock;
+            var spans = paragraph.Inlines.OfType<System.Windows.Documents.Span>().ToList();
+
+            Assert.AreEqual(2, spans.Count);
+            Assert.IsNotNull(spans[0].TextDecorations);
+            Assert.IsTrue(spans[0].TextDecorations.Count > 0);
+            Assert.IsNotNull(spans[1].TextDecorations);
+            Assert.IsTrue(spans[1].TextDecorations.Count > 0);
+
+            // Verify the two items have distinct colors
+            var brush1 = spans[0].Foreground as System.Windows.Media.SolidColorBrush;
+            var brush2 = spans[1].Foreground as System.Windows.Media.SolidColorBrush;
+            Assert.IsNotNull(brush1);
+            Assert.IsNotNull(brush2);
+            Assert.AreNotEqual(brush1.Color, brush2.Color);
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
+
     private static string FindWorkspaceFile(params string[] segments)
     {
         for (var directory = new DirectoryInfo(Directory.GetCurrentDirectory()); directory is not null; directory = directory.Parent)
