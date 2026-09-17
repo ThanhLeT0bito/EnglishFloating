@@ -79,12 +79,17 @@
         </Style>
     </Window.Resources>
     <Grid Background="#01000000">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <Button x:Name="PreviousButton"
+                Grid.Row="0"
                 Grid.Column="0"
                 Style="{StaticResource CircleNavButtonStyle}"
                 Margin="6,0,8,0"
@@ -94,6 +99,7 @@
                 Visibility="Hidden"
                 Click="PreviousButton_Click" />
         <Border x:Name="SentenceCard"
+                Grid.Row="0"
                 Grid.Column="1"
                 Padding="2"
                 CornerRadius="12"
@@ -131,38 +137,11 @@
                         <FlowDocument x:Name="SentenceDocument" TextAlignment="Center" PagePadding="0" />
                     </RichTextBox>
                     <TextBlock x:Name="ProgressText" Margin="0,6,0,0" HorizontalAlignment="Center" Foreground="#FF9CA3AF" FontSize="12" />
-                    <ItemsControl x:Name="VocabularyPanel" Margin="0,12,0,0" MaxWidth="900" Visibility="Collapsed">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="#E61E293B" CornerRadius="8" Padding="12,10" Margin="0,4" BorderBrush="#3338BDF8" BorderThickness="1">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Phrase}" FontWeight="Bold" FontSize="14" Foreground="#FF5EEAD4" VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding PronunciationIpa}" Margin="8,0,0,0" FontSize="12" Foreground="#FF94A3B8" FontStyle="Italic" VerticalAlignment="Center" Visibility="{Binding IpaVisibility}" />
-                                                <TextBlock Text="{Binding StatusText}" Margin="8,0,0,0" FontSize="11" Foreground="{Binding StatusBrush}" VerticalAlignment="Center" Visibility="{Binding StatusVisibility}" />
-                                            </StackPanel>
-                                            <TextBlock Text="{Binding Meaning}" Margin="0,4,0,0" TextWrapping="Wrap" FontSize="13" Foreground="#FFF1F5F9" Visibility="{Binding ContentVisibility}" />
-                                            <TextBlock Text="{Binding Example}" Margin="0,2,0,0" TextWrapping="Wrap" FontSize="12" Foreground="#FF94A3B8" FontStyle="Italic" Visibility="{Binding ContentVisibility}" />
-                                            <TextBlock Text="{Binding ErrorMessage}" Margin="0,2,0,0" TextWrapping="Wrap" FontSize="12" Foreground="#FFFCA5A5" Visibility="{Binding ErrorVisibility}" />
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="8,0,0,0">
-                                            <Button Content="Retry" Style="{StaticResource CardActionButtonStyle}" Visibility="{Binding RetryVisibility}" Click="RetryVocabularyButton_Click" Tag="{Binding ItemId}" Margin="0,0,6,0" />
-                                            <Button Content="Hide" Style="{StaticResource CardActionButtonStyle}" Click="HideVocabularyButton_Click" Tag="{Binding ItemId}" />
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
                 </StackPanel>
             </Border>
         </Border>
         <Button x:Name="NextButton"
+                Grid.Row="0"
                 Grid.Column="2"
                 Style="{StaticResource CircleNavButtonStyle}"
                 Margin="8,0,6,0"
@@ -171,5 +150,46 @@
                 FontFamily="Segoe MDL2 Assets"
                 Visibility="Hidden"
                 Click="NextButton_Click" />
+
+        <!-- Vocabulary section: detached below SentenceCard outside bottom border -->
+        <ItemsControl x:Name="VocabularyPanel"
+                      Grid.Row="1"
+                      Grid.Column="1"
+                      Margin="0,8,0,0"
+                      MaxWidth="900"
+                      HorizontalAlignment="Stretch"
+                      Visibility="Collapsed">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Background="#EB111C32"
+                            CornerRadius="10"
+                            Padding="14,10"
+                            Margin="0,4"
+                            BorderBrush="#3338BDF8"
+                            BorderThickness="1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Phrase}" FontWeight="Bold" FontSize="14" Foreground="#FF5EEAD4" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding PronunciationIpa}" Margin="8,0,0,0" FontSize="12" Foreground="#FF94A3B8" FontStyle="Italic" VerticalAlignment="Center" Visibility="{Binding IpaVisibility}" />
+                                    <TextBlock Text="{Binding StatusText}" Margin="8,0,0,0" FontSize="11" Foreground="{Binding StatusBrush}" VerticalAlignment="Center" Visibility="{Binding StatusVisibility}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding Meaning}" Margin="0,4,0,0" TextWrapping="Wrap" FontSize="13" Foreground="#FFF1F5F9" Visibility="{Binding ContentVisibility}" />
+                                <TextBlock Text="{Binding Example}" Margin="0,2,0,0" TextWrapping="Wrap" FontSize="12" Foreground="#FF94A3B8" FontStyle="Italic" Visibility="{Binding ContentVisibility}" />
+                                <TextBlock Text="{Binding ErrorMessage}" Margin="0,2,0,0" TextWrapping="Wrap" FontSize="12" Foreground="#FFFCA5A5" Visibility="{Binding ErrorVisibility}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="8,0,0,0">
+                                <Button Content="Retry" Style="{StaticResource CardActionButtonStyle}" Visibility="{Binding RetryVisibility}" Click="RetryVocabularyButton_Click" Tag="{Binding ItemId}" Margin="0,0,6,0" />
+                                <Button Content="Hide" Style="{StaticResource CardActionButtonStyle}" Click="HideVocabularyButton_Click" Tag="{Binding ItemId}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
     </Grid>
 </Window>

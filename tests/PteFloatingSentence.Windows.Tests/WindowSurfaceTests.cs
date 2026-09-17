@@ -149,6 +149,13 @@ public class WindowSurfaceTests
         StringAssert.Contains(xaml, "x:Name=\"VocabularyPanel\"");
         StringAssert.Contains(xaml, "Hide");
         StringAssert.Contains(xaml, "Retry");
+
+        // VocabularyPanel must be outside SentenceCard to avoid bloating sentence card
+        var cardStart = xaml.IndexOf("x:Name=\"SentenceCard\"", StringComparison.Ordinal);
+        var cardEnd = xaml.IndexOf("</Border>", xaml.IndexOf("</Border>", cardStart) + 1, StringComparison.Ordinal);
+        var cardContent = xaml.Substring(cardStart, cardEnd - cardStart);
+        Assert.IsFalse(cardContent.Contains("VocabularyPanel"), "VocabularyPanel must be outside SentenceCard to keep card compact.");
+        StringAssert.Contains(xaml, "Grid.Row=\"1\"");
     }
 
     [TestMethod]
