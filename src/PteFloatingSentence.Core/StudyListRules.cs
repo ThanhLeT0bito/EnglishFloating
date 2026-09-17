@@ -129,24 +129,31 @@ public static class StudyListRules
             return [];
 
         var vocabIds = new HashSet<Guid>();
-        return vocabulary
-            .Where(item => item is not null && !string.IsNullOrWhiteSpace(item.Phrase))
-            .Select(item =>
-            {
-                var id = RepairId(item.Id, vocabIds);
-                var phrase = VocabularyRules.NormalizePhrase(item.Phrase);
-                var normalized = string.IsNullOrWhiteSpace(item.NormalizedPhrase)
-                    ? phrase.ToLowerInvariant()
-                    : item.NormalizedPhrase.Trim().ToLowerInvariant();
+        var seenCleanPhrases = new HashSet<string>();
+        var result = new List<VocabularyItem>();
 
-                return item with
-                {
-                    Id = id,
-                    Phrase = phrase,
-                    NormalizedPhrase = normalized
-                };
-            })
-            .ToList();
+        foreach (var item in vocabulary)
+        {
+            if (item is null || string.IsNullOrWhiteSpace(item.Phrase))
+                continue;
+
+            var clean = VocabularyRules.CleanPhrase(item.Phrase);
+            if (string.IsNullOrEmpty(clean) || !seenCleanPhrases.Add(clean))
+                continue;
+
+            var id = RepairId(item.Id, vocabIds);
+            var phrase = VocabularyRules.NormalizePhrase(VocabularyRules.TrimPunctuation(item.Phrase));
+            var normalized = clean;
+
+            result.Add(item with
+            {
+                Id = id,
+                Phrase = phrase,
+                NormalizedPhrase = normalized
+            });
+        }
+
+        return result;
     }
 
     private static Guid RepairId(Guid id, ISet<Guid> usedIds)

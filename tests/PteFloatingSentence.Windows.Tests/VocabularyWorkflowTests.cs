@@ -55,8 +55,35 @@ public sealed class VocabularyWorkflowTests
 
         var result = await workflow.AddAsync(sentence, "  TEST   PHRASE  ");
 
-        Assert.IsNull(result);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(existing.Id, result.Id);
         Assert.AreEqual(1, settings.StudyLists[0].Sentences[0].Vocabulary.Count);
+    }
+
+    [TestMethod]
+    public async Task AddAsync_ConcurrentCallsSamePhrase_OnlyAddsSingleItem()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "This is a meaningful test phrase.");
+        var list = new StudyList(Guid.NewGuid(), "List", 10, 0, [sentence]);
+        var settings = new AppSettings { ActiveListId = list.Id, StudyLists = [list] };
+
+        var explainerCalls = 0;
+        var explainer = new TestExplainer(_ =>
+        {
+            Interlocked.Increment(ref explainerCalls);
+            return Task.FromResult(new VocabularyExplanation("M", "E", "P"));
+        });
+
+        using var workflow = new VocabularyWorkflow(explainer, () => settings, s => settings = s);
+
+        // Run two AddAsync calls simultaneously for the same phrase
+        var task1 = workflow.AddAsync(sentence, "meaningful");
+        var task2 = workflow.AddAsync(sentence, "meaningful");
+        await Task.WhenAll(task1, task2);
+
+        var currentSentence = settings.StudyLists[0].Sentences[0];
+        Assert.AreEqual(1, currentSentence.Vocabulary.Count);
+        Assert.AreEqual("meaningful", currentSentence.Vocabulary[0].Phrase);
     }
 
     [TestMethod]

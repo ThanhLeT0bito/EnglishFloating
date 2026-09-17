@@ -217,11 +217,6 @@ public partial class FloatingWindow : Window
         VocabularyPanel.Visibility = Visibility.Visible;
     }
 
-    private void SentenceBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-    {
-        HandleSelection();
-    }
-
     private void SentenceBox_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         var selection = SentenceBox.Selection.Text;
@@ -253,6 +248,18 @@ public partial class FloatingWindow : Window
         if (trimmed.Length == 0)
             return;
 
+        // 1. Check if the selection is inside an existing vocabulary span
+        var itemIdFromSpan = FindVocabularyItemId(SentenceBox.Selection.Start.Parent as TextElement)
+                          ?? FindVocabularyItemId(SentenceBox.Selection.End.Parent as TextElement);
+
+        if (itemIdFromSpan.HasValue)
+        {
+            VocabularyClicked?.Invoke(this, itemIdFromSpan.Value);
+            SentenceBox.Selection.Select(SentenceBox.Selection.Start, SentenceBox.Selection.Start);
+            return;
+        }
+
+        // 2. Check if the selection text matches any existing vocabulary in the sentence
         var existing = VocabularyRules.FindEquivalent(_currentVocabulary, trimmed);
         if (existing is not null)
         {
@@ -261,6 +268,7 @@ public partial class FloatingWindow : Window
             return;
         }
 
+        // 3. New phrase: request vocabulary explanation
         VocabularySelected?.Invoke(this, trimmed);
     }
 

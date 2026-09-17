@@ -36,26 +36,26 @@ public static partial class VocabularyRules
         return text.Trim().Trim(PunctuationChars);
     }
 
+    public static string CleanPhrase(string? phrase)
+    {
+        if (string.IsNullOrWhiteSpace(phrase))
+            return string.Empty;
+
+        return NormalizePhrase(TrimPunctuation(phrase)).ToLowerInvariant();
+    }
+
     public static VocabularyItem? FindEquivalent(IEnumerable<VocabularyItem>? items, string phrase)
     {
         if (items is null)
             return null;
 
-        var normalized = NormalizePhrase(phrase).ToLowerInvariant();
-        if (string.IsNullOrEmpty(normalized))
+        var queryClean = CleanPhrase(phrase);
+        if (string.IsNullOrEmpty(queryClean))
             return null;
 
-        var direct = items.FirstOrDefault(item => string.Equals(item.NormalizedPhrase, normalized, StringComparison.OrdinalIgnoreCase));
-        if (direct is not null)
-            return direct;
-
-        var unpunctuated = NormalizePhrase(TrimPunctuation(phrase)).ToLowerInvariant();
-        if (!string.IsNullOrEmpty(unpunctuated) && unpunctuated != normalized)
-        {
-            return items.FirstOrDefault(item => string.Equals(item.NormalizedPhrase, unpunctuated, StringComparison.OrdinalIgnoreCase));
-        }
-
-        return null;
+        return items.FirstOrDefault(item =>
+            CleanPhrase(item.NormalizedPhrase) == queryClean ||
+            CleanPhrase(item.Phrase) == queryClean);
     }
 
     public static bool ContainsEquivalent(IEnumerable<VocabularyItem>? items, string phrase) =>
@@ -63,11 +63,12 @@ public static partial class VocabularyRules
 
     public static VocabularyItem CreatePending(string phrase)
     {
-        var validation = ValidatePhrase(phrase);
+        var cleaned = TrimPunctuation(phrase);
+        var validation = ValidatePhrase(cleaned);
         if (!validation.IsValid)
             throw new ArgumentException(validation.Error, nameof(phrase));
 
-        var normalized = NormalizePhrase(phrase);
+        var normalized = NormalizePhrase(cleaned);
         return new VocabularyItem(
             Id: Guid.NewGuid(),
             Phrase: normalized,

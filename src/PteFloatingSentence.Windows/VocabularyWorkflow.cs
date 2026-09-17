@@ -33,15 +33,28 @@ public sealed class VocabularyWorkflow : IDisposable
         if (!validation.IsValid)
             return null;
 
-        var currentSentence = FindSentence(sentence.Id) ?? sentence;
-        if (VocabularyRules.ContainsEquivalent(currentSentence.Vocabulary, selection))
-            return null;
-
-        var pendingItem = VocabularyRules.CreatePending(selection);
+        VocabularyItem pendingItem;
+        StudySentence currentSentence;
 
         lock (_syncRoot)
         {
             var settings = _getSettings();
+            currentSentence = settings.StudyLists
+                .SelectMany(l => l.Sentences)
+                .FirstOrDefault(s => s.Id == sentence.Id) ?? sentence;
+
+            var existing = VocabularyRules.FindEquivalent(currentSentence.Vocabulary, selection);
+            if (existing is not null)
+            {
+                if (existing.IsHidden)
+                {
+                    UpdateItemInSettings(currentSentence.Id, existing.Id, v => v with { IsHidden = false });
+                }
+                return existing;
+            }
+
+            pendingItem = VocabularyRules.CreatePending(selection);
+
             var updatedLists = settings.StudyLists.Select(list =>
             {
                 var updatedSentences = list.Sentences.Select(s =>

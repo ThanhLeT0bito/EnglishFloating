@@ -68,6 +68,17 @@ public sealed class VocabularyRulesTests
     }
 
     [TestMethod]
+    public void FindEquivalent_ExistingItemHasPunctuation_MatchesCleanQuery()
+    {
+        var existingItem = new VocabularyItem(Guid.NewGuid(), "people.", "people.", Status: VocabularyStatus.Ready);
+        var items = new[] { existingItem };
+
+        var match = VocabularyRules.FindEquivalent(items, "people");
+        Assert.IsNotNull(match);
+        Assert.AreEqual(existingItem.Id, match.Id);
+    }
+
+    [TestMethod]
     public void TrimPunctuation_RemovesLeadingAndTrailingPunctuation()
     {
         Assert.AreEqual("hello", VocabularyRules.TrimPunctuation("...hello!?"));
