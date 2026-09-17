@@ -453,6 +453,11 @@ public partial class FloatingWindow : Window
             PracticeMenuItem.Header = "Exit Practice";
         }
 
+        _hasMultipleSentences = targetList.Sentences.Count > 1;
+        PreviousButton.IsEnabled = _hasMultipleSentences;
+        NextButton.IsEnabled = _hasMultipleSentences;
+        UpdateNavigationVisibility(isPointerOver: IsMouseOver);
+
         AttachPracticeEventHandlers();
         UpdatePracticeUI();
         PracticeModeChanged?.Invoke(this, EventArgs.Empty);
@@ -471,6 +476,12 @@ public partial class FloatingWindow : Window
         NormalSentenceContainer.Visibility = Visibility.Visible;
         PracticeContainer.Visibility = Visibility.Collapsed;
         VocabularyPanel.Visibility = _showVocabularyCards ? Visibility.Visible : Visibility.Collapsed;
+
+        var activeList = StudyListRules.ActiveList(_settings);
+        _hasMultipleSentences = activeList.Sentences.Count > 1;
+        PreviousButton.IsEnabled = _hasMultipleSentences;
+        NextButton.IsEnabled = _hasMultipleSentences;
+        UpdateNavigationVisibility(isPointerOver: IsMouseOver);
 
         if (PracticeMenuItem is not null)
         {

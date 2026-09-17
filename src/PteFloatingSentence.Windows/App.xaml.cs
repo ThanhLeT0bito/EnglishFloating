@@ -60,6 +60,11 @@ public partial class App : System.Windows.Application
         _floatingWindow.PreviousRequested += (_, _) => NavigateCurrentSentence(-1);
         _floatingWindow.NextRequested += (_, _) => NavigateCurrentSentence(1);
         _floatingWindow.PositionChanged += FloatingWindow_PositionChanged;
+        _floatingWindow.SentenceCompleted += (_, args) =>
+        {
+            _settings = Core.StudyListRules.MarkSentenceCompleted(_settings, args.ListId, args.SentenceId, args.Completed);
+            PersistSettings();
+        };
         _floatingWindow.VocabularySelected += async (_, selection) =>
         {
             var activeList = Core.StudyListRules.ActiveList(_settings);

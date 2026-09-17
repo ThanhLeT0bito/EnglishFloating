@@ -89,13 +89,13 @@
 - When all sentences in the list are complete:
   - Shows `PracticeCompletionPanel` with "All sentences completed!" and a "Restart" button.
 
-- [ ] Add failing test verifying that completing the last hidden token fires `SentenceCompleted` and marks completion in settings.
-- [ ] Add failing test verifying `PreviousButton` and `NextButton` change current practice sentence.
-- [ ] Add failing test verifying all-complete state shows completion banner.
-- [ ] Run tests and verify failure.
-- [ ] Implement completion transition, navigation logic, and wire `SentenceCompleted` in `App.xaml.cs`.
-- [ ] Run tests and confirm they pass.
-- [ ] Commit with `feat: handle practice sentence completion and navigation`.
+- [x] Add failing test verifying that completing the last hidden token fires `SentenceCompleted` and marks completion in settings.
+- [x] Add failing test verifying `PreviousButton` and `NextButton` change current practice sentence.
+- [x] Add failing test verifying all-complete state shows completion banner.
+- [x] Run tests and verify failure.
+- [x] Implement completion transition, navigation logic, and wire `SentenceCompleted` in `App.xaml.cs`.
+- [x] Run tests and confirm they pass.
+- [x] Commit with `feat: handle practice sentence completion and navigation`.
 
 ### Task 4: Add "Start Practice" entry points in SettingsWindow and Context Menu
 

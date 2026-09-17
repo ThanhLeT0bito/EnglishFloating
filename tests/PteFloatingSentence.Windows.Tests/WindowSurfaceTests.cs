@@ -1066,6 +1066,190 @@ public class WindowSurfaceTests
         }
     }
 
+    [TestMethod]
+    public void FloatingWindow_CompletingAllHiddenTokens_FiresSentenceCompletedAndTransitions()
+    {
+        Exception? threadEx = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var window = new FloatingWindow();
+                var s1 = new StudySentence(Guid.NewGuid(), "You must wear a hard hat");
+                var s2 = new StudySentence(Guid.NewGuid(), "The project requires careful safety inspection");
+                var list = new StudyList(Guid.NewGuid(), "Practice List", 10, 0, [s1, s2]);
+                var settings = AppSettings.Default with
+                {
+                    StudyLists = [list],
+                    ActiveListId = list.Id
+                };
+
+                window.ApplySettings(settings);
+
+                Guid? reportedListId = null;
+                Guid? reportedSentenceId = null;
+                bool? reportedCompleted = null;
+
+                window.SentenceCompleted += (_, args) =>
+                {
+                    reportedListId = args.ListId;
+                    reportedSentenceId = args.SentenceId;
+                    reportedCompleted = args.Completed;
+                };
+
+                window.StartPractice();
+
+                var projection = ReviewPracticeRules.CreateProjection(s1);
+                var projectionPanel = (System.Windows.Controls.WrapPanel)window.FindName("PracticeProjectionPanel");
+                var progressLabel = (System.Windows.Controls.TextBlock)window.FindName("PracticeProgressLabel");
+
+                Assert.IsTrue(progressLabel.Text.Contains("Sentence 1 of 2"));
+
+                // Answer all hidden tokens for sentence 1
+                for (var h = 0; h < projection.HiddenTokenIndexes.Count; h++)
+                {
+                    var tokenIndex = projection.HiddenTokenIndexes[h];
+                    var expectedWord = projection.Tokens[tokenIndex].SourceText.Trim('.', ',', '!', '?');
+
+                    var boxes = projectionPanel.Children.OfType<System.Windows.Controls.TextBox>().ToList();
+                    var activeBox = boxes.First(b => b.Tag is int p && p == h);
+                    activeBox.Text = expectedWord;
+                    window.SubmitPracticeAnswer(activeBox, expectedWord);
+                }
+
+                Assert.AreEqual(list.Id, reportedListId);
+                Assert.AreEqual(s1.Id, reportedSentenceId);
+                Assert.AreEqual(true, reportedCompleted);
+
+                // Should now have transitioned to sentence 2
+                Assert.IsTrue(progressLabel.Text.Contains("Sentence 2 of 2"));
+            }
+            catch (Exception ex)
+            {
+                threadEx = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (threadEx is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(threadEx).Throw();
+        }
+    }
+
+    [TestMethod]
+    public void FloatingWindow_PracticeNavigationButtons_NavigateSentences()
+    {
+        Exception? threadEx = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var window = new FloatingWindow();
+                var s1 = new StudySentence(Guid.NewGuid(), "Sentence one is here");
+                var s2 = new StudySentence(Guid.NewGuid(), "Sentence two is here");
+                var list = new StudyList(Guid.NewGuid(), "Practice List", 10, 0, [s1, s2]);
+                var settings = AppSettings.Default with
+                {
+                    StudyLists = [list],
+                    ActiveListId = list.Id
+                };
+
+                window.ApplySettings(settings);
+                window.StartPractice();
+
+                var progressLabel = (System.Windows.Controls.TextBlock)window.FindName("PracticeProgressLabel");
+                var nextButton = (System.Windows.Controls.Button)window.FindName("NextButton");
+                var prevButton = (System.Windows.Controls.Button)window.FindName("PreviousButton");
+
+                Assert.IsTrue(progressLabel.Text.Contains("Sentence 1 of 2"));
+
+                // Navigate next
+                nextButton.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                Assert.IsTrue(progressLabel.Text.Contains("Sentence 2 of 2"));
+
+                // Navigate previous
+                prevButton.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                Assert.IsTrue(progressLabel.Text.Contains("Sentence 1 of 2"));
+            }
+            catch (Exception ex)
+            {
+                threadEx = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (threadEx is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(threadEx).Throw();
+        }
+    }
+
+    [TestMethod]
+    public void FloatingWindow_AllSentencesCompleted_ShowsCompletionBannerAndSupportsRestart()
+    {
+        Exception? threadEx = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var window = new FloatingWindow();
+                var s1 = new StudySentence(Guid.NewGuid(), "Single sentence test");
+                var list = new StudyList(Guid.NewGuid(), "Practice List", 10, 0, [s1]);
+                var settings = AppSettings.Default with
+                {
+                    StudyLists = [list],
+                    ActiveListId = list.Id
+                };
+
+                window.ApplySettings(settings);
+                window.StartPractice();
+
+                var projection = ReviewPracticeRules.CreateProjection(s1);
+                var projectionPanel = (System.Windows.Controls.WrapPanel)window.FindName("PracticeProjectionPanel");
+                var completionPanel = (System.Windows.FrameworkElement)window.FindName("PracticeCompletionPanel");
+                var restartButton = (System.Windows.Controls.Button)window.FindName("PracticeRestartButton");
+
+                Assert.AreEqual(System.Windows.Visibility.Collapsed, completionPanel.Visibility);
+
+                // Complete all hidden tokens
+                for (var h = 0; h < projection.HiddenTokenIndexes.Count; h++)
+                {
+                    var tokenIndex = projection.HiddenTokenIndexes[h];
+                    var expectedWord = projection.Tokens[tokenIndex].SourceText.Trim('.', ',', '!', '?');
+
+                    var boxes = projectionPanel.Children.OfType<System.Windows.Controls.TextBox>().ToList();
+                    var activeBox = boxes.First(b => b.Tag is int p && p == h);
+                    activeBox.Text = expectedWord;
+                    window.SubmitPracticeAnswer(activeBox, expectedWord);
+                }
+
+                // Completion banner should now be visible
+                Assert.AreEqual(System.Windows.Visibility.Visible, completionPanel.Visibility);
+
+                // Click restart
+                restartButton.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                Assert.AreEqual(System.Windows.Visibility.Collapsed, completionPanel.Visibility);
+            }
+            catch (Exception ex)
+            {
+                threadEx = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (threadEx is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(threadEx).Throw();
+        }
+    }
+
 
 
 
