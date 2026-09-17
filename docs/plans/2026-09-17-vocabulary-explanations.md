@@ -46,11 +46,11 @@ tests/PteFloatingSentence.Windows.Tests/
 
 **Interfaces:** VocabularyItem has Id, Phrase, NormalizedPhrase, Meaning, Example, PronunciationIpa, Status, IsHidden, LastError. VocabularyRules exposes NormalizePhrase, ContainsEquivalent, CreatePending, and ValidatePhrase.
 
-- [ ] Write failing tests for one-word and multi-word whitespace normalization, duplicate detection ignoring case, rejection of empty/over-20-word phrases, and preservation of different phrases.
-- [ ] Run the focused Core test and verify it fails because the types are absent.
-- [ ] Implement immutable records and rules. Add an empty IReadOnlyList<VocabularyItem> Vocabulary to StudySentence; do not alter completion.
-- [ ] Run dotnet test tests\PteFloatingSentence.Core.Tests\PteFloatingSentence.Core.Tests.csproj; expect all Core tests to pass.
-- [ ] Commit with message feat: add vocabulary domain rules.
+- [x] Write failing tests for one-word and multi-word whitespace normalization, duplicate detection ignoring case, rejection of empty/over-20-word phrases, and preservation of different phrases.
+- [x] Run the focused Core test and verify it fails because the types are absent.
+- [x] Implement immutable records and rules. Add an empty IReadOnlyList<VocabularyItem> Vocabulary to StudySentence; do not alter completion.
+- [x] Run dotnet test tests\PteFloatingSentence.Core.Tests\PteFloatingSentence.Core.Tests.csproj; expect all Core tests to pass.
+- [x] Commit with message feat: add vocabulary domain rules.
 
 ### Task 2: Persist vocabulary and protect the Gemini key
 
@@ -58,11 +58,11 @@ tests/PteFloatingSentence.Windows.Tests/
 
 **Interfaces:** ProtectedApiKeyStore(applicationName) exposes SaveAsync(string), LoadAsync(), and ClearAsync(). Settings expose only GeminiApiKeyConfigured or equivalent non-secret state; plaintext keys never enter AppSettings JSON.
 
-- [ ] Write failing tests for old settings without vocabulary, vocabulary round trip including IsHidden/Status, DPAPI key round trip, clear, missing key, and JSON text without a plaintext key.
-- [ ] Run focused tests and verify failure.
-- [ ] Implement optional vocabulary compatibility and DPAPI ProtectedData.Protect/Unprotect scoped to CurrentUser. Never write plaintext bytes.
-- [ ] Run all persistence tests and inspect serialized JSON for the absence of the key.
-- [ ] Commit with message feat: persist vocabulary and protect api key.
+- [x] Write failing tests for old settings without vocabulary, vocabulary round trip including IsHidden/Status, DPAPI key round trip, clear, missing key, and JSON text without a plaintext key.
+- [x] Run focused tests and verify failure.
+- [x] Implement optional vocabulary compatibility and DPAPI ProtectedData.Protect/Unprotect scoped to CurrentUser. Never write plaintext bytes.
+- [x] Run all persistence tests and inspect serialized JSON for the absence of the key.
+- [x] Commit with message feat: persist vocabulary and protect api key.
 
 ### Task 3: Gemini explainer and local-first workflow
 
@@ -70,11 +70,11 @@ tests/PteFloatingSentence.Windows.Tests/
 
 **Interfaces:** ExplainAsync(phrase, sourceSentence, cancellationToken) returns VocabularyExplanation. VocabularyWorkflow exposes AddAsync(sentence, selection), RetryAsync, and SetHidden. Gemini requests strict JSON fields meaning, example, pronunciationIpa.
 
-- [ ] Write failing tests for fake success, malformed response, timeout/network failure, pending retention, retry success, and hide/unhide persistence.
-- [ ] Run focused tests and verify failure.
-- [ ] Implement HttpClient adapter with cancellation, bounded response size, strict JSON deserialization, and concise Failed state. Never include the API key in exceptions or logs.
-- [ ] Run workflow and adapter tests; expect all to pass.
-- [ ] Commit with message feat: add Gemini vocabulary workflow.
+- [x] Write failing tests for fake success, malformed response, timeout/network failure, pending retention, retry success, and hide/unhide persistence.
+- [x] Run focused tests and verify failure.
+- [x] Implement HttpClient adapter with cancellation, bounded response size, strict JSON deserialization, and concise Failed state. Never include the API key in exceptions or logs.
+- [x] Run workflow and adapter tests; expect all to pass.
+- [x] Commit with message feat: add Gemini vocabulary workflow.
 
 ### Task 4: Native word/phrase selection and vocabulary panel
 
@@ -82,19 +82,19 @@ tests/PteFloatingSentence.Windows.Tests/
 
 **Interfaces:** FloatingWindow emits VocabularySelected(string selection) and VocabularyClicked(Guid itemId). ApplySettings renders the active sentence with vocabulary spans and a compact panel below. Hide and Retry route to VocabularyWorkflow without changing list navigation.
 
-- [ ] Write failing UI contract tests for a selectable RichTextBox/FlowDocument, phrase hover accent, vocabulary panel, Hide/Retry buttons, and no WebView2 dependency.
-- [ ] Run focused tests and verify failure.
-- [ ] Replace the sentence TextBlock with a read-only FlowDocument selection surface. Map TextPointer selections to normalized source text; double-click and drag-release raise VocabularySelected. Keep navigation and drag guard functional. Render stored phrases with accent text/underline and show meaning, example, IPA, loading, failed, and hidden states.
-- [ ] Add Settings API-key field and Save behavior that writes only through ProtectedApiKeyStore.
-- [ ] Wire App to load the key store, inject explainer/workflow, and re-render sentence-specific vocabulary. Run full tests/build.
-- [ ] Commit with message feat: add vocabulary selection and panel.
+- [x] Write failing UI contract tests for a selectable RichTextBox/FlowDocument, phrase hover accent, vocabulary panel, Hide/Retry buttons, and no WebView2 dependency.
+- [x] Run focused tests and verify failure.
+- [x] Replace the sentence TextBlock with a read-only FlowDocument selection surface. Map TextPointer selections to normalized source text; double-click and drag-release raise VocabularySelected. Keep navigation and drag guard functional. Render stored phrases with accent text/underline and show meaning, example, IPA, loading, failed, and hidden states.
+- [x] Add Settings API-key field and Save behavior that writes only through ProtectedApiKeyStore.
+- [x] Wire App to load the key store, inject explainer/workflow, and re-render sentence-specific vocabulary. Run full tests/build.
+- [x] Commit with message feat: add vocabulary selection and panel.
 
 ### Task 5: Verify privacy and user-visible behavior
 
 **Files:** only files implicated by a failed check.
 
-- [ ] Run dotnet test PteFloatingSentence.sln --configuration Debug and dotnet build PteFloatingSentence.sln --configuration Debug --no-restore; record exact counts and warnings/errors.
-- [ ] With a fake explainer verify selection saves before explanation, duplicate selection is ignored, retry works, Hide survives restart, and navigation isolates vocabulary by sentence.
-- [ ] With a test Gemini key verify DPAPI storage, no key in settings JSON/logs/UI, strict meaning/example/IPA rendering, API failure recovery, and bounded panel layout. Restore user settings afterward.
-- [ ] Report only manual WPF checks actually observed; do not claim native selection or hover checks without evidence.
+- [x] Run dotnet test PteFloatingSentence.sln --configuration Debug and dotnet build PteFloatingSentence.sln --configuration Debug --no-restore; record exact counts and warnings/errors.
+- [x] With a fake explainer verify selection saves before explanation, duplicate selection is ignored, retry works, Hide survives restart, and navigation isolates vocabulary by sentence.
+- [x] With a test Gemini key verify DPAPI storage, no key in settings JSON/logs/UI, strict meaning/example/IPA rendering, API failure recovery, and bounded panel layout. Restore user settings afterward.
+- [x] Report only manual WPF checks actually observed; do not claim native selection or hover checks without evidence.
 

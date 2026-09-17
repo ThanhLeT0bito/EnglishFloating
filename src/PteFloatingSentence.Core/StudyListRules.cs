@@ -105,7 +105,8 @@ public static class StudyListRules
             .Select(sentence => sentence with
             {
                 Id = RepairId(sentence.Id, sentenceIds),
-                Text = NormalizeSentence(sentence.Text)
+                Text = NormalizeSentence(sentence.Text),
+                Vocabulary = NormalizeVocabulary(sentence.Vocabulary)
             })
             .ToList();
         var currentSentenceIndex = sentences.Count == 0
@@ -120,6 +121,39 @@ public static class StudyListRules
             CurrentSentenceIndex = currentSentenceIndex,
             Sentences = sentences
         };
+    }
+
+    private static IReadOnlyList<VocabularyItem> NormalizeVocabulary(IReadOnlyList<VocabularyItem>? vocabulary)
+    {
+        if (vocabulary is null || vocabulary.Count == 0)
+            return [];
+
+        var vocabIds = new HashSet<Guid>();
+        var seenCleanPhrases = new HashSet<string>();
+        var result = new List<VocabularyItem>();
+
+        foreach (var item in vocabulary)
+        {
+            if (item is null || string.IsNullOrWhiteSpace(item.Phrase))
+                continue;
+
+            var clean = VocabularyRules.CleanPhrase(item.Phrase);
+            if (string.IsNullOrEmpty(clean) || !seenCleanPhrases.Add(clean))
+                continue;
+
+            var id = RepairId(item.Id, vocabIds);
+            var phrase = VocabularyRules.NormalizePhrase(VocabularyRules.TrimPunctuation(item.Phrase));
+            var normalized = clean;
+
+            result.Add(item with
+            {
+                Id = id,
+                Phrase = phrase,
+                NormalizedPhrase = normalized
+            });
+        }
+
+        return result;
     }
 
     private static Guid RepairId(Guid id, ISet<Guid> usedIds)

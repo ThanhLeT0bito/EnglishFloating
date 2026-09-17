@@ -50,6 +50,8 @@ public sealed class StudyListDraft
 
     public void MakeSelectedListActive() => _settings = _settings with { ActiveListId = SelectedListId };
 
+    public void SetApiKeyConfigured(bool configured) => _settings = _settings with { GeminiApiKeyConfigured = configured };
+
     public ValidationResult DeleteSelectedList()
     {
         if (_settings.StudyLists.Count == 1)

@@ -71,6 +71,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <Grid Grid.Row="0">
@@ -120,8 +121,23 @@
                     </StackPanel>
                 </Grid>
 
-                <TextBlock x:Name="ValidationMessage" Grid.Row="5" Margin="0,0,0,12" Foreground="#FFFCA5A5" TextWrapping="Wrap" />
-                <StackPanel Grid.Row="6" HorizontalAlignment="Right" Orientation="Horizontal">
+                <Grid Grid.Row="5" Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Gemini API Key" Margin="0,0,0,4" Foreground="#FFCBD5E1" />
+                        <PasswordBox x:Name="ApiKeyInput" Background="#FF1E293B" Foreground="#FFF8FAFC" BorderBrush="#FF475569" Padding="8,6" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom" Margin="8,0,0,0">
+                        <TextBlock x:Name="ApiKeyStatusLabel" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" Foreground="#FF94A3B8" />
+                        <Button x:Name="ClearApiKeyButton" Background="#FFB91C1C" Content="Clear key" Click="ClearApiKeyButton_Click" />
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock x:Name="ValidationMessage" Grid.Row="6" Margin="0,0,0,12" Foreground="#FFFCA5A5" TextWrapping="Wrap" />
+                <StackPanel Grid.Row="7" HorizontalAlignment="Right" Orientation="Horizontal">
                     <Button IsDefault="True" Content="Save" Click="SaveButton_Click" />
                     <Button Margin="0" Background="#FF334155" Content="Cancel" IsCancel="True" Click="CancelButton_Click" />
                 </StackPanel>
