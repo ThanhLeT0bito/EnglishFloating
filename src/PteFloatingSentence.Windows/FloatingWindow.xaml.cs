@@ -28,6 +28,7 @@ public partial class FloatingWindow : Window
     public event EventHandler<Guid>? VocabularyClicked;
     public event EventHandler<(Guid SentenceId, Guid ItemId)>? HideVocabularyRequested;
     public event EventHandler<(Guid SentenceId, Guid ItemId)>? RetryVocabularyRequested;
+    public event EventHandler<(Guid SentenceId, Guid ItemId)>? DeleteVocabularyRequested;
 
     private static readonly Color[] VocabularyPalette =
     [
@@ -328,6 +329,14 @@ public partial class FloatingWindow : Window
         if (sender is FrameworkElement { Tag: Guid itemId })
         {
             RetryVocabularyRequested?.Invoke(this, (_currentSentenceId, itemId));
+        }
+    }
+
+    private void DeleteVocabularyButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: Guid itemId })
+        {
+            DeleteVocabularyRequested?.Invoke(this, (_currentSentenceId, itemId));
         }
     }
 

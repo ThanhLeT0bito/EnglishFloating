@@ -102,6 +102,24 @@ public sealed class VocabularyWorkflow : IDisposable
         UpdateItemInSettings(sentenceId, itemId, v => v with { IsHidden = isHidden });
     }
 
+    public void Delete(Guid sentenceId, Guid itemId)
+    {
+        ThrowIfDisposed();
+        lock (_syncRoot)
+        {
+            var settings = _getSettings();
+            var updatedLists = settings.StudyLists.Select(list =>
+            {
+                var updatedSentences = list.Sentences.Select(sentence => sentence.Id == sentenceId
+                    ? sentence with { Vocabulary = sentence.Vocabulary.Where(v => v.Id != itemId).ToList() }
+                    : sentence).ToList();
+                return list with { Sentences = updatedSentences };
+            }).ToList();
+
+            _updateSettings(settings with { StudyLists = updatedLists });
+        }
+    }
+
     private async Task ExplainAndUpdateAsync(
         Guid sentenceId,
         Guid itemId,

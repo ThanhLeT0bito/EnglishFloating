@@ -162,6 +162,24 @@ public sealed class VocabularyWorkflowTests
         Assert.IsTrue(currentSentence.Vocabulary[0].IsHidden);
     }
 
+    [TestMethod]
+    public void Delete_RemovesVocabularyItemAndPersistsSettings()
+    {
+        var first = VocabularyRules.CreatePending("first");
+        var second = VocabularyRules.CreatePending("second");
+        var sentence = new StudySentence(Guid.NewGuid(), "A sentence.", Vocabulary: [first, second]);
+        var list = new StudyList(Guid.NewGuid(), "List", 10, 0, [sentence]);
+        var settings = new AppSettings { ActiveListId = list.Id, StudyLists = [list] };
+        var explainer = new TestExplainer(_ => Task.FromResult(new VocabularyExplanation("M", "E", "P")));
+        using var workflow = new VocabularyWorkflow(explainer, () => settings, s => settings = s);
+
+        workflow.Delete(sentence.Id, first.Id);
+
+        var vocabulary = settings.StudyLists[0].Sentences[0].Vocabulary;
+        Assert.AreEqual(1, vocabulary.Count);
+        Assert.AreEqual(second.Id, vocabulary[0].Id);
+    }
+
     private sealed class TestExplainer : IVocabularyExplainer
     {
         private readonly Func<string, Task<VocabularyExplanation>> _handler;

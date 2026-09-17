@@ -154,6 +154,7 @@ public class WindowSurfaceTests
         Assert.IsNotNull(floatingWindowType.GetEvent("VocabularyClicked"));
         Assert.IsNotNull(floatingWindowType.GetEvent("HideVocabularyRequested"));
         Assert.IsNotNull(floatingWindowType.GetEvent("RetryVocabularyRequested"));
+        Assert.IsNotNull(floatingWindowType.GetEvent("DeleteVocabularyRequested"));
     }
 
     [TestMethod]
@@ -169,6 +170,7 @@ public class WindowSurfaceTests
         StringAssert.Contains(xaml, "x:Name=\"VocabularyPanel\"");
         StringAssert.Contains(xaml, "Hide");
         StringAssert.Contains(xaml, "Retry");
+        StringAssert.Contains(xaml, "Delete");
 
         // VocabularyPanel must be outside SentenceCard to avoid bloating sentence card
         var cardStart = xaml.IndexOf("x:Name=\"SentenceCard\"", StringComparison.Ordinal);

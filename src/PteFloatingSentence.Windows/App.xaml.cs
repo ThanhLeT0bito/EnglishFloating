@@ -96,6 +96,10 @@ public partial class App : System.Windows.Application
             if (_vocabularyWorkflow is not null)
                 await _vocabularyWorkflow.RetryAsync(args.SentenceId, args.ItemId);
         };
+        _floatingWindow.DeleteVocabularyRequested += (_, args) =>
+        {
+            _vocabularyWorkflow?.Delete(args.SentenceId, args.ItemId);
+        };
 
         _floatingWindow.Show();
     }
