@@ -49,7 +49,9 @@ public partial class FloatingWindow : Window
     private RenderSignature? _vocabularyRenderSignature;
     private Guid? _vocabularyRenderHighlight;
 
-    public void ApplySettings(AppSettings settings, bool renderContent = true)
+    public void ApplySettings(AppSettings settings) => ApplySettings(settings, renderContent: true);
+
+    public void ApplySettings(AppSettings settings, bool renderContent)
     {
         var defaults = AppSettings.Default;
         var activeList = StudyListRules.ActiveList(settings);
