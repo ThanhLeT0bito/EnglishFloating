@@ -126,12 +126,12 @@ public partial class SettingsWindow : Window
         var newKey = ApiKeyInput.Password?.Trim();
         if (!string.IsNullOrEmpty(newKey))
         {
-            _apiKeyStore?.SaveAsync(newKey).GetAwaiter().GetResult();
+            _apiKeyStore?.Save(newKey);
             _apiKeyConfigured = true;
         }
         else if (_apiKeyCleared)
         {
-            _apiKeyStore?.ClearAsync().GetAwaiter().GetResult();
+            _apiKeyStore?.Clear();
             _apiKeyConfigured = false;
         }
 

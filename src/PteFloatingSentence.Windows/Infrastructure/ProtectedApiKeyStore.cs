@@ -16,11 +16,11 @@ public sealed class ProtectedApiKeyStore
 
     public string FilePath { get; }
 
-    public async Task SaveAsync(string apiKey)
+    public void Save(string apiKey)
     {
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            await ClearAsync();
+            Clear();
             return;
         }
 
@@ -30,17 +30,23 @@ public sealed class ProtectedApiKeyStore
 
         var bytes = Encoding.UTF8.GetBytes(apiKey.Trim());
         var encrypted = ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
-        await File.WriteAllBytesAsync(FilePath, encrypted);
+        File.WriteAllBytes(FilePath, encrypted);
     }
 
-    public async Task<string?> LoadAsync()
+    public Task SaveAsync(string apiKey)
+    {
+        Save(apiKey);
+        return Task.CompletedTask;
+    }
+
+    public string? Load()
     {
         if (!File.Exists(FilePath))
             return null;
 
         try
         {
-            var encrypted = await File.ReadAllBytesAsync(FilePath);
+            var encrypted = File.ReadAllBytes(FilePath);
             if (encrypted.Length == 0)
                 return null;
 
@@ -61,7 +67,9 @@ public sealed class ProtectedApiKeyStore
         }
     }
 
-    public Task ClearAsync()
+    public Task<string?> LoadAsync() => Task.FromResult(Load());
+
+    public void Clear()
     {
         try
         {
@@ -74,7 +82,11 @@ public sealed class ProtectedApiKeyStore
         catch (UnauthorizedAccessException)
         {
         }
+    }
 
+    public Task ClearAsync()
+    {
+        Clear();
         return Task.CompletedTask;
     }
 }

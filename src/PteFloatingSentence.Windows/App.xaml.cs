@@ -41,7 +41,7 @@ public partial class App : System.Windows.Application
         var position = Core.WindowPlacementNormalizer.Normalize(_settings, displays);
         _settings = _settings with { Left = position.Left, Top = position.Top };
 
-        _explainer = new GeminiVocabularyExplainer(() => _apiKeyStore.LoadAsync().GetAwaiter().GetResult());
+        _explainer = new GeminiVocabularyExplainer(() => _apiKeyStore.Load());
         _vocabularyWorkflow = new VocabularyWorkflow(_explainer, () => _settings, SaveSettings);
 
         _floatingWindow = new FloatingWindow { Left = position.Left, Top = position.Top };
