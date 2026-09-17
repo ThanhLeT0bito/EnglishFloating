@@ -123,7 +123,12 @@ public sealed class VocabularyWorkflow : IDisposable
         }
         catch (OperationCanceledException)
         {
-            // Shutdown or cancellation
+            // Never leave a persisted item in Pending after a canceled request.
+            UpdateItemInSettings(sentenceId, itemId, v => v with
+            {
+                Status = VocabularyStatus.Failed,
+                LastError = "Explanation request was canceled."
+            });
         }
         catch (Exception ex)
         {

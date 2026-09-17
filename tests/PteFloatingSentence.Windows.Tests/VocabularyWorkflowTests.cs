@@ -106,6 +106,22 @@ public sealed class VocabularyWorkflowTests
     }
 
     [TestMethod]
+    public async Task AddAsync_ExplainerIsCanceled_DoesNotLeaveItemPending()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "A canceled scenario.");
+        var list = new StudyList(Guid.NewGuid(), "List", 10, 0, [sentence]);
+        var settings = new AppSettings { ActiveListId = list.Id, StudyLists = [list] };
+        var explainer = new TestExplainer(_ => Task.FromCanceled<VocabularyExplanation>(new CancellationToken(true)));
+        using var workflow = new VocabularyWorkflow(explainer, () => settings, s => settings = s);
+
+        await workflow.AddAsync(sentence, "canceled");
+
+        var item = settings.StudyLists[0].Sentences[0].Vocabulary[0];
+        Assert.AreEqual(VocabularyStatus.Failed, item.Status);
+        StringAssert.Contains(item.LastError!, "canceled");
+    }
+
+    [TestMethod]
     public async Task RetryAsync_FailedItem_TransitionsToReadyOnSuccess()
     {
         var failedItem = VocabularyRules.CreatePending("tricky") with
