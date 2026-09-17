@@ -61,4 +61,72 @@ public class ReviewPracticeTests
         var expectedJoined = string.Join(" ", review.Tokens.Select(t => t.DisplayText));
         Assert.AreEqual(expectedJoined, review.DisplayText);
     }
+
+    [TestMethod]
+    public void CreateProjection_OneWordSentence_HidesZeroWords()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "Hello.");
+        var review = ReviewPracticeRules.CreateProjection(sentence);
+
+        Assert.AreEqual(0, review.HiddenTokenIndexes.Count);
+        Assert.AreEqual("Hello.", review.DisplayText);
+    }
+
+    [TestMethod]
+    public void CreateProjection_ThreeWordSentence_HidesOneWordNotLast()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "One two three.");
+        var review = ReviewPracticeRules.CreateProjection(sentence, seed: 123);
+
+        Assert.AreEqual(1, review.HiddenTokenIndexes.Count);
+        Assert.AreNotEqual(2, review.HiddenTokenIndexes[0]); // Last word left visible
+        Assert.IsFalse(review.Tokens[2].IsHidden);
+    }
+
+    [TestMethod]
+    public void CreateProjection_SixWordSentence_HidesHalfAndLeavesLastWordVisible()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "One two three four five six.");
+        var review = ReviewPracticeRules.CreateProjection(sentence, seed: 456);
+
+        Assert.AreEqual(3, review.HiddenTokenIndexes.Count);
+        Assert.IsFalse(review.HiddenTokenIndexes.Contains(5));
+        Assert.IsFalse(review.Tokens[5].IsHidden);
+    }
+
+    [TestMethod]
+    public void CreateProjection_TenWordSentence_HidesFortyToFiftyPercentAndLeavesLastWordVisible()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "One two three four five six seven eight nine ten.");
+        var review = ReviewPracticeRules.CreateProjection(sentence, seed: 789);
+
+        Assert.IsTrue(review.HiddenTokenIndexes.Count is >= 4 and <= 5);
+        Assert.IsFalse(review.HiddenTokenIndexes.Contains(9));
+        Assert.IsFalse(review.Tokens[9].IsHidden);
+    }
+
+    [TestMethod]
+    public void CreateProjection_StableSentenceId_ProducesSameHiddenIndexes()
+    {
+        var id = Guid.NewGuid();
+        var sentence = new StudySentence(id, "The quick brown fox jumps over the lazy dog today");
+
+        var review1 = ReviewPracticeRules.CreateProjection(sentence);
+        var review2 = ReviewPracticeRules.CreateProjection(sentence);
+
+        CollectionAssert.AreEqual(review1.HiddenTokenIndexes.ToArray(), review2.HiddenTokenIndexes.ToArray());
+    }
+
+    [TestMethod]
+    public void CreateProjection_DoesNotHidePunctuationOnlyTokens()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "Alpha , beta -- gamma .");
+        var review = ReviewPracticeRules.CreateProjection(sentence, seed: 99);
+
+        foreach (var hiddenIdx in review.HiddenTokenIndexes)
+        {
+            var token = review.Tokens[hiddenIdx];
+            Assert.IsTrue(token.SourceText.Any(char.IsLetterOrDigit), $"Token '{token.SourceText}' was punctuation-only but hidden.");
+        }
+    }
 }
