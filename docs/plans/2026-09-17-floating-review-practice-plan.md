@@ -35,18 +35,18 @@
 - Context menu exposes:
   - `PracticeMenuItem` with text `"Start Practice"` (in normal mode) or `"Exit Practice"` (in practice mode).
 
-- [ ] Write failing surface tests verifying that calling `StartPractice()` switches `IsPracticeMode` to true, collapses `SentenceBox` and `VocabularyPanel`, shows `PracticeContainer`, and updates the context menu item.
-- [ ] Write failing surface test verifying that calling `ExitPractice()` restores `SentenceBox` visibility and sets `IsPracticeMode` to false.
-- [ ] Run `dotnet test tests/PteFloatingSentence.Windows.Tests/PteFloatingSentence.Windows.Tests.csproj --filter FullyQualifiedName~PracticeMode` and confirm failure.
-- [ ] Add practice UI containers inside `SentenceCard` in `FloatingWindow.xaml`:
+- [x] Write failing surface tests verifying that calling `StartPractice()` switches `IsPracticeMode` to true, collapses `SentenceBox` and `VocabularyPanel`, shows `PracticeContainer`, and updates the context menu item.
+- [x] Write failing surface test verifying that calling `ExitPractice()` restores `SentenceBox` visibility and sets `IsPracticeMode` to false.
+- [x] Run `dotnet test tests/PteFloatingSentence.Windows.Tests/PteFloatingSentence.Windows.Tests.csproj --filter FullyQualifiedName~PracticeMode` and confirm failure.
+- [x] Add practice UI containers inside `SentenceCard` in `FloatingWindow.xaml`:
   - `PracticeContainer` (StackPanel/Grid, collapsed by default).
   - `PracticeHeader` (Grid with `PracticeProgressLabel` and `PracticeExitButton` `✕`).
   - `PracticeProjectionPanel` (WrapPanel for token rendering).
   - `PracticeFeedbackLabel` (inline error / hint label).
   - `PracticeCompletionPanel` (completion message and restart button).
-- [ ] Implement `StartPractice(listId)` and `ExitPractice()` in `FloatingWindow.xaml.cs`.
-- [ ] Run focused tests and verify they pass.
-- [ ] Commit with `feat: add practice mode layout and state to floating window`.
+- [x] Implement `StartPractice(listId)` and `ExitPractice()` in `FloatingWindow.xaml.cs`.
+- [x] Run focused tests and verify they pass.
+- [x] Commit with `feat: add practice mode layout and state to floating window`.
 
 ### Task 2: Implement interactive inline masked-sentence input on FloatingWindow
 

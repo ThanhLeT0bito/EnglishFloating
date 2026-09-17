@@ -849,6 +849,105 @@ public class WindowSurfaceTests
         }
     }
 
+    [TestMethod]
+    public void FloatingWindow_StartPractice_SwitchesToPracticeModeAndUpdatesUI()
+    {
+        Exception? threadEx = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var window = new FloatingWindow();
+                var sentence = new StudySentence(Guid.NewGuid(), "You must wear a hard hat on the construction site");
+                var list = new StudyList(Guid.NewGuid(), "Practice List", 10, 0, [sentence]);
+                var settings = AppSettings.Default with
+                {
+                    StudyLists = [list],
+                    ActiveListId = list.Id,
+                    ShowVocabularyCards = true
+                };
+
+                window.ApplySettings(settings);
+
+                Assert.IsFalse(window.IsPracticeMode);
+                var sentenceBox = (System.Windows.Controls.RichTextBox)window.FindName("SentenceBox");
+                var practiceContainer = (System.Windows.FrameworkElement)window.FindName("PracticeContainer");
+                var practiceItem = (System.Windows.Controls.MenuItem)window.FindName("PracticeMenuItem");
+
+                Assert.AreEqual(System.Windows.Visibility.Visible, sentenceBox.Visibility);
+                Assert.AreEqual(System.Windows.Visibility.Collapsed, practiceContainer.Visibility);
+                Assert.AreEqual("Start Practice", practiceItem.Header);
+
+                window.StartPractice();
+
+                Assert.IsTrue(window.IsPracticeMode);
+                Assert.AreEqual(System.Windows.Visibility.Collapsed, sentenceBox.Visibility);
+                Assert.AreEqual(System.Windows.Visibility.Visible, practiceContainer.Visibility);
+                Assert.AreEqual("Exit Practice", practiceItem.Header);
+            }
+            catch (Exception ex)
+            {
+                threadEx = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (threadEx is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(threadEx).Throw();
+        }
+    }
+
+    [TestMethod]
+    public void FloatingWindow_ExitPractice_RestoresNormalMode()
+    {
+        Exception? threadEx = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var window = new FloatingWindow();
+                var sentence = new StudySentence(Guid.NewGuid(), "You must wear a hard hat on the construction site");
+                var list = new StudyList(Guid.NewGuid(), "Practice List", 10, 0, [sentence]);
+                var settings = AppSettings.Default with
+                {
+                    StudyLists = [list],
+                    ActiveListId = list.Id
+                };
+
+                window.ApplySettings(settings);
+                window.StartPractice();
+                Assert.IsTrue(window.IsPracticeMode);
+
+                window.ExitPractice();
+                Assert.IsFalse(window.IsPracticeMode);
+
+                var sentenceBox = (System.Windows.Controls.RichTextBox)window.FindName("SentenceBox");
+                var practiceContainer = (System.Windows.FrameworkElement)window.FindName("PracticeContainer");
+                var practiceItem = (System.Windows.Controls.MenuItem)window.FindName("PracticeMenuItem");
+
+                Assert.AreEqual(System.Windows.Visibility.Visible, sentenceBox.Visibility);
+                Assert.AreEqual(System.Windows.Visibility.Collapsed, practiceContainer.Visibility);
+                Assert.AreEqual("Start Practice", practiceItem.Header);
+            }
+            catch (Exception ex)
+            {
+                threadEx = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (threadEx is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(threadEx).Throw();
+        }
+    }
+
+
 
 
     private static T? FindDescendant<T>(System.Windows.DependencyObject parent) where T : System.Windows.DependencyObject

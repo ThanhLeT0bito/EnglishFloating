@@ -13,6 +13,7 @@
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
     <Window.ContextMenu>
         <ContextMenu>
+            <MenuItem x:Name="PracticeMenuItem" Header="Start Practice" Click="PracticeMenuItem_Click" />
             <MenuItem Header="Settings" Click="SettingsMenuItem_Click" />
             <MenuItem Header="Exit" Click="ExitMenuItem_Click" />
         </ContextMenu>
@@ -111,34 +112,61 @@
                 </LinearGradientBrush>
             </Border.Background>
             <Border x:Name="SentenceBackground" Padding="18,10" CornerRadius="10" Background="#E6121722">
-                <StackPanel HorizontalAlignment="Center">
-                    <RichTextBox x:Name="SentenceBox"
-                                 MaxWidth="900"
-                                 IsReadOnly="True"
-                                 IsReadOnlyCaretVisible="False"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 Padding="0"
-                                 Margin="0"
-                                 Focusable="True"
-                                 Cursor="IBeam"
-                                 QueryCursor="SentenceBox_QueryCursor"
-                                 PreviewMouseLeftButtonUp="SentenceBox_PreviewMouseLeftButtonUp">
-                        <RichTextBox.Resources>
-                            <Style TargetType="FlowDocument">
-                                <Setter Property="TextAlignment" Value="Center" />
-                                <Setter Property="PagePadding" Value="0" />
-                            </Style>
-                            <Style TargetType="Paragraph">
-                                <Setter Property="Margin" Value="0" />
-                                <Setter Property="Padding" Value="0" />
-                            </Style>
-                        </RichTextBox.Resources>
-                        <FlowDocument x:Name="SentenceDocument" TextAlignment="Center" PagePadding="0" />
-                    </RichTextBox>
-                    <TextBlock x:Name="ProgressText" Margin="0,6,0,0" HorizontalAlignment="Center" Foreground="#FF9CA3AF" FontSize="12" />
-                </StackPanel>
+                <Grid HorizontalAlignment="Center">
+                    <!-- Normal sentence view -->
+                    <StackPanel x:Name="NormalSentenceContainer" HorizontalAlignment="Center">
+                        <RichTextBox x:Name="SentenceBox"
+                                     MaxWidth="900"
+                                     IsReadOnly="True"
+                                     IsReadOnlyCaretVisible="False"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     Padding="0"
+                                     Margin="0"
+                                     Focusable="True"
+                                     Cursor="IBeam"
+                                     QueryCursor="SentenceBox_QueryCursor"
+                                     PreviewMouseLeftButtonUp="SentenceBox_PreviewMouseLeftButtonUp">
+                            <RichTextBox.Resources>
+                                <Style TargetType="FlowDocument">
+                                    <Setter Property="TextAlignment" Value="Center" />
+                                    <Setter Property="PagePadding" Value="0" />
+                                </Style>
+                                <Style TargetType="Paragraph">
+                                    <Setter Property="Margin" Value="0" />
+                                    <Setter Property="Padding" Value="0" />
+                                </Style>
+                            </RichTextBox.Resources>
+                            <FlowDocument x:Name="SentenceDocument" TextAlignment="Center" PagePadding="0" />
+                        </RichTextBox>
+                        <TextBlock x:Name="ProgressText" Margin="0,6,0,0" HorizontalAlignment="Center" Foreground="#FF9CA3AF" FontSize="12" />
+                    </StackPanel>
+
+                    <!-- Practice mode view -->
+                    <StackPanel x:Name="PracticeContainer" HorizontalAlignment="Center" Visibility="Collapsed" MaxWidth="900">
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="PracticeProgressLabel" Grid.Column="0" VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Foreground="#FF38BDF8" Text="Practice · Sentence 1 of 1" />
+                            <Button x:Name="PracticeExitButton" Grid.Column="1" Style="{StaticResource CardActionButtonStyle}" Content="✕ Exit" Click="PracticeExitButton_Click" Margin="8,0,0,0" VerticalAlignment="Center" />
+                        </Grid>
+
+                        <WrapPanel x:Name="PracticeProjectionPanel" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,4" />
+
+                        <TextBlock x:Name="PracticeFeedbackLabel" Margin="0,4,0,0" HorizontalAlignment="Center" FontSize="12" Foreground="#FFFCA5A5" Visibility="Collapsed" />
+
+                        <Border x:Name="PracticeCompletionPanel" Margin="0,8,0,0" Background="#26059669" BorderBrush="#FF10B981" BorderThickness="1" CornerRadius="6" Padding="10,6" Visibility="Collapsed">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock x:Name="PracticeCompletionMessage" Text="All sentences completed!" FontWeight="SemiBold" FontSize="12" Foreground="#FF34D399" VerticalAlignment="Center" />
+                                <Button x:Name="PracticeRestartButton" Content="Restart" Style="{StaticResource CardActionButtonStyle}" Margin="10,0,0,0" Click="PracticeRestartButton_Click" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
             </Border>
+
         </Border>
         <Button x:Name="NextButton"
                 Grid.Row="0"

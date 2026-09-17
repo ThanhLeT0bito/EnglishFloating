@@ -1,10 +1,16 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using Brush = System.Windows.Media.Brush;
+using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
 using Cursors = System.Windows.Input.Cursors;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using KeyEventHandler = System.Windows.Input.KeyEventHandler;
+using TextBox = System.Windows.Controls.TextBox;
+using UserControl = System.Windows.Controls.UserControl;
 using PteFloatingSentence.Core;
 
 namespace PteFloatingSentence.Windows;
@@ -13,10 +19,23 @@ public partial class FloatingWindow : Window
 {
     private bool _hasMultipleSentences;
     private Guid _currentSentenceId;
+    private ReviewPracticeSession? _practiceSession;
+    private AppSettings _settings = AppSettings.Default;
+    private readonly KeyEventHandler _practiceKeyDownHandler;
+    private readonly RoutedEventHandler _practiceGotFocusHandler;
+    private readonly RoutedEventHandler _practiceLostFocusHandler;
+    private bool _practiceHandlersAttached;
+
+    public bool IsPracticeMode { get; private set; }
+    public event EventHandler? PracticeModeChanged;
+    public event EventHandler<(Guid ListId, Guid SentenceId, bool Completed)>? SentenceCompleted;
 
     public FloatingWindow()
     {
         InitializeComponent();
+        _practiceKeyDownHandler = PracticeProjectionPanel_KeyDown;
+        _practiceGotFocusHandler = PracticeProjectionPanel_GotFocus;
+        _practiceLostFocusHandler = PracticeProjectionPanel_LostFocus;
     }
 
     public event EventHandler? SettingsRequested;
@@ -54,6 +73,7 @@ public partial class FloatingWindow : Window
 
     public void ApplySettings(AppSettings settings, bool renderContent)
     {
+        _settings = settings;
         var defaults = AppSettings.Default;
         var activeList = StudyListRules.ActiveList(settings);
         var sentenceCount = activeList.Sentences.Count;
@@ -74,6 +94,19 @@ public partial class FloatingWindow : Window
         var fontSize = IsValidFontSize(settings.FontSize) ? settings.FontSize : defaults.FontSize;
         var foregroundBrush = ToBrush(settings.TextColor, defaults.TextColor);
         SentenceBackground.Background = ToBlackBackground(settings.BackgroundOpacity, defaults.BackgroundOpacity);
+
+        if (IsPracticeMode)
+        {
+            SentenceBox.Visibility = Visibility.Collapsed;
+            NormalSentenceContainer.Visibility = Visibility.Collapsed;
+            PracticeContainer.Visibility = Visibility.Visible;
+            VocabularyPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        SentenceBox.Visibility = Visibility.Visible;
+        NormalSentenceContainer.Visibility = Visibility.Visible;
+        PracticeContainer.Visibility = Visibility.Collapsed;
 
         var vocabulary = currentSentence?.Vocabulary ?? [];
         _showVocabularyCards = settings.ShowVocabularyCards;
@@ -395,6 +428,138 @@ public partial class FloatingWindow : Window
         PositionChanged?.Invoke(this, (Left, Top));
     }
 
+    public void StartPractice(Guid? listId = null)
+    {
+        var targetList = listId.HasValue
+            ? _settings.StudyLists.FirstOrDefault(l => l.Id == listId.Value)
+            : StudyListRules.ActiveList(_settings);
+
+        if (targetList is null)
+            return;
+
+        _practiceSession = new ReviewPracticeSession(targetList, onSentenceCompleted: (sentenceId, completed) =>
+        {
+            SentenceCompleted?.Invoke(this, (targetList.Id, sentenceId, completed));
+        });
+
+        IsPracticeMode = true;
+        SentenceBox.Visibility = Visibility.Collapsed;
+        NormalSentenceContainer.Visibility = Visibility.Collapsed;
+        PracticeContainer.Visibility = Visibility.Visible;
+        VocabularyPanel.Visibility = Visibility.Collapsed;
+
+        if (PracticeMenuItem is not null)
+        {
+            PracticeMenuItem.Header = "Exit Practice";
+        }
+
+        AttachPracticeEventHandlers();
+        UpdatePracticeUI();
+        PracticeModeChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void ExitPractice()
+    {
+        if (!IsPracticeMode)
+            return;
+
+        DetachPracticeEventHandlers();
+        _practiceSession = null;
+        IsPracticeMode = false;
+
+        SentenceBox.Visibility = Visibility.Visible;
+        NormalSentenceContainer.Visibility = Visibility.Visible;
+        PracticeContainer.Visibility = Visibility.Collapsed;
+        VocabularyPanel.Visibility = _showVocabularyCards ? Visibility.Visible : Visibility.Collapsed;
+
+        if (PracticeMenuItem is not null)
+        {
+            PracticeMenuItem.Header = "Start Practice";
+        }
+
+        PracticeModeChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void PracticeMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsPracticeMode)
+        {
+            ExitPractice();
+        }
+        else
+        {
+            StartPractice();
+        }
+    }
+
+    private void PracticeExitButton_Click(object sender, RoutedEventArgs e)
+    {
+        ExitPractice();
+    }
+
+    private void PracticeRestartButton_Click(object sender, RoutedEventArgs e)
+    {
+        _practiceSession?.RestartList();
+        UpdatePracticeUI();
+    }
+
+    private void AttachPracticeEventHandlers()
+    {
+        if (_practiceHandlersAttached) return;
+        PracticeProjectionPanel.AddHandler(UIElement.KeyDownEvent, _practiceKeyDownHandler, true);
+        PracticeProjectionPanel.AddHandler(UIElement.GotFocusEvent, _practiceGotFocusHandler, true);
+        PracticeProjectionPanel.AddHandler(UIElement.LostFocusEvent, _practiceLostFocusHandler, true);
+        _practiceHandlersAttached = true;
+    }
+
+    private void DetachPracticeEventHandlers()
+    {
+        if (!_practiceHandlersAttached) return;
+        PracticeProjectionPanel.RemoveHandler(UIElement.KeyDownEvent, _practiceKeyDownHandler);
+        PracticeProjectionPanel.RemoveHandler(UIElement.GotFocusEvent, _practiceGotFocusHandler);
+        PracticeProjectionPanel.RemoveHandler(UIElement.LostFocusEvent, _practiceLostFocusHandler);
+        _practiceHandlersAttached = false;
+    }
+
+    private void UpdatePracticeUI()
+    {
+        if (_practiceSession is null) return;
+
+        if (_practiceSession.List.Sentences.Count == 0)
+        {
+            PracticeProgressLabel.Text = "Practice · No sentences";
+            PracticeCompletionPanel.Visibility = Visibility.Collapsed;
+            PracticeFeedbackLabel.Visibility = Visibility.Collapsed;
+            PracticeProjectionPanel.Children.Clear();
+            return;
+        }
+
+        PracticeProgressLabel.Text = $"Practice · Sentence {_practiceSession.SentenceIndex + 1} of {_practiceSession.List.Sentences.Count}";
+        PracticeFeedbackLabel.Visibility = Visibility.Collapsed;
+        PracticeFeedbackLabel.Text = string.Empty;
+
+        if (_practiceSession.IsAllSentencesCompleted)
+        {
+            PracticeCompletionPanel.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            PracticeCompletionPanel.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void PracticeProjectionPanel_KeyDown(object sender, KeyEventArgs e)
+    {
+    }
+
+    private void PracticeProjectionPanel_GotFocus(object sender, RoutedEventArgs e)
+    {
+    }
+
+    private void PracticeProjectionPanel_LostFocus(object sender, RoutedEventArgs e)
+    {
+    }
+
     private void Window_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e) => UpdateNavigationVisibility(isPointerOver: true);
 
     private void Window_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e) => UpdateNavigationVisibility(isPointerOver: false);
@@ -402,12 +567,26 @@ public partial class FloatingWindow : Window
     private void PreviousButton_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
+        if (IsPracticeMode && _practiceSession is not null)
+        {
+            _practiceSession.MovePreviousSentence();
+            UpdatePracticeUI();
+            return;
+        }
+
         PreviousRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private void NextButton_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
+        if (IsPracticeMode && _practiceSession is not null)
+        {
+            _practiceSession.MoveNextSentence();
+            UpdatePracticeUI();
+            return;
+        }
+
         NextRequested?.Invoke(this, EventArgs.Empty);
     }
 
@@ -501,6 +680,7 @@ public partial class FloatingWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        DetachPracticeEventHandlers();
         ClearSentenceDocumentInlines();
         base.OnClosed(e);
     }
