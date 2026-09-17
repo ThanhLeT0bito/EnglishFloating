@@ -87,12 +87,13 @@ public sealed class GeminiVocabularyExplainer : IVocabularyExplainer, IDisposabl
         {
             foreach (var model in _candidateModels)
             {
-                var endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={Uri.EscapeDataString(apiKey)}";
+                var endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
 
                 using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
                 {
                     Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json")
                 };
+                request.Headers.Add("x-goog-api-key", apiKey);
 
                 HttpResponseMessage response;
                 try

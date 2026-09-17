@@ -96,6 +96,7 @@ public partial class FloatingWindow : Window
 
     private void RenderSentenceDocument(string text, IReadOnlyList<VocabularyItem>? vocabulary, double fontSize, Brush foregroundBrush)
     {
+        ClearSentenceDocumentInlines();
         SentenceDocument.Blocks.Clear();
         var paragraph = new Paragraph
         {
@@ -154,6 +155,10 @@ public partial class FloatingWindow : Window
 
             var itemColor = colorMap.TryGetValue(item.Id, out var c) ? c : VocabularyPalette[0];
             var itemBrush = new SolidColorBrush(itemColor);
+            var hoverColor = GetHoverColor(itemColor);
+            var hoverBrush = new SolidColorBrush(hoverColor);
+            var hoverBackground = new SolidColorBrush(Color.FromArgb(0x33, itemColor.R, itemColor.G, itemColor.B));
+
             var run = new Run(text.Substring(start, length)) { Tag = item.Id };
             var span = new Span(run)
             {
@@ -163,6 +168,12 @@ public partial class FloatingWindow : Window
                 Cursor = Cursors.Hand,
                 ToolTip = "Click to view explanation"
             };
+            span.Resources["OriginalBrush"] = itemBrush;
+            span.Resources["HoverBrush"] = hoverBrush;
+            span.Resources["HoverBackground"] = hoverBackground;
+
+            span.MouseEnter += OnVocabularySpanMouseEnter;
+            span.MouseLeave += OnVocabularySpanMouseLeave;
 
             paragraph.Inlines.Add(span);
             cursor = start + length;
@@ -415,6 +426,67 @@ public partial class FloatingWindow : Window
             ? opacity
             : fallbackOpacity;
         return new SolidColorBrush(System.Windows.Media.Color.FromArgb((byte)Math.Round(selectedOpacity * byte.MaxValue), 0, 0, 0));
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        ClearSentenceDocumentInlines();
+        base.OnClosed(e);
+    }
+
+    private void ClearSentenceDocumentInlines()
+    {
+        foreach (var block in SentenceDocument.Blocks)
+        {
+            if (block is Paragraph paragraph)
+            {
+                foreach (var inline in paragraph.Inlines)
+                {
+                    if (inline is Span span)
+                    {
+                        span.MouseEnter -= OnVocabularySpanMouseEnter;
+                        span.MouseLeave -= OnVocabularySpanMouseLeave;
+                    }
+                }
+            }
+        }
+    }
+
+    private static Color GetHoverColor(Color baseColor)
+    {
+        var r = (byte)Math.Min(255, baseColor.R + ((255 - baseColor.R) * 2 / 3));
+        var g = (byte)Math.Min(255, baseColor.G + ((255 - baseColor.G) * 2 / 3));
+        var b = (byte)Math.Min(255, baseColor.B + ((255 - baseColor.B) * 2 / 3));
+        return Color.FromRgb(r, g, b);
+    }
+
+    private static void OnVocabularySpanMouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (sender is Span span)
+        {
+            if (span.Resources["HoverBrush"] is Brush hoverBrush)
+            {
+                span.Foreground = hoverBrush;
+            }
+
+            if (span.Resources["HoverBackground"] is Brush hoverBg)
+            {
+                span.Background = hoverBg;
+            }
+        }
+    }
+
+    private static void OnVocabularySpanMouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (sender is Span span)
+        {
+            if (span.Resources["OriginalBrush"] is Brush originalBrush)
+            {
+                span.Foreground = originalBrush;
+            }
+
+            span.Background = System.Windows.Media.Brushes.Transparent;
+        }
     }
 }
 

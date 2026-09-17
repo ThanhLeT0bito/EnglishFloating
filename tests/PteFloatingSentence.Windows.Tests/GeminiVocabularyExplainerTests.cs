@@ -190,7 +190,11 @@ public sealed class GeminiVocabularyExplainerTests
         await explainer.ExplainAsync("word", "A sentence with word.");
 
         Assert.IsNotNull(capturedRequest);
-        Assert.IsTrue(capturedRequest.RequestUri!.ToString().Contains("models/gemini-3.6-flash:generateContent"));
+        var uriString = capturedRequest.RequestUri!.ToString();
+        Assert.IsTrue(uriString.Contains("models/gemini-3.6-flash:generateContent"));
+        Assert.IsFalse(uriString.Contains("key="), "API key must not be present in request URL query parameters.");
+        Assert.IsTrue(capturedRequest.Headers.TryGetValues("x-goog-api-key", out var keyValues));
+        Assert.AreEqual(SecretApiKey, keyValues.FirstOrDefault());
     }
 
     [TestMethod]

@@ -255,6 +255,186 @@ public class WindowSurfaceTests
         thread.Join();
     }
 
+    [TestMethod]
+    public void FloatingWindow_VocabularySpanHover_ChangesForegroundAndRestoresOnLeave()
+    {
+        var thread = new Thread(() =>
+        {
+            var window = new FloatingWindow();
+            var item = new VocabularyItem(Guid.NewGuid(), "hover-target", "hover-target", Status: VocabularyStatus.Ready);
+
+            var sentence = new StudySentence(
+                Guid.NewGuid(),
+                "This is a hover-target phrase.",
+                IsCompleted: false,
+                Vocabulary: [item]);
+
+            var list = new StudyList(Guid.NewGuid(), "List", 10, 0, [sentence]);
+            window.ApplySettings(AppSettings.Default with
+            {
+                StudyLists = [list],
+                ActiveListId = list.Id
+            });
+
+            var doc = (System.Windows.Documents.FlowDocument)window.FindName("SentenceDocument");
+            var paragraph = (System.Windows.Documents.Paragraph)doc.Blocks.FirstBlock;
+            var span = paragraph.Inlines.OfType<System.Windows.Documents.Span>().Single();
+
+            var originalBrush = span.Foreground as System.Windows.Media.SolidColorBrush;
+            var hoverBrush = span.Resources["HoverBrush"] as System.Windows.Media.SolidColorBrush;
+            Assert.IsNotNull(originalBrush);
+            Assert.IsNotNull(hoverBrush);
+            Assert.AreNotEqual(originalBrush.Color, hoverBrush.Color);
+
+            // Trigger MouseEnter
+            span.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0)
+            {
+                RoutedEvent = System.Windows.Input.Mouse.MouseEnterEvent
+            });
+            Assert.AreEqual(hoverBrush, span.Foreground);
+
+            // Trigger MouseLeave
+            span.RaiseEvent(new System.Windows.Input.MouseEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0)
+            {
+                RoutedEvent = System.Windows.Input.Mouse.MouseLeaveEvent
+            });
+            Assert.AreEqual(originalBrush, span.Foreground);
+
+            // Ensure window closes cleanly without leak
+            window.Close();
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
+
+    [TestMethod]
+    public void FloatingWindow_HideAndRetryButtons_FireRequestedEvents()
+    {
+        var thread = new Thread(() =>
+        {
+            var window = new FloatingWindow();
+            var itemId = Guid.NewGuid();
+            var sentenceId = Guid.NewGuid();
+            var item = new VocabularyItem(itemId, "phrase", "phrase", Status: VocabularyStatus.Failed);
+
+            var sentence = new StudySentence(
+                sentenceId,
+                "A phrase for testing.",
+                IsCompleted: false,
+                Vocabulary: [item]);
+
+            var list = new StudyList(Guid.NewGuid(), "List", 10, 0, [sentence]);
+            window.ApplySettings(AppSettings.Default with
+            {
+                StudyLists = [list],
+                ActiveListId = list.Id
+            });
+
+            (Guid SentenceId, Guid ItemId)? hideEvent = null;
+            (Guid SentenceId, Guid ItemId)? retryEvent = null;
+
+            window.HideVocabularyRequested += (_, args) => hideEvent = args;
+            window.RetryVocabularyRequested += (_, args) => retryEvent = args;
+
+            // Trigger Hide
+            var hideMethod = typeof(FloatingWindow).GetMethod("HideVocabularyButton_Click",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            Assert.IsNotNull(hideMethod);
+            var btn = new System.Windows.Controls.Button { Tag = itemId };
+            hideMethod.Invoke(window, [btn, new System.Windows.RoutedEventArgs()]);
+
+            Assert.IsNotNull(hideEvent);
+            Assert.AreEqual(sentenceId, hideEvent.Value.SentenceId);
+            Assert.AreEqual(itemId, hideEvent.Value.ItemId);
+
+            // Trigger Retry
+            var retryMethod = typeof(FloatingWindow).GetMethod("RetryVocabularyButton_Click",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            Assert.IsNotNull(retryMethod);
+            retryMethod.Invoke(window, [btn, new System.Windows.RoutedEventArgs()]);
+
+            Assert.IsNotNull(retryEvent);
+            Assert.AreEqual(sentenceId, retryEvent.Value.SentenceId);
+            Assert.AreEqual(itemId, retryEvent.Value.ItemId);
+
+            window.Close();
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
+
+    [TestMethod]
+    public void FloatingWindow_HandleSelection_DistinguishesExistingAndNewVocabulary()
+    {
+        var thread = new Thread(() =>
+        {
+            var window = new FloatingWindow();
+            var existingId = Guid.NewGuid();
+            var item = new VocabularyItem(existingId, "existing", "existing", Status: VocabularyStatus.Ready);
+
+            var sentence = new StudySentence(
+                Guid.NewGuid(),
+                "This has existing and new phrases.",
+                IsCompleted: false,
+                Vocabulary: [item]);
+
+            var list = new StudyList(Guid.NewGuid(), "List", 10, 0, [sentence]);
+            window.ApplySettings(AppSettings.Default with
+            {
+                StudyLists = [list],
+                ActiveListId = list.Id
+            });
+
+            Guid? clickedId = null;
+            string? selectedPhrase = null;
+
+            window.VocabularyClicked += (_, id) => clickedId = id;
+            window.VocabularySelected += (_, phrase) => selectedPhrase = phrase;
+
+            var box = (System.Windows.Controls.RichTextBox)window.FindName("SentenceBox");
+            var handleSelectionMethod = typeof(FloatingWindow).GetMethod("HandleSelection",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            Assert.IsNotNull(handleSelectionMethod);
+
+            // 1. Select the word "existing" (which is already a vocabulary item)
+            var doc = box.Document;
+            var para = (System.Windows.Documents.Paragraph)doc.Blocks.FirstBlock;
+            var existingSpan = para.Inlines.OfType<System.Windows.Documents.Span>().Single();
+            box.Selection.Select(existingSpan.ContentStart, existingSpan.ContentEnd);
+
+            handleSelectionMethod.Invoke(window, null);
+
+            Assert.AreEqual(existingId, clickedId, "Selecting existing phrase should trigger VocabularyClicked.");
+            Assert.IsNull(selectedPhrase, "Selecting existing phrase must NOT trigger VocabularySelected.");
+
+            // 2. Select the new word "new"
+            clickedId = null;
+            selectedPhrase = null;
+
+            // Find Run containing "new"
+            var run = para.Inlines.OfType<System.Windows.Documents.Run>().First(r => r.Text.Contains("new"));
+            var text = run.Text;
+            var newIndex = text.IndexOf("new", StringComparison.Ordinal);
+            var start = run.ContentStart.GetPositionAtOffset(newIndex);
+            var end = run.ContentStart.GetPositionAtOffset(newIndex + 3);
+            Assert.IsNotNull(start);
+            Assert.IsNotNull(end);
+            box.Selection.Select(start, end);
+
+            handleSelectionMethod.Invoke(window, null);
+
+            Assert.IsNull(clickedId, "Selecting new phrase should not trigger VocabularyClicked.");
+            Assert.AreEqual("new", selectedPhrase, "Selecting new phrase must trigger VocabularySelected.");
+
+            window.Close();
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
+
     private static string FindWorkspaceFile(params string[] segments)
     {
         for (var directory = new DirectoryInfo(Directory.GetCurrentDirectory()); directory is not null; directory = directory.Parent)
