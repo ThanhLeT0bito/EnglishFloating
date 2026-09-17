@@ -6,6 +6,7 @@ public sealed class ReviewPracticeSession
 {
     private readonly Action<Guid, bool>? _onSentenceCompleted;
     private readonly int? _fixedSeed;
+    private readonly HashSet<Guid> _completedSentenceIds;
 
     public StudyList List { get; }
     public int SentenceIndex { get; private set; }
@@ -19,6 +20,7 @@ public sealed class ReviewPracticeSession
         List = list ?? throw new ArgumentNullException(nameof(list));
         _fixedSeed = seed;
         _onSentenceCompleted = onSentenceCompleted;
+        _completedSentenceIds = new HashSet<Guid>(list.Sentences.Where(s => s.IsCompleted).Select(s => s.Id));
 
         if (list.Sentences.Count == 0)
         {
@@ -67,6 +69,11 @@ public sealed class ReviewPracticeSession
             if (result.IsComplete)
             {
                 IsComplete = true;
+                _completedSentenceIds.Add(CurrentReview.SentenceId);
+                if (List.Sentences.Count > 0 && _completedSentenceIds.Count >= List.Sentences.Count)
+                {
+                    IsAllSentencesCompleted = true;
+                }
                 _onSentenceCompleted?.Invoke(CurrentReview.SentenceId, true);
             }
             else
@@ -95,6 +102,7 @@ public sealed class ReviewPracticeSession
     public void RestartList()
     {
         if (List.Sentences.Count == 0) return;
+        _completedSentenceIds.Clear();
         SentenceIndex = 0;
         IsAllSentencesCompleted = false;
         LoadCurrentSentence();

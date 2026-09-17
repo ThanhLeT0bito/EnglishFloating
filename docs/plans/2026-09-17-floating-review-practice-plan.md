@@ -65,12 +65,12 @@
 - Wrong answer:
   - Highlights border red, shows inline "Try again.", keeps focus and selects all text.
 
-- [ ] Add failing tests for projection rendering: correct count of TextBlocks and TextBoxes for a masked sentence on `FloatingWindow`.
-- [ ] Add failing test for Enter key submitting answer and advancing focus to next hidden box.
-- [ ] Run tests and verify failure.
-- [ ] Implement projection rendering and container-level routed event handlers (`KeyDown`, `GotFocus`, `LostFocus`) on `PracticeProjectionPanel` with proper cleanup in `ExitPractice` and `OnClosed`.
-- [ ] Run tests and confirm they pass.
-- [ ] Commit with `feat: implement interactive masked input on floating window`.
+- [x] Add failing tests for projection rendering: correct count of TextBlocks and TextBoxes for a masked sentence on `FloatingWindow`.
+- [x] Add failing test for Enter key submitting answer and advancing focus to next hidden box.
+- [x] Run tests and verify failure.
+- [x] Implement projection rendering and container-level routed event handlers (`KeyDown`, `GotFocus`, `LostFocus`) on `PracticeProjectionPanel` with proper cleanup in `ExitPractice` and `OnClosed`.
+- [x] Run tests and confirm they pass.
+- [x] Commit with `feat: implement interactive masked input on floating window`.
 
 ### Task 3: Implement sentence completion, list navigation, and persistence
 

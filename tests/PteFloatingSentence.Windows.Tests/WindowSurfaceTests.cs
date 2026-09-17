@@ -947,6 +947,125 @@ public class WindowSurfaceTests
         }
     }
 
+    [TestMethod]
+    public void FloatingWindow_StartPractice_RendersTokensAsTextBlocksAndTextBoxes()
+    {
+        Exception? threadEx = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var window = new FloatingWindow();
+                var sentence = new StudySentence(Guid.NewGuid(), "You must wear a hard hat on the construction site");
+                var list = new StudyList(Guid.NewGuid(), "Practice List", 10, 0, [sentence]);
+                var settings = AppSettings.Default with
+                {
+                    StudyLists = [list],
+                    ActiveListId = list.Id
+                };
+
+                window.ApplySettings(settings);
+                window.StartPractice();
+
+                var projectionPanel = (System.Windows.Controls.WrapPanel)window.FindName("PracticeProjectionPanel");
+                var projection = ReviewPracticeRules.CreateProjection(sentence);
+
+                Assert.AreEqual(projection.Tokens.Count, projectionPanel.Children.Count);
+
+                var textBlockCount = projectionPanel.Children.OfType<System.Windows.Controls.TextBlock>().Count();
+                var textBoxCount = projectionPanel.Children.OfType<System.Windows.Controls.TextBox>().Count();
+
+                var expectedHiddenCount = projection.HiddenTokenIndexes.Count;
+                var expectedVisibleCount = projection.Tokens.Count - expectedHiddenCount;
+
+                Assert.AreEqual(expectedVisibleCount, textBlockCount);
+                Assert.AreEqual(expectedHiddenCount, textBoxCount);
+
+                // First box received focus automatically, so its placeholder is cleared
+                var boxes = projectionPanel.Children.OfType<System.Windows.Controls.TextBox>().ToList();
+                Assert.AreEqual(string.Empty, boxes[0].Text);
+                for (var b = 1; b < boxes.Count; b++)
+                {
+                    Assert.AreEqual("_", boxes[b].Text);
+                }
+            }
+            catch (Exception ex)
+            {
+                threadEx = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (threadEx is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(threadEx).Throw();
+        }
+    }
+
+    [TestMethod]
+    public void FloatingWindow_PracticeInput_ValidatesAndAdvancesFocus()
+    {
+        Exception? threadEx = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var window = new FloatingWindow();
+                var sentence = new StudySentence(Guid.NewGuid(), "You must wear a hard hat on the construction site");
+                var list = new StudyList(Guid.NewGuid(), "Practice List", 10, 0, [sentence]);
+                var settings = AppSettings.Default with
+                {
+                    StudyLists = [list],
+                    ActiveListId = list.Id
+                };
+
+                window.ApplySettings(settings);
+                window.StartPractice();
+
+                var projectionPanel = (System.Windows.Controls.WrapPanel)window.FindName("PracticeProjectionPanel");
+                var feedbackLabel = (System.Windows.Controls.TextBlock)window.FindName("PracticeFeedbackLabel");
+                var projection = ReviewPracticeRules.CreateProjection(sentence);
+
+                var firstTextBox = projectionPanel.Children.OfType<System.Windows.Controls.TextBox>().First();
+                var firstHiddenIndex = projection.HiddenTokenIndexes[0];
+                var expectedWord = projection.Tokens[firstHiddenIndex].SourceText.Trim('.', ',', '!', '?');
+
+                // Test wrong answer
+                firstTextBox.Text = "incorrectword";
+                var wrongResult = window.SubmitPracticeAnswer(firstTextBox, firstTextBox.Text);
+
+                Assert.IsNotNull(wrongResult);
+                Assert.IsFalse(wrongResult.IsCorrect);
+                Assert.AreEqual(System.Windows.Visibility.Visible, feedbackLabel.Visibility);
+                Assert.IsTrue(feedbackLabel.Text.Contains("Try again"));
+
+                // Test correct answer
+                firstTextBox.Text = expectedWord;
+                var correctResult = window.SubmitPracticeAnswer(firstTextBox, firstTextBox.Text);
+
+                Assert.IsNotNull(correctResult);
+                Assert.IsTrue(correctResult.IsCorrect);
+                Assert.AreEqual(System.Windows.Visibility.Collapsed, feedbackLabel.Visibility);
+                Assert.IsTrue(firstTextBox.IsReadOnly);
+                Assert.AreEqual(expectedWord, firstTextBox.Text);
+            }
+            catch (Exception ex)
+            {
+                threadEx = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (threadEx is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(threadEx).Throw();
+        }
+    }
+
 
 
 

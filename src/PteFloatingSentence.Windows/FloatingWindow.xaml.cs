@@ -546,18 +546,185 @@ public partial class FloatingWindow : Window
         {
             PracticeCompletionPanel.Visibility = Visibility.Collapsed;
         }
+
+        PracticeProjectionPanel.Children.Clear();
+        var review = _practiceSession.CurrentReview;
+        var fontSize = IsValidFontSize(_settings.FontSize) ? _settings.FontSize : AppSettings.Default.FontSize;
+        var foregroundBrush = ToBrush(_settings.TextColor, AppSettings.Default.TextColor);
+
+        for (var i = 0; i < review.Tokens.Count; i++)
+        {
+            var token = review.Tokens[i];
+            if (!token.IsHidden)
+            {
+                var tb = new TextBlock
+                {
+                    Text = token.DisplayText,
+                    FontSize = fontSize,
+                    Foreground = foregroundBrush,
+                    Margin = new Thickness(2, 2, 4, 2),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                PracticeProjectionPanel.Children.Add(tb);
+            }
+            else
+            {
+                var hiddenPos = -1;
+                for (var h = 0; h < review.HiddenTokenIndexes.Count; h++)
+                {
+                    if (review.HiddenTokenIndexes[h] == i)
+                    {
+                        hiddenPos = h;
+                        break;
+                    }
+                }
+
+                var isTokenCompleted = _practiceSession.IsComplete || hiddenPos < _practiceSession.CurrentHiddenPosition;
+                if (isTokenCompleted)
+                {
+                    var box = new TextBox
+                    {
+                        Text = token.SourceText,
+                        FontSize = fontSize,
+                        Foreground = new SolidColorBrush(Color.FromRgb(0x34, 0xD3, 0x99)),
+                        Background = new SolidColorBrush(Color.FromArgb(0x44, 0x1E, 0x29, 0x3B)),
+                        BorderBrush = new SolidColorBrush(Color.FromRgb(0x10, 0xB9, 0x81)),
+                        BorderThickness = new Thickness(1),
+                        Padding = new Thickness(4, 1, 4, 1),
+                        Margin = new Thickness(2, 2, 4, 2),
+                        TextAlignment = TextAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        IsReadOnly = true,
+                        Focusable = false,
+                        Tag = hiddenPos
+                    };
+                    PracticeProjectionPanel.Children.Add(box);
+                }
+                else
+                {
+                    var box = new TextBox
+                    {
+                        Text = "_",
+                        FontSize = fontSize,
+                        Foreground = new SolidColorBrush(Color.FromRgb(0x9C, 0xA3, 0xAF)),
+                        Background = new SolidColorBrush(Color.FromArgb(0x44, 0x1E, 0x29, 0x3B)),
+                        BorderBrush = new SolidColorBrush(Color.FromArgb(0x88, 0x38, 0xBD, 0xF8)),
+                        BorderThickness = new Thickness(1),
+                        Padding = new Thickness(4, 1, 4, 1),
+                        Margin = new Thickness(2, 2, 4, 2),
+                        TextAlignment = TextAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        MinWidth = Math.Max(28, token.SourceText.Length * (fontSize * 0.58)),
+                        Tag = hiddenPos
+                    };
+                    PracticeProjectionPanel.Children.Add(box);
+                }
+            }
+        }
+
+        FocusHiddenTextBox(_practiceSession.CurrentHiddenPosition);
+    }
+
+    public ReviewAnswerResult? SubmitPracticeAnswer(TextBox textBox, string answer)
+    {
+        if (_practiceSession is null || textBox.Tag is not int hiddenPos)
+            return null;
+
+        var result = _practiceSession.Submit(answer);
+        if (result.IsCorrect)
+        {
+            var tokenIndex = _practiceSession.CurrentReview.HiddenTokenIndexes[hiddenPos];
+            var correctWord = _practiceSession.CurrentReview.Tokens[tokenIndex].SourceText;
+            textBox.Text = correctWord;
+            textBox.Foreground = new SolidColorBrush(Color.FromRgb(0x34, 0xD3, 0x99));
+            textBox.BorderBrush = new SolidColorBrush(Color.FromRgb(0x10, 0xB9, 0x81));
+            textBox.IsReadOnly = true;
+            textBox.Focusable = false;
+            PracticeFeedbackLabel.Visibility = Visibility.Collapsed;
+
+            if (result.IsComplete)
+            {
+                OnPracticeSentenceCompleted();
+            }
+            else
+            {
+                FocusHiddenTextBox(result.NextHiddenTokenPosition);
+            }
+        }
+        else
+        {
+            textBox.BorderBrush = new SolidColorBrush(Color.FromRgb(0xEF, 0x44, 0x44));
+            PracticeFeedbackLabel.Text = result.Error ?? "Try again.";
+            PracticeFeedbackLabel.Visibility = Visibility.Visible;
+            textBox.SelectAll();
+        }
+
+        return result;
+    }
+
+    private void OnPracticeSentenceCompleted()
+    {
+        if (_practiceSession is null) return;
+
+        if (_practiceSession.IsAllSentencesCompleted)
+        {
+            PracticeCompletionPanel.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            _practiceSession.MoveNextSentence();
+            UpdatePracticeUI();
+        }
+    }
+
+    private void FocusHiddenTextBox(int hiddenPos)
+    {
+        var targetBox = PracticeProjectionPanel.Children
+            .OfType<TextBox>()
+            .FirstOrDefault(tb => tb.Tag is int p && p == hiddenPos);
+        if (targetBox is not null && targetBox.Focusable)
+        {
+            targetBox.Focus();
+        }
     }
 
     private void PracticeProjectionPanel_KeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Enter && e.OriginalSource is TextBox textBox && textBox.Tag is int hiddenPos)
+        {
+            e.Handled = true;
+            var text = textBox.Text == "_" ? string.Empty : textBox.Text;
+            SubmitPracticeAnswer(textBox, text);
+        }
     }
 
     private void PracticeProjectionPanel_GotFocus(object sender, RoutedEventArgs e)
     {
+        if (e.OriginalSource is TextBox textBox && !textBox.IsReadOnly)
+        {
+            if (textBox.Text == "_")
+            {
+                textBox.Text = string.Empty;
+                textBox.Foreground = ToBrush(_settings.TextColor, AppSettings.Default.TextColor);
+            }
+            else
+            {
+                textBox.SelectAll();
+            }
+        }
     }
 
     private void PracticeProjectionPanel_LostFocus(object sender, RoutedEventArgs e)
     {
+        if (e.OriginalSource is TextBox textBox && !textBox.IsReadOnly)
+        {
+            if (string.IsNullOrWhiteSpace(textBox.Text) || textBox.Text == "_")
+            {
+                textBox.Text = "_";
+                textBox.Foreground = new SolidColorBrush(Color.FromRgb(0x9C, 0xA3, 0xAF));
+                textBox.BorderBrush = new SolidColorBrush(Color.FromArgb(0x88, 0x38, 0xBD, 0xF8));
+            }
+        }
     }
 
     private void Window_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e) => UpdateNavigationVisibility(isPointerOver: true);
