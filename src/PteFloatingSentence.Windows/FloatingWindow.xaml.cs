@@ -45,8 +45,14 @@ public partial class FloatingWindow : Window
     private IReadOnlyList<VocabularyItem>? _currentVocabulary;
     private Guid? _highlightedItemId;
     private RenderSignature? _renderSignature;
+    private bool _showVocabularyCards = true;
+    private RenderSignature? _vocabularyRenderSignature;
+    private Guid? _vocabularyRenderHighlight;
+    private bool? _vocabularyRenderVisibility;
 
-    public void ApplySettings(AppSettings settings)
+    public void ApplySettings(AppSettings settings) => ApplySettings(settings, renderContent: true);
+
+    public void ApplySettings(AppSettings settings, bool renderContent)
     {
         var defaults = AppSettings.Default;
         var activeList = StudyListRules.ActiveList(settings);
@@ -70,12 +76,36 @@ public partial class FloatingWindow : Window
         SentenceBackground.Background = ToBlackBackground(settings.BackgroundOpacity, defaults.BackgroundOpacity);
 
         var vocabulary = currentSentence?.Vocabulary ?? [];
-        var signature = RenderSignature.Create(text, fontSize, settings.TextColor, settings.BackgroundOpacity, vocabulary);
-        if (_renderSignature != signature)
+        _showVocabularyCards = settings.ShowVocabularyCards;
+        SentenceBox.IsHitTestVisible = _showVocabularyCards;
+        SentenceBox.Cursor = _showVocabularyCards ? Cursors.IBeam : Cursors.Arrow;
+        var sentenceVocabulary = _showVocabularyCards ? vocabulary : [];
+        var sentenceSignature = RenderSignature.Create(text, fontSize, settings.TextColor, settings.BackgroundOpacity, sentenceVocabulary);
+        var vocabularySignature = RenderSignature.Create(string.Empty, 0, string.Empty, 0, vocabulary);
+        if (!renderContent)
         {
-            RenderSentenceDocument(text, vocabulary, fontSize, foregroundBrush);
+            VocabularyPanel.Visibility = Visibility.Collapsed;
+            VocabularyPanel.ItemsSource = null;
+            _vocabularyRenderSignature = null;
+            _vocabularyRenderHighlight = null;
+            _vocabularyRenderVisibility = null;
+            return;
+        }
+
+        if (_renderSignature != sentenceSignature)
+        {
+            RenderSentenceDocument(text, sentenceVocabulary, fontSize, foregroundBrush);
+            _renderSignature = sentenceSignature;
+        }
+
+        if (_vocabularyRenderSignature != vocabularySignature ||
+            _vocabularyRenderHighlight != _highlightedItemId ||
+            _vocabularyRenderVisibility != _showVocabularyCards)
+        {
             RenderVocabularyPanel(vocabulary);
-            _renderSignature = signature;
+            _vocabularyRenderSignature = vocabularySignature;
+            _vocabularyRenderHighlight = _highlightedItemId;
+            _vocabularyRenderVisibility = _showVocabularyCards;
         }
 
         SentenceCard.Measure(new System.Windows.Size(900, double.PositiveInfinity));
@@ -85,7 +115,11 @@ public partial class FloatingWindow : Window
     public void FocusVocabularyItem(Guid itemId)
     {
         _highlightedItemId = itemId;
-        RenderVocabularyPanel(_currentVocabulary);
+        if (_showVocabularyCards)
+        {
+            RenderVocabularyPanel(_currentVocabulary);
+            _vocabularyRenderHighlight = itemId;
+        }
     }
 
     private static Dictionary<Guid, Color> BuildColorMap(IReadOnlyList<VocabularyItem>? vocabulary)
@@ -203,6 +237,13 @@ public partial class FloatingWindow : Window
 
     private void RenderVocabularyPanel(IReadOnlyList<VocabularyItem>? vocabulary)
     {
+        if (!_showVocabularyCards)
+        {
+            VocabularyPanel.Visibility = Visibility.Collapsed;
+            VocabularyPanel.ItemsSource = null;
+            return;
+        }
+
         var visibleItems = (vocabulary ?? [])
             .Where(item => !item.IsHidden)
             .ToList();

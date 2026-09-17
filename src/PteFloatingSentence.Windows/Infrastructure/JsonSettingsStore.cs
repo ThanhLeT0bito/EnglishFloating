@@ -74,7 +74,9 @@ public sealed class JsonSettingsStore
             TextColor = legacy.TextColor,
             BackgroundOpacity = legacy.BackgroundOpacity,
             Left = legacy.Left,
-            Top = legacy.Top
+            Top = legacy.Top,
+            ShowSentenceOverlay = legacy.ShowSentenceOverlay,
+            ShowVocabularyCards = legacy.ShowVocabularyCards
         };
     }
 

@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 namespace PteFloatingSentence.Windows.Tests;
 
 [TestClass]
+[DoNotParallelize]
 public class WindowSurfaceTests
 {
     [TestMethod]
@@ -547,6 +548,212 @@ public class WindowSurfaceTests
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
         thread.Join();
+    }
+
+    [TestMethod]
+    public void DisplayPageXaml_ContainsDisplaySectionAndControls()
+    {
+        var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "DisplayPage.xaml"));
+
+        StringAssert.Contains(xaml, "x:Name=\"ShowSentenceOverlayInput\"");
+        StringAssert.Contains(xaml, "x:Name=\"ShowVocabularyCardsInput\"");
+        StringAssert.Contains(xaml, "Overlay visibility");
+    }
+
+    [TestMethod]
+    public void OverlayLauncherWindowXaml_IsAlwaysOnTopAndHasActionControl()
+    {
+        var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "OverlayLauncherWindow.xaml"));
+
+        StringAssert.Contains(xaml, "Topmost=\"True\"");
+        StringAssert.Contains(xaml, "WindowStyle=\"None\"");
+        StringAssert.Contains(xaml, "AllowsTransparency=\"True\"");
+        StringAssert.Contains(xaml, "x:Name=\"LauncherActionButton\"");
+        StringAssert.Contains(xaml, "FontFamily=\"Segoe MDL2 Assets\"");
+    }
+
+    [TestMethod]
+    public void ReviewPageXaml_ContainsReviewSectionAndBoundary()
+    {
+        var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "ReviewPage.xaml"));
+
+        StringAssert.Contains(xaml, "Review");
+        StringAssert.Contains(xaml, "Quiz coming next");
+    }
+
+    [TestMethod]
+    public void SettingsWindowXaml_ContainsSettingsCenterShellElements()
+    {
+        var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "SettingsWindow.xaml"));
+
+        StringAssert.Contains(xaml, "x:Name=\"SettingsNavigation\"");
+        StringAssert.Contains(xaml, "x:Name=\"PageTitle\"");
+        StringAssert.Contains(xaml, "x:Name=\"PageSubtitle\"");
+        StringAssert.Contains(xaml, "x:Name=\"PageContentHost\"");
+        StringAssert.Contains(xaml, "x:Name=\"SaveButton\"");
+        StringAssert.Contains(xaml, "x:Name=\"CancelButton\"");
+        StringAssert.Contains(xaml, "Setup");
+        StringAssert.Contains(xaml, "Display");
+        StringAssert.Contains(xaml, "Review");
+        StringAssert.Contains(xaml, "Gemini");
+    }
+
+    [TestMethod]
+    public void SettingsWindow_LoadsAtMinimumSizeWithoutCrashing()
+    {
+        var thread = new Thread(() =>
+        {
+            var window = new SettingsWindow(AppSettings.Default, _ => { });
+            window.Width = window.MinWidth;
+            window.Height = window.MinHeight;
+            window.Measure(new System.Windows.Size(window.MinWidth, window.MinHeight));
+            window.Arrange(new System.Windows.Rect(0, 0, window.MinWidth, window.MinHeight));
+            Assert.AreEqual(SettingsPageId.Setup, window.SelectedPage);
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
+
+    [TestMethod]
+    public void SetupPage_ExposesListEditorControlsAndUpdatesSentenceEditorOnSelection()
+    {
+        var thread = new Thread(() =>
+        {
+            var list = new StudyList(Guid.NewGuid(), "Sample List", 10, 0,
+                [new StudySentence(Guid.NewGuid(), "First item."), new StudySentence(Guid.NewGuid(), "Second item.")]);
+            var settings = new AppSettings { ActiveListId = list.Id, StudyLists = [list] };
+            var draft = new StudyListDraft(settings, _ => { });
+
+            var page = new SetupPage();
+            page.Initialize(draft, _ => { });
+            page.RefreshFromDraft(draft);
+
+            var listNameInput = (System.Windows.Controls.TextBox)page.FindName("ListNameInput");
+            var targetInput = (System.Windows.Controls.TextBox)page.FindName("TargetInput");
+            var sentenceList = (System.Windows.Controls.ListBox)page.FindName("SentenceList");
+            var sentenceInput = (System.Windows.Controls.TextBox)page.FindName("SentenceInput");
+
+            Assert.IsNotNull(listNameInput);
+            Assert.IsNotNull(targetInput);
+            Assert.IsNotNull(sentenceList);
+            Assert.IsNotNull(sentenceInput);
+            Assert.AreEqual("Sample List", listNameInput.Text);
+
+            sentenceList.SelectedIndex = 1;
+            Assert.AreEqual("Second item.", sentenceInput.Text);
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
+
+    [TestMethod]
+    public void ReviewPage_ShowsEmptyStateWhenNoData_AndPopulatesListWhenDataPresent()
+    {
+        var thread = new Thread(() =>
+        {
+            var page = new ReviewPage();
+            page.LoadData(new ReviewViewModel(new AppSettings { StudyLists = [] }));
+
+            var emptyLabel = (System.Windows.Controls.TextBlock)page.FindName("ReviewEmptyStateLabel");
+            var reviewList = (System.Windows.Controls.ItemsControl)page.FindName("ReviewList");
+
+            Assert.IsNotNull(emptyLabel);
+            Assert.IsNotNull(reviewList);
+            Assert.AreEqual(System.Windows.Visibility.Visible, emptyLabel.Visibility);
+            Assert.AreEqual(System.Windows.Visibility.Collapsed, reviewList.Visibility);
+
+            var list = new StudyList(Guid.NewGuid(), "List 1", 10, 0, [new StudySentence(Guid.NewGuid(), "Sentence.")]);
+            page.LoadData(new ReviewViewModel(new AppSettings { StudyLists = [list] }));
+
+            Assert.AreEqual(System.Windows.Visibility.Collapsed, emptyLabel.Visibility);
+            Assert.AreEqual(System.Windows.Visibility.Visible, reviewList.Visibility);
+            Assert.IsNotNull(reviewList.ItemsSource);
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
+
+    [TestMethod]
+    public void GeminiPage_ExposesApiKeyControlsAndCallbacks()
+    {
+        var thread = new Thread(() =>
+        {
+            var page = new GeminiPage();
+            var apiKeyInput = (System.Windows.Controls.PasswordBox)page.FindName("ApiKeyInput");
+            var statusLabel = (System.Windows.Controls.TextBlock)page.FindName("ApiKeyStatusLabel");
+            var clearButton = (System.Windows.Controls.Button)page.FindName("ClearApiKeyButton");
+
+            Assert.IsNotNull(apiKeyInput);
+            Assert.IsNotNull(statusLabel);
+            Assert.IsNotNull(clearButton);
+
+            page.LoadState(isKeyConfigured: true);
+            Assert.AreEqual("Key configured", statusLabel.Text);
+            Assert.IsTrue(clearButton.IsEnabled);
+
+            var cleared = false;
+            Action clearHandler = () => cleared = true;
+            page.ClearKeyRequested += clearHandler;
+            try
+            {
+                page.ClearApiKey();
+                Assert.IsTrue(cleared);
+                Assert.AreEqual("No key configured", statusLabel.Text);
+                Assert.IsFalse(clearButton.IsEnabled);
+            }
+            finally
+            {
+                page.ClearKeyRequested -= clearHandler;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
+
+    [TestMethod]
+    public void SettingsWindow_SetupAndReviewPages_AreScrollableInsideScrollViewerAtMinimumSize()
+    {
+        var thread = new Thread(() =>
+        {
+            var window = new SettingsWindow(AppSettings.Default, _ => { });
+            window.Width = window.MinWidth;
+            window.Height = window.MinHeight;
+            window.Measure(new System.Windows.Size(window.MinWidth, window.MinHeight));
+            window.Arrange(new System.Windows.Rect(0, 0, window.MinWidth, window.MinHeight));
+
+            var scrollViewer = FindDescendant<System.Windows.Controls.ScrollViewer>(window);
+            Assert.IsNotNull(scrollViewer);
+            Assert.AreEqual(System.Windows.Controls.ScrollBarVisibility.Auto, scrollViewer.VerticalScrollBarVisibility);
+
+            window.NavigateTo(SettingsPageId.Setup);
+            window.Measure(new System.Windows.Size(window.MinWidth, window.MinHeight));
+
+            window.NavigateTo(SettingsPageId.Review);
+            window.Measure(new System.Windows.Size(window.MinWidth, window.MinHeight));
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
+
+    private static T? FindDescendant<T>(System.Windows.DependencyObject parent) where T : System.Windows.DependencyObject
+    {
+        foreach (var child in System.Windows.LogicalTreeHelper.GetChildren(parent))
+        {
+            if (child is T match)
+                return match;
+            if (child is System.Windows.DependencyObject dep)
+            {
+                var result = FindDescendant<T>(dep);
+                if (result is not null)
+                    return result;
+            }
+        }
+        return null;
     }
 
     private static string FindWorkspaceFile(params string[] segments)

@@ -1,0 +1,52 @@
+<Window x:Class="PteFloatingSentence.Windows.OverlayLauncherWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PTE Launcher"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        SizeToContent="WidthAndHeight"
+        ResizeMode="NoResize"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        KeyDown="Window_KeyDown">
+    <Window.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="Settings" Click="SettingsMenuItem_Click" />
+            <MenuItem Header="Restore Overlay" Click="RestoreMenuItem_Click" />
+        </ContextMenu>
+    </Window.ContextMenu>
+    <Border Background="#EB111C32"
+            BorderBrush="#FF3B82F6"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="6">
+        <Button x:Name="LauncherActionButton"
+                Width="36"
+                Height="36"
+                Background="#FF1E293B"
+                Foreground="#FF5EEAD4"
+                BorderBrush="#FF38BDF8"
+                BorderThickness="1"
+                Cursor="Hand"
+                ToolTip="Click to open Settings (Right-click for options)"
+                Click="LauncherActionButton_Click">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border CornerRadius="8"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                        <TextBlock Text="&#xE713;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="18"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Foreground="{TemplateBinding Foreground}" />
+                    </Border>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+    </Border>
+</Window>

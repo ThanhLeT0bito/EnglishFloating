@@ -113,6 +113,8 @@ public class JsonSettingsStoreTests
         Assert.AreEqual(0.6d, loaded.BackgroundOpacity);
         Assert.AreEqual(321d, loaded.Left);
         Assert.AreEqual(654d, loaded.Top);
+        Assert.IsTrue(loaded.ShowSentenceOverlay);
+        Assert.IsTrue(loaded.ShowVocabularyCards);
     }
 
     [TestMethod]
@@ -331,6 +333,71 @@ public class JsonSettingsStoreTests
         Assert.IsTrue(doc.RootElement.GetProperty("GeminiApiKeyConfigured").GetBoolean());
         Assert.IsFalse(doc.RootElement.TryGetProperty("ApiKey", out _));
         Assert.IsFalse(doc.RootElement.TryGetProperty("GeminiApiKey", out _));
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_OldSettingsWithoutDisplayPreferences_DefaultsBothToTrue()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        await File.WriteAllTextAsync(path, """
+            {
+              "Version": 2,
+              "Sentence": "Legacy text without display settings."
+            }
+            """);
+
+        var loaded = await store.LoadAsync();
+
+        Assert.IsTrue(loaded.ShowSentenceOverlay);
+        Assert.IsTrue(loaded.ShowVocabularyCards);
+    }
+
+    [TestMethod]
+    public async Task SaveAsync_RoundTripsDisplayPreferences()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        var settings = AppSettings.Default with
+        {
+            ShowSentenceOverlay = false,
+            ShowVocabularyCards = false
+        };
+
+        await store.SaveAsync(settings);
+        var loaded = await store.LoadAsync();
+
+        Assert.IsFalse(loaded.ShowSentenceOverlay);
+        Assert.IsFalse(loaded.ShowVocabularyCards);
+    }
+
+    [TestMethod]
+    public async Task SaveAsync_RoundTripsAllVisibilityCombinations()
+    {
+        var combinations = new[]
+        {
+            (Sentence: true, Cards: true),
+            (Sentence: true, Cards: false),
+            (Sentence: false, Cards: true),
+            (Sentence: false, Cards: false)
+        };
+
+        foreach (var combo in combinations)
+        {
+            var path = CreateSettingsPath();
+            var store = new JsonSettingsStore(path);
+            var settings = AppSettings.Default with
+            {
+                ShowSentenceOverlay = combo.Sentence,
+                ShowVocabularyCards = combo.Cards
+            };
+
+            await store.SaveAsync(settings);
+            var loaded = await store.LoadAsync();
+
+            Assert.AreEqual(combo.Sentence, loaded.ShowSentenceOverlay, $"Failed for combination: sentence={combo.Sentence}, cards={combo.Cards}");
+            Assert.AreEqual(combo.Cards, loaded.ShowVocabularyCards, $"Failed for combination: sentence={combo.Cards}, cards={combo.Cards}");
+        }
     }
 
     private string CreateSettingsPath()

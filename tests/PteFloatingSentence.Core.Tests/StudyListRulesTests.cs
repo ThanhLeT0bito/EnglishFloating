@@ -14,6 +14,17 @@ public sealed class StudyListRulesTests
         Assert.AreEqual("My first list", settings.StudyLists.Single().Name);
         Assert.AreEqual(10, settings.StudyLists.Single().TargetSentenceCount);
         Assert.AreEqual("A useful practice sentence.", settings.StudyLists.Single().Sentences.Single().Text);
+        Assert.IsTrue(settings.ShowSentenceOverlay);
+        Assert.IsTrue(settings.ShowVocabularyCards);
+    }
+
+    [TestMethod]
+    public void DisplayPreferences_DefaultToTrue()
+    {
+        var settings = new AppSettings();
+
+        Assert.IsTrue(settings.ShowSentenceOverlay);
+        Assert.IsTrue(settings.ShowVocabularyCards);
     }
 
     [TestMethod]

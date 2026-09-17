@@ -17,6 +17,7 @@ public partial class App : System.Windows.Application
     private VocabularyWorkflow? _vocabularyWorkflow;
     private Core.AppSettings _settings = Core.AppSettings.Default;
     private FloatingWindow? _floatingWindow;
+    private DisplayController? _displayController;
     private SettingsWindow? _settingsWindow;
     private bool _isShuttingDown;
 
@@ -45,8 +46,16 @@ public partial class App : System.Windows.Application
         _vocabularyWorkflow = new VocabularyWorkflow(_explainer, () => _settings, SaveSettings);
 
         _floatingWindow = new FloatingWindow { Left = position.Left, Top = position.Top };
-        _floatingWindow.ApplySettings(_settings);
-        _floatingWindow.SettingsRequested += FloatingWindow_SettingsRequested;
+        _displayController = new DisplayController(_floatingWindow);
+        _displayController.ShowSettingsRequested += (_, _) => OpenSettings();
+        _displayController.RestoreOverlayRequested += (_, _) =>
+        {
+            _settings = _settings with { ShowSentenceOverlay = true };
+            _displayController.Apply(_settings);
+            PersistSettings();
+        };
+
+        _floatingWindow.SettingsRequested += (_, _) => OpenSettings();
         _floatingWindow.ExitRequested += async (_, _) => await ShutdownAsync();
         _floatingWindow.PreviousRequested += (_, _) => NavigateCurrentSentence(-1);
         _floatingWindow.NextRequested += (_, _) => NavigateCurrentSentence(1);
@@ -101,10 +110,10 @@ public partial class App : System.Windows.Application
             _vocabularyWorkflow?.Delete(args.SentenceId, args.ItemId);
         };
 
-        _floatingWindow.Show();
+        _displayController.Apply(_settings);
     }
 
-    private void FloatingWindow_SettingsRequested(object? sender, EventArgs e)
+    private void OpenSettings()
     {
         if (_settingsWindow is not null)
         {
@@ -133,7 +142,7 @@ public partial class App : System.Windows.Application
     private void SaveSettings(Core.AppSettings settings)
     {
         _settings = settings with { Left = _settings.Left, Top = _settings.Top };
-        _floatingWindow?.ApplySettings(_settings);
+        _displayController?.Apply(_settings);
         PersistSettings();
     }
 
@@ -149,6 +158,7 @@ public partial class App : System.Windows.Application
             return;
 
         _isShuttingDown = true;
+        _displayController?.Dispose();
         _vocabularyWorkflow?.Dispose();
         _explainer?.Dispose();
         await _persistenceQueue.FlushAsync();

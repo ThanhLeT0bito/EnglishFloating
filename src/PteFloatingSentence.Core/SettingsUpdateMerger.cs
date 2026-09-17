@@ -7,6 +7,8 @@ public static class SettingsUpdateMerger
         Sentence = submitted.Sentence,
         FontSize = submitted.FontSize,
         TextColor = submitted.TextColor,
-        BackgroundOpacity = submitted.BackgroundOpacity
+        BackgroundOpacity = submitted.BackgroundOpacity,
+        ShowSentenceOverlay = submitted.ShowSentenceOverlay,
+        ShowVocabularyCards = submitted.ShowVocabularyCards
     };
 }

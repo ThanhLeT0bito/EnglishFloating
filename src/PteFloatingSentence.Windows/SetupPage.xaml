@@ -1,0 +1,140 @@
+﻿<UserControl x:Class="PteFloatingSentence.Windows.SetupPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Foreground="#FFE2E8F0">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#FF111827" />
+        <SolidColorBrush x:Key="CardSubtleBrush" Color="#FF161F30" />
+        <SolidColorBrush x:Key="PanelBorderBrush" Color="#FF263449" />
+        <SolidColorBrush x:Key="InputBorderBrush" Color="#FF475569" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFF8FAFC" />
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FFE2E8F0" />
+        <SolidColorBrush x:Key="TextMutedBrush" Color="#FF94A3B8" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#FF2563EB" />
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="#FF1D4ED8" />
+
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="14,9" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#FF263449" />
+            <Setter Property="Foreground" Value="#FFD8E2F0" />
+        </Style>
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#FF7F1D2D" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Background" Value="#FF1E293B" />
+            <Setter Property="Foreground" Value="#FFF8FAFC" />
+            <Setter Property="BorderBrush" Value="{StaticResource InputBorderBrush}" />
+        </Style>
+        <Style TargetType="ListBox">
+            <Setter Property="Background" Value="#FF0F172A" />
+            <Setter Property="Foreground" Value="#FFE2E8F0" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="0,2" />
+            <Setter Property="Background" Value="Transparent" />
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#FF1D4ED8" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="240" />
+            <ColumnDefinition Width="16" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Study Lists Sidebar -->
+        <Border Grid.Column="0" Padding="14" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="10">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                    <Button x:Name="NewListButton" Margin="0" HorizontalAlignment="Stretch" Content="＋  New study list" Click="NewListButton_Click" />
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Study lists" />
+                    <TextBlock Margin="0,4,0,0" Foreground="{StaticResource TextMutedBrush}" Text="Organize your daily practice" TextWrapping="Wrap" />
+                </StackPanel>
+                <ListBox x:Name="StudyListList" SelectionChanged="StudyListList_SelectionChanged" />
+            </DockPanel>
+        </Border>
+
+        <!-- List Editor and Sentences -->
+        <Grid Grid.Column="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- List Header Actions -->
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock FontSize="17" FontWeight="SemiBold" Text="List editor" />
+                    <TextBlock x:Name="ActiveListLabel" Margin="0,4,0,0" Foreground="{StaticResource TextMutedBrush}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="MakeActiveButton" Content="Make active" Click="MakeActiveButton_Click" />
+                    <Button x:Name="DeleteListButton" Margin="0" Background="#FFB91C1C" Content="Delete list" Click="DeleteListButton_Click" />
+                </StackPanel>
+            </Grid>
+
+            <!-- List Name and Target -->
+            <Grid Grid.Row="1" Margin="0,14,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="140" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Margin="0,0,0,5" Foreground="#FFCBD5E1" Text="List name" />
+                    <TextBox x:Name="ListNameInput" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Margin="0,0,0,5" Foreground="#FFCBD5E1" Text="Target" />
+                    <TextBox x:Name="TargetInput" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Sentences Header -->
+            <TextBlock Grid.Row="2" Margin="0,0,0,8" FontSize="14" FontWeight="SemiBold" Text="Sentences (in order)" />
+
+            <!-- Sentence List -->
+            <ListBox x:Name="SentenceList" Grid.Row="3" MinHeight="140" SelectionChanged="SentenceList_SelectionChanged" />
+
+            <!-- Sentence Editor Form -->
+            <Grid Grid.Row="4" Margin="0,14,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="SentenceInput" MinHeight="70" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+                <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                    <Button x:Name="AddSentenceButton" Margin="0,0,0,8" Content="Add sentence" Click="AddSentenceButton_Click" />
+                    <Button x:Name="UpdateSentenceButton" Margin="0,0,0,8" Style="{StaticResource SecondaryButton}" Content="Update selected" Click="UpdateSentenceButton_Click" />
+                    <Button x:Name="DeleteSentenceButton" Margin="0" Style="{StaticResource DangerButton}" Content="Delete selected" Click="DeleteSentenceButton_Click" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

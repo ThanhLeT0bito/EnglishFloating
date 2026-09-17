@@ -1,0 +1,61 @@
+﻿<UserControl x:Class="PteFloatingSentence.Windows.DisplayPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Foreground="#FFE2E8F0">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#FF111827" />
+        <SolidColorBrush x:Key="CardSubtleBrush" Color="#FF161F30" />
+        <SolidColorBrush x:Key="PanelBorderBrush" Color="#FF263449" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFF8FAFC" />
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FFE2E8F0" />
+        <SolidColorBrush x:Key="TextMutedBrush" Color="#FF94A3B8" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#FF2563EB" />
+    </UserControl.Resources>
+
+    <StackPanel Margin="0,4,0,0">
+        <!-- Floating Overlay Display Card -->
+        <Border Padding="18,16" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Overlay visibility" />
+                <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,4,0,16" Text="Control which study layers float over your desktop during practice." TextWrapping="Wrap" />
+
+                <!-- Toggles -->
+                <CheckBox x:Name="ShowSentenceOverlayInput"
+                          Content="Show sentence overlay"
+                          Foreground="{StaticResource TextSecondaryBrush}"
+                          FontSize="13"
+                          Margin="0,0,0,12"
+                          VerticalContentAlignment="Center"
+                          Checked="OnPreferenceChanged"
+                          Unchecked="OnPreferenceChanged" />
+
+                <CheckBox x:Name="ShowVocabularyCardsInput"
+                          Content="Enable vocabulary"
+                          Foreground="{StaticResource TextSecondaryBrush}"
+                          FontSize="13"
+                          Margin="0,0,0,16"
+                          VerticalContentAlignment="Center"
+                          Checked="OnPreferenceChanged"
+                          Unchecked="OnPreferenceChanged" />
+
+                <!-- Explanatory note -->
+                <Border Background="#1A334155" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12,10">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE946;" Foreground="{StaticResource AccentBrush}" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Text="Hiding both layers leaves the launcher icon visible on screen to restore them or open settings." TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Border>
+
+        <!-- Upcoming / Preview Settings Card -->
+        <Border Padding="18,16" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="10" Opacity="0.6">
+            <StackPanel>
+                <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Audio &amp; Pronunciation (Coming soon)" />
+                <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,4,0,12" Text="Future options for automated text-to-speech pronunciation and speed controls." TextWrapping="Wrap" />
+                <CheckBox Content="Pronounce new sentences automatically" IsEnabled="False" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8" />
+                <CheckBox Content="Highlight words with audio playback" IsEnabled="False" Foreground="{StaticResource TextMutedBrush}" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>
