@@ -107,6 +107,23 @@ public sealed class StudyListRulesTests
         Assert.IsFalse(list.Sentences[1].IsCompleted);
     }
 
+    [TestMethod]
+    public void MarkSentenceCompleted_UpdatesSpecifiedSentenceWithoutAlteringOthersOrIndex()
+    {
+        var sentence1 = Sentence("one");
+        var sentence2 = Sentence("two");
+        var list = CreateList("Practice", currentSentenceIndex: 1, sentences: [sentence1, sentence2]);
+        var settings = new AppSettings { StudyLists = [list], ActiveListId = list.Id };
+
+        var updated = StudyListRules.MarkSentenceCompleted(settings, list.Id, sentence1.Id, true);
+        var updatedList = updated.StudyLists.Single(l => l.Id == list.Id);
+
+        Assert.AreEqual(1, updatedList.CurrentSentenceIndex);
+        Assert.IsTrue(updatedList.Sentences.Single(s => s.Id == sentence1.Id).IsCompleted);
+        Assert.IsFalse(updatedList.Sentences.Single(s => s.Id == sentence2.Id).IsCompleted);
+    }
+
+
     private static AppSettings SettingsWith(params string[] sentenceTexts)
     {
         var list = CreateList("Practice", sentences: sentenceTexts.Select(Sentence).ToList());

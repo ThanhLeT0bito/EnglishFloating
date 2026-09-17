@@ -129,4 +129,63 @@ public class ReviewPracticeTests
             Assert.IsTrue(token.SourceText.Any(char.IsLetterOrDigit), $"Token '{token.SourceText}' was punctuation-only but hidden.");
         }
     }
+
+    [TestMethod]
+    public void CheckAnswer_ExactAndCaseInsensitiveAndWhitespace_Succeeds()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "Alpha beta gamma.");
+        var review = ReviewPracticeRules.CreateProjection(sentence, seed: 10);
+        // Ensure there is at least one hidden token
+        Assert.IsTrue(review.HiddenTokenIndexes.Count > 0);
+
+        var firstHiddenToken = review.Tokens[review.HiddenTokenIndexes[0]];
+        var rawWord = firstHiddenToken.SourceText.Trim('.', ',');
+
+        // Case insensitive with whitespace
+        var result = ReviewPracticeRules.CheckAnswer(review, 0, "  " + rawWord.ToUpperInvariant() + "  ");
+        Assert.IsTrue(result.IsCorrect);
+        Assert.IsNull(result.Error);
+    }
+
+    [TestMethod]
+    public void CheckAnswer_WrongAnswer_ReturnsTryAgainAndKeepsPosition()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "Alpha beta gamma.");
+        var review = ReviewPracticeRules.CreateProjection(sentence, seed: 10);
+        Assert.IsTrue(review.HiddenTokenIndexes.Count > 0);
+
+        var result = ReviewPracticeRules.CheckAnswer(review, 0, "definitely_wrong_word");
+        Assert.IsFalse(result.IsCorrect);
+        Assert.IsFalse(result.IsComplete);
+        Assert.AreEqual(0, result.NextHiddenTokenPosition);
+        Assert.AreEqual("Try again.", result.Error);
+    }
+
+    [TestMethod]
+    public void CheckAnswer_ProgressionAndFinalCompletion()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "One two three four five six.");
+        var review = ReviewPracticeRules.CreateProjection(sentence, seed: 42);
+        Assert.AreEqual(3, review.HiddenTokenIndexes.Count);
+
+        // First hidden token
+        var word0 = review.Tokens[review.HiddenTokenIndexes[0]].SourceText.Trim('.', ',');
+        var res0 = ReviewPracticeRules.CheckAnswer(review, 0, word0);
+        Assert.IsTrue(res0.IsCorrect);
+        Assert.IsFalse(res0.IsComplete);
+        Assert.AreEqual(1, res0.NextHiddenTokenPosition);
+
+        // Second hidden token
+        var word1 = review.Tokens[review.HiddenTokenIndexes[1]].SourceText.Trim('.', ',');
+        var res1 = ReviewPracticeRules.CheckAnswer(review, 1, word1);
+        Assert.IsTrue(res1.IsCorrect);
+        Assert.IsFalse(res1.IsComplete);
+        Assert.AreEqual(2, res1.NextHiddenTokenPosition);
+
+        // Third and final hidden token
+        var word2 = review.Tokens[review.HiddenTokenIndexes[2]].SourceText.Trim('.', ',');
+        var res2 = ReviewPracticeRules.CheckAnswer(review, 2, word2);
+        Assert.IsTrue(res2.IsCorrect);
+        Assert.IsTrue(res2.IsComplete);
+    }
 }

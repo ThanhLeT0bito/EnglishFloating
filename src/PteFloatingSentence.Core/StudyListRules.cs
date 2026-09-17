@@ -68,6 +68,30 @@ public static class StudyListRules
         };
     }
 
+    public static AppSettings MarkSentenceCompleted(AppSettings settings, Guid listId, Guid sentenceId, bool completed)
+    {
+        var normalized = Normalize(settings);
+        var targetList = normalized.StudyLists.FirstOrDefault(list => list.Id == listId);
+        if (targetList is null)
+            return settings;
+
+        var targetSentence = targetList.Sentences.FirstOrDefault(s => s.Id == sentenceId);
+        if (targetSentence is null)
+            return settings;
+
+        var updatedSentences = targetList.Sentences
+            .Select(s => s.Id == sentenceId ? s with { IsCompleted = completed } : s)
+            .ToList();
+
+        var updatedList = targetList with { Sentences = updatedSentences };
+        var updatedLists = normalized.StudyLists
+            .Select(list => list.Id == listId ? updatedList : list)
+            .ToList();
+
+        return normalized with { StudyLists = updatedLists };
+    }
+
+
     public static ValidationResult ValidateList(StudyList list)
     {
         if (string.IsNullOrWhiteSpace(list.Name))
