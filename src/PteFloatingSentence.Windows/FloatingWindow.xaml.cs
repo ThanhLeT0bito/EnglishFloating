@@ -303,8 +303,6 @@ public partial class FloatingWindow : Window
 
         // 3. New phrase: request vocabulary explanation
         VocabularySelected?.Invoke(this, trimmed);
-        SentenceBox.Selection.Select(SentenceBox.Document.ContentStart, SentenceBox.Document.ContentStart);
-        Focus();
     }
 
     private static Guid? FindVocabularyItemId(TextElement? element)
