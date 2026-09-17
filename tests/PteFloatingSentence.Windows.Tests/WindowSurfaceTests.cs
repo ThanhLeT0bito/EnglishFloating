@@ -507,6 +507,7 @@ public class WindowSurfaceTests
 
             Assert.IsNull(clickedId, "Selecting new phrase should not trigger VocabularyClicked.");
             Assert.AreEqual("new", selectedPhrase, "Selecting new phrase must trigger VocabularySelected.");
+            Assert.IsTrue(box.Selection.IsEmpty, "Selection should be collapsed after requesting a new vocabulary.");
 
             window.Close();
         });
