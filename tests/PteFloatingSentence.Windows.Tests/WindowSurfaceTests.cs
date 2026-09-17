@@ -773,6 +773,9 @@ public class WindowSurfaceTests
                 var completionPanel = (System.Windows.Controls.Border)page.FindName("CompletionPanel");
 
                 Assert.IsNotNull(selector);
+                Assert.AreEqual(1, selector.Items.Count);
+                var selectedItem = (System.Windows.Controls.ComboBoxItem)selector.SelectedItem;
+                Assert.AreEqual("Practice List", selectedItem.Content);
                 Assert.IsNotNull(progressLabel);
                 Assert.IsNotNull(projectionPanel);
                 Assert.IsNotNull(checkBtn);
