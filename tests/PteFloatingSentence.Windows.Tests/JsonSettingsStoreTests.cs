@@ -232,6 +232,107 @@ public class JsonSettingsStoreTests
         Assert.AreEqual(2, document.RootElement.GetProperty("Version").GetInt32());
     }
 
+    [TestMethod]
+    public async Task LoadAsync_OldSettingsWithoutVocabulary_LoadsWithEmptyVocabulary()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        await File.WriteAllTextAsync(path, """
+            {
+              "Version": 2,
+              "Sentence": "Old sentence.",
+              "StudyLists": [
+                {
+                  "Id": "11111111-1111-1111-1111-111111111111",
+                  "Name": "Legacy List",
+                  "TargetSentenceCount": 5,
+                  "CurrentSentenceIndex": 0,
+                  "Sentences": [
+                    {
+                      "Id": "22222222-2222-2222-2222-222222222222",
+                      "Text": "Sentence without vocabulary."
+                    }
+                  ]
+                }
+              ]
+            }
+            """);
+
+        var loaded = await store.LoadAsync();
+        var sentence = loaded.StudyLists.Single().Sentences.Single();
+
+        Assert.IsNotNull(sentence.Vocabulary);
+        Assert.AreEqual(0, sentence.Vocabulary.Count);
+    }
+
+    [TestMethod]
+    public async Task SaveAsync_RoundTripsVocabularyItems_WithStatusAndIsHidden()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        var vocabItem = new VocabularyItem(
+            Id: Guid.NewGuid(),
+            Phrase: "take into account",
+            NormalizedPhrase: "take into account",
+            Meaning: "To consider something.",
+            Example: "We must take into account all costs.",
+            PronunciationIpa: "/teɪk ˈɪntuː əˈkaʊnt/",
+            Status: VocabularyStatus.Ready,
+            IsHidden: true,
+            LastError: null);
+
+        var sentence = new StudySentence(
+            Guid.NewGuid(),
+            "We must take into account all factors.",
+            IsCompleted: false,
+            Vocabulary: [vocabItem]);
+
+        var list = new StudyList(Guid.NewGuid(), "List with Vocab", 10, 0, [sentence]);
+        var settings = new AppSettings
+        {
+            Version = 2,
+            Sentence = sentence.Text,
+            ActiveListId = list.Id,
+            StudyLists = [list],
+            GeminiApiKeyConfigured = true
+        };
+
+        await store.SaveAsync(settings);
+
+        var loaded = await store.LoadAsync();
+        var loadedSentence = loaded.StudyLists.Single().Sentences.Single();
+
+        Assert.IsTrue(loaded.GeminiApiKeyConfigured);
+        Assert.AreEqual(1, loadedSentence.Vocabulary.Count);
+        var loadedVocab = loadedSentence.Vocabulary[0];
+        Assert.AreEqual(vocabItem.Id, loadedVocab.Id);
+        Assert.AreEqual(vocabItem.Phrase, loadedVocab.Phrase);
+        Assert.AreEqual(vocabItem.NormalizedPhrase, loadedVocab.NormalizedPhrase);
+        Assert.AreEqual(vocabItem.Meaning, loadedVocab.Meaning);
+        Assert.AreEqual(vocabItem.Example, loadedVocab.Example);
+        Assert.AreEqual(vocabItem.PronunciationIpa, loadedVocab.PronunciationIpa);
+        Assert.AreEqual(VocabularyStatus.Ready, loadedVocab.Status);
+        Assert.IsTrue(loadedVocab.IsHidden);
+    }
+
+    [TestMethod]
+    public async Task SaveAsync_SerializedJsonContainsNoPlaintextApiKey()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        var settings = AppSettings.Default with { GeminiApiKeyConfigured = true };
+
+        await store.SaveAsync(settings);
+
+        var rawJson = await File.ReadAllTextAsync(path);
+        StringAssert.DoesNotMatch(rawJson, new System.Text.RegularExpressions.Regex(@"""(Gemini)?ApiKey""\s*:\s*""[^""]+"""));
+        // Ensure GeminiApiKeyConfigured is stored without any secret key property
+        using var doc = System.Text.Json.JsonDocument.Parse(rawJson);
+        Assert.IsTrue(doc.RootElement.GetProperty("GeminiApiKeyConfigured").GetBoolean());
+        Assert.IsFalse(doc.RootElement.TryGetProperty("ApiKey", out _));
+        Assert.IsFalse(doc.RootElement.TryGetProperty("GeminiApiKey", out _));
+    }
+
     private string CreateSettingsPath()
     {
         var directory = Path.Combine(TestContext.TestRunDirectory!, Guid.NewGuid().ToString("N"));
@@ -239,3 +340,4 @@ public class JsonSettingsStoreTests
         return Path.Combine(directory, "settings.json");
     }
 }
+
