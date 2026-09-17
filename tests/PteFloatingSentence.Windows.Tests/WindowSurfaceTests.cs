@@ -734,11 +734,122 @@ public class WindowSurfaceTests
 
             window.NavigateTo(SettingsPageId.Review);
             window.Measure(new System.Windows.Size(window.MinWidth, window.MinHeight));
+
+            window.NavigateTo(SettingsPageId.ReviewPractice);
+            window.Measure(new System.Windows.Size(window.MinWidth, window.MinHeight));
         });
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
         thread.Join();
     }
+
+    [TestMethod]
+    public void ReviewPracticePage_SurfaceControlsAndPlaceholders_RenderCorrectly()
+    {
+        Exception? threadEx = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var page = new ReviewPracticePage();
+                var sentence = new StudySentence(Guid.NewGuid(), "You must wear a hard hat on the construction site");
+                var list = new StudyList(Guid.NewGuid(), "Practice List", 10, 0, [sentence]);
+                var settings = AppSettings.Default with
+                {
+                    StudyLists = [list],
+                    ActiveListId = list.Id
+                };
+
+                page.Initialize(settings, seed: 7);
+
+                var selector = (System.Windows.Controls.ComboBox)page.FindName("StudyListSelector");
+                var progressLabel = (System.Windows.Controls.TextBlock)page.FindName("ProgressLabel");
+                var projectionPanel = (System.Windows.Controls.WrapPanel)page.FindName("SentenceProjectionPanel");
+                var checkBtn = (System.Windows.Controls.Button)page.FindName("CheckAnswerButton");
+                var showBtn = (System.Windows.Controls.Button)page.FindName("ShowAnswerButton");
+                var prevBtn = (System.Windows.Controls.Button)page.FindName("PreviousSentenceButton");
+                var nextBtn = (System.Windows.Controls.Button)page.FindName("NextSentenceButton");
+                var completionPanel = (System.Windows.Controls.Border)page.FindName("CompletionPanel");
+
+                Assert.IsNotNull(selector);
+                Assert.IsNotNull(progressLabel);
+                Assert.IsNotNull(projectionPanel);
+                Assert.IsNotNull(checkBtn);
+                Assert.IsNotNull(showBtn);
+                Assert.IsNotNull(prevBtn);
+                Assert.IsNotNull(nextBtn);
+                Assert.IsNotNull(completionPanel);
+
+                Assert.AreEqual("Sentence 1 of 1", progressLabel.Text);
+                Assert.AreEqual(System.Windows.Visibility.Collapsed, completionPanel.Visibility);
+
+                var review = ReviewPracticeRules.CreateProjection(sentence, seed: 7);
+                Assert.AreEqual(review.Tokens.Count, projectionPanel.Children.Count);
+
+                var textBoxes = projectionPanel.Children.OfType<System.Windows.Controls.TextBox>().ToList();
+                Assert.AreEqual(review.HiddenTokenIndexes.Count, textBoxes.Count);
+
+                page.Dispose();
+            }
+            catch (Exception ex)
+            {
+                threadEx = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (threadEx is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(threadEx).Throw();
+        }
+    }
+
+    [TestMethod]
+    public void ReviewPracticePage_AllCompleteState_ShowsCompletionPanel()
+    {
+        Exception? threadEx = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var page = new ReviewPracticePage();
+                var sentence = new StudySentence(Guid.NewGuid(), "You must wear a hard hat on the construction site", IsCompleted: true);
+                var list = new StudyList(Guid.NewGuid(), "Completed List", 10, 0, [sentence]);
+                var settings = AppSettings.Default with
+                {
+                    StudyLists = [list],
+                    ActiveListId = list.Id
+                };
+
+                page.Initialize(settings, seed: 7);
+
+                var completionPanel = (System.Windows.Controls.Border)page.FindName("CompletionPanel");
+                var restartBtn = (System.Windows.Controls.Button)page.FindName("RestartListButton");
+
+                Assert.IsNotNull(completionPanel);
+                Assert.IsNotNull(restartBtn);
+                Assert.AreEqual(System.Windows.Visibility.Visible, completionPanel.Visibility);
+
+                page.Dispose();
+            }
+            catch (Exception ex)
+            {
+                threadEx = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (threadEx is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(threadEx).Throw();
+        }
+    }
+
+
 
     private static T? FindDescendant<T>(System.Windows.DependencyObject parent) where T : System.Windows.DependencyObject
     {

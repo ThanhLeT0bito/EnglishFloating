@@ -152,6 +152,9 @@
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Review}">
                         <TextBlock Text="Review" FontSize="14" />
                     </ListBoxItem>
+                    <ListBoxItem Tag="{x:Static local:SettingsPageId.ReviewPractice}">
+                        <TextBlock Text="Practice" FontSize="14" />
+                    </ListBoxItem>
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Gemini}">
                         <TextBlock Text="Gemini" FontSize="14" />
                     </ListBoxItem>
@@ -197,6 +200,11 @@
                             <!-- Review Section -->
                             <Grid x:Name="ReviewSection" Visibility="Collapsed">
                                 <local:ReviewPage x:Name="ReviewPageControl" />
+                            </Grid>
+
+                            <!-- Review Practice Section -->
+                            <Grid x:Name="ReviewPracticeSection" Visibility="Collapsed">
+                                <local:ReviewPracticePage x:Name="ReviewPracticePageControl" />
                             </Grid>
 
                             <!-- Gemini Section -->

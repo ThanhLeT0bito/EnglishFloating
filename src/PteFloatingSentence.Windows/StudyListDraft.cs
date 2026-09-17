@@ -123,6 +123,11 @@ public sealed class StudyListDraft
         SelectedSentenceId = sentenceId;
     }
 
+    public void MarkSentenceCompleted(Guid listId, Guid sentenceId, bool completed)
+    {
+        _settings = StudyListRules.MarkSentenceCompleted(_settings, listId, sentenceId, completed);
+    }
+
     public ValidationResult Save()
     {
         if (_isSaved)

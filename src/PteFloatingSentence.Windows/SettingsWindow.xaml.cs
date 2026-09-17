@@ -33,9 +33,12 @@ public partial class SettingsWindow : Window
             DisplaySection.Visibility = SelectedPage == SettingsPageId.Display ? Visibility.Visible : Visibility.Collapsed;
         if (ReviewSection is not null)
             ReviewSection.Visibility = SelectedPage == SettingsPageId.Review ? Visibility.Visible : Visibility.Collapsed;
+        if (ReviewPracticeSection is not null)
+            ReviewPracticeSection.Visibility = SelectedPage == SettingsPageId.ReviewPractice ? Visibility.Visible : Visibility.Collapsed;
         if (GeminiSection is not null)
             GeminiSection.Visibility = SelectedPage == SettingsPageId.Gemini ? Visibility.Visible : Visibility.Collapsed;
     }
+
 
     private void SyncNavigationSelection()
     {
@@ -81,6 +84,7 @@ public partial class SettingsWindow : Window
             SettingsPageId.Setup => ("Setup", "Manage study lists and sentence practice order"),
             SettingsPageId.Display => ("Display", "Configure floating sentence and vocabulary overlay preferences"),
             SettingsPageId.Review => ("Review", "Track vocabulary mastery and study progress"),
+            SettingsPageId.ReviewPractice => ("Practice", "Practice sentences with masked hidden words"),
             SettingsPageId.Gemini => ("Gemini", "Configure Gemini API key for vocabulary explanations"),
             _ => ("Settings", string.Empty)
         };
@@ -97,6 +101,12 @@ public partial class SettingsWindow : Window
         DisplayPageControl.DisplayPreferencesChanged += OnDisplayPreferencesChanged;
         GeminiPageControl.LoadState(_apiKeyConfigured);
         GeminiPageControl.ClearKeyRequested += OnClearKeyRequested;
+        ReviewPracticePageControl?.Initialize(_draft.Settings, (listId, sentenceId, completed) =>
+        {
+            _draft.MarkSentenceCompleted(listId, sentenceId, completed);
+            SetupPageControl.RefreshFromDraft(_draft);
+            ReviewPageControl?.LoadData(new ReviewViewModel(_draft.Settings));
+        });
         UpdateApiKeyStatus();
         SyncNavigationSelection();
         UpdatePageHeader();
@@ -127,6 +137,7 @@ public partial class SettingsWindow : Window
         {
             GeminiPageControl.ClearKeyRequested -= OnClearKeyRequested;
         }
+        ReviewPracticePageControl?.Dispose();
     }
 
     private void NewListButton_Click(object sender, RoutedEventArgs e)

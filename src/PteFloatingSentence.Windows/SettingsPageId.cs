@@ -5,5 +5,7 @@ public enum SettingsPageId
     Setup,
     Display,
     Review,
+    ReviewPractice,
     Gemini
 }
+

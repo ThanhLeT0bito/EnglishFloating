@@ -96,6 +96,7 @@ public sealed class ReviewPracticeSession
     {
         if (List.Sentences.Count == 0) return;
         SentenceIndex = 0;
+        IsAllSentencesCompleted = false;
         LoadCurrentSentence();
     }
 
@@ -112,6 +113,7 @@ public sealed class ReviewPracticeSession
         var sentence = List.Sentences[SentenceIndex];
         CurrentReview = ReviewPracticeRules.CreateProjection(sentence, _fixedSeed);
         CurrentHiddenPosition = 0;
-        IsComplete = CurrentReview.HiddenTokenIndexes.Count == 0;
+        IsComplete = IsAllSentencesCompleted || CurrentReview.HiddenTokenIndexes.Count == 0;
     }
+
 }
