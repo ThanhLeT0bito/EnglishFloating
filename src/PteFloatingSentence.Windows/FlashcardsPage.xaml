@@ -200,6 +200,8 @@
                              Grid.Row="1"
                              Background="Transparent"
                              BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
                              SelectionChanged="DecksListBox_SelectionChanged">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
@@ -308,7 +310,7 @@
                     </Border>
 
                     <!-- Cards List -->
-                    <ScrollViewer x:Name="CardsScrollViewer" Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer x:Name="CardsScrollViewer" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <ItemsControl x:Name="CardsListControl">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>

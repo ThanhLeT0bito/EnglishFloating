@@ -357,7 +357,7 @@
                 </StackPanel>
 
                 <!-- Content Host inside ScrollViewer -->
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ScrollViewer x:Name="PageScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <ContentControl x:Name="PageContentHost" Focusable="False">
                         <Grid>
                             <!-- Extracted SetupPage -->

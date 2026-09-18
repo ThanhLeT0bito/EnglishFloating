@@ -43,6 +43,14 @@ public partial class SettingsWindow : Window
             GeminiSection.Visibility = SelectedPage == SettingsPageId.Gemini ? Visibility.Visible : Visibility.Collapsed;
         if (FlashcardsSection is not null)
             FlashcardsSection.Visibility = SelectedPage == SettingsPageId.Flashcards ? Visibility.Visible : Visibility.Collapsed;
+
+        if (PageScrollViewer is not null)
+        {
+            PageScrollViewer.VerticalScrollBarVisibility = SelectedPage == SettingsPageId.Flashcards
+                ? ScrollBarVisibility.Disabled
+                : ScrollBarVisibility.Auto;
+            PageScrollViewer.ScrollToTop();
+        }
     }
 
 

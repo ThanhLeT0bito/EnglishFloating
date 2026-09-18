@@ -403,6 +403,31 @@ public class FlashcardUiTests
         });
     }
 
+    [TestMethod]
+    public void SettingsWindow_FlashcardsPage_DisablesOuterScrollViewer_ToKeepDeckSidebarPinned()
+    {
+        RunOnSta(() =>
+        {
+            var window = new SettingsWindow(AppSettings.Default, _ => { });
+            var scrollViewer = window.FindName("PageScrollViewer") as System.Windows.Controls.ScrollViewer;
+            Assert.IsNotNull(scrollViewer);
+
+            // Setup page has Auto scroll
+            window.NavigateTo(SettingsPageId.Setup);
+            Assert.AreEqual(System.Windows.Controls.ScrollBarVisibility.Auto, scrollViewer.VerticalScrollBarVisibility);
+
+            // Flashcards page has Disabled outer scroll so deck sidebar does not scroll away
+            window.NavigateTo(SettingsPageId.Flashcards);
+            Assert.AreEqual(System.Windows.Controls.ScrollBarVisibility.Disabled, scrollViewer.VerticalScrollBarVisibility);
+
+            // Navigating to Review restores Auto
+            window.NavigateTo(SettingsPageId.Review);
+            Assert.AreEqual(System.Windows.Controls.ScrollBarVisibility.Auto, scrollViewer.VerticalScrollBarVisibility);
+
+            window.Close();
+        });
+    }
+
     private static void RunOnSta(Action action)
     {
         Exception? exception = null;
