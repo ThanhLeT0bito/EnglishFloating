@@ -46,13 +46,10 @@ public partial class FlashcardsPage : UserControl, IDisposable
     public FlashcardsPage()
     {
         InitializeComponent();
-        Unloaded += OnUnloaded;
-    }
-
-    private void OnUnloaded(object sender, RoutedEventArgs e)
-    {
-        Unloaded -= OnUnloaded;
-        Dispose();
+        // Note: we do NOT hook Unloaded here because WPF fires Unloaded when
+        // a parent's Visibility turns Collapsed (e.g. switching settings tabs),
+        // which would incorrectly mark this control as disposed while it is still alive.
+        // SettingsWindow.OnClosed calls Dispose() explicitly instead.
     }
 
     public void Dispose()
