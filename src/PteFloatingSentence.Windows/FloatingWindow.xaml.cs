@@ -360,8 +360,14 @@ public partial class FloatingWindow : Window
             return;
 
         var trimmed = selection.Trim();
-        if (trimmed.Length == 0)
+
+        // Require at least 2 characters to avoid triggering on accidental single-char selections
+        if (trimmed.Length < 2)
+        {
+            SentenceBox.Selection.Select(SentenceBox.Document.ContentStart, SentenceBox.Document.ContentStart);
+            Focus();
             return;
+        }
 
         // 1. Check if the selection is inside an existing vocabulary span
         var startItemId = FindVocabularyItemId(SentenceBox.Selection.Start.Parent as TextElement);
@@ -388,7 +394,9 @@ public partial class FloatingWindow : Window
             return;
         }
 
-        // 3. New phrase: request vocabulary explanation
+        // 3. New phrase: clear selection BEFORE invoking so subsequent clicks don't re-trigger
+        SentenceBox.Selection.Select(SentenceBox.Document.ContentStart, SentenceBox.Document.ContentStart);
+        Focus();
         VocabularySelected?.Invoke(this, trimmed);
     }
 
