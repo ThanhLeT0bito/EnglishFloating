@@ -54,6 +54,10 @@ public partial class App : System.Windows.Application
             _settings = Core.FlashcardRules.ApplyRating(_settings, args.CardKey, args.Rating, DateTimeOffset.UtcNow);
             PersistSettings();
         };
+        _displayController.CardMarkedDone += (_, cardKey) =>
+        {
+            SaveSettings(Core.FlashcardRules.SetMarkedDone(_settings, cardKey, true, DateTimeOffset.UtcNow));
+        };
         _displayController.HideFlashcardRequested += (_, _) =>
         {
             _settings = _settings with { ShowFloatingFlashcard = false };

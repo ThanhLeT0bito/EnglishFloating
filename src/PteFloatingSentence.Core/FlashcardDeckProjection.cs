@@ -17,6 +17,7 @@ public static class FlashcardDeckProjection
             var readyCount = 0;
             var unavailableCount = 0;
             var rememberedCount = 0;
+            var doneCount = 0;
 
             foreach (var g in groups)
             {
@@ -25,14 +26,24 @@ public static class FlashcardDeckProjection
                 {
                     readyCount++;
                     var cardKey = FlashcardRules.StudyListCardKey(list.Id, readyItem.NormalizedPhrase);
-                    if (progressMap.TryGetValue(cardKey, out var progress) && progress.State == FlashcardLearningState.Remembered)
+                    if (progressMap.TryGetValue(cardKey, out var progress))
                     {
-                        rememberedCount++;
+                        if (progress.State == FlashcardLearningState.Remembered)
+                            rememberedCount++;
+                        if (progress.IsMarkedDone)
+                            doneCount++;
                     }
                 }
                 else
                 {
                     unavailableCount++;
+                    var firstItem = g.Items.FirstOrDefault();
+                    if (firstItem is not null)
+                    {
+                        var cardKey = FlashcardRules.StudyListCardKey(list.Id, firstItem.NormalizedPhrase);
+                        if (progressMap.TryGetValue(cardKey, out var progress) && progress.IsMarkedDone)
+                            doneCount++;
+                    }
                 }
             }
 
@@ -44,7 +55,8 @@ public static class FlashcardDeckProjection
                 TotalCount: readyCount + unavailableCount,
                 ReadyCount: readyCount,
                 UnavailableCount: unavailableCount,
-                RememberedCount: rememberedCount));
+                RememberedCount: rememberedCount,
+                DoneCount: doneCount));
         }
 
         // 2. Custom decks
@@ -54,14 +66,19 @@ public static class FlashcardDeckProjection
             var readyCount = 0;
             var unavailableCount = 0;
             var rememberedCount = 0;
+            var doneCount = 0;
 
             foreach (var card in deck.Cards)
             {
+                var cardKey = FlashcardRules.CustomCardKey(deck.Id, card.Id);
+                var isDone = progressMap.TryGetValue(cardKey, out var progress) && progress.IsMarkedDone;
+                if (isDone)
+                    doneCount++;
+
                 if (IsReadyCustomCard(card))
                 {
                     readyCount++;
-                    var cardKey = FlashcardRules.CustomCardKey(deck.Id, card.Id);
-                    if (progressMap.TryGetValue(cardKey, out var progress) && progress.State == FlashcardLearningState.Remembered)
+                    if (progress is not null && progress.State == FlashcardLearningState.Remembered)
                     {
                         rememberedCount++;
                     }
@@ -80,13 +97,14 @@ public static class FlashcardDeckProjection
                 TotalCount: deck.Cards.Count,
                 ReadyCount: readyCount,
                 UnavailableCount: unavailableCount,
-                RememberedCount: rememberedCount));
+                RememberedCount: rememberedCount,
+                DoneCount: doneCount));
         }
 
         return summaries;
     }
 
-    public static IReadOnlyList<FlashcardItem> GetDeckCards(AppSettings settings, string deckKey, bool includeUnavailable = false)
+    public static IReadOnlyList<FlashcardItem> GetDeckCards(AppSettings settings, string deckKey, bool includeUnavailable = false, bool onlyActive = false)
     {
         var cards = new List<FlashcardItem>();
         var progressMap = FlashcardRules.NormalizeProgress(settings.FlashcardProgress)
@@ -111,6 +129,10 @@ public static class FlashcardDeckProjection
                     var cardKey = FlashcardRules.StudyListCardKey(list.Id, readyItem.NormalizedPhrase);
                     progressMap.TryGetValue(cardKey, out var progress);
 
+                    var isMarkedDone = progress?.IsMarkedDone ?? false;
+                    if (onlyActive && isMarkedDone)
+                        continue;
+
                     var example = !string.IsNullOrWhiteSpace(readyItem.Example)
                         ? readyItem.Example
                         : (g.SourceSentences.FirstOrDefault()?.Text ?? string.Empty);
@@ -131,7 +153,8 @@ public static class FlashcardDeckProjection
                         LastReviewedAt: progress?.LastReviewedAt,
                         IsCustom: false,
                         CustomCardId: null,
-                        IsReady: true));
+                        IsReady: true,
+                        IsMarkedDone: isMarkedDone));
                 }
                 else if (includeUnavailable)
                 {
@@ -141,6 +164,10 @@ public static class FlashcardDeckProjection
 
                     var cardKey = FlashcardRules.StudyListCardKey(list.Id, firstItem.NormalizedPhrase);
                     progressMap.TryGetValue(cardKey, out var progress);
+
+                    var isMarkedDone = progress?.IsMarkedDone ?? false;
+                    if (onlyActive && isMarkedDone)
+                        continue;
 
                     var reason = firstItem.Status switch
                     {
@@ -168,7 +195,8 @@ public static class FlashcardDeckProjection
                         IsCustom: false,
                         CustomCardId: null,
                         IsReady: false,
-                        UnavailableReason: reason));
+                        UnavailableReason: reason,
+                        IsMarkedDone: isMarkedDone));
                 }
             }
         }
@@ -191,6 +219,10 @@ public static class FlashcardDeckProjection
                 var cardKey = FlashcardRules.CustomCardKey(deck.Id, card.Id);
                 progressMap.TryGetValue(cardKey, out var progress);
 
+                var isMarkedDone = progress?.IsMarkedDone ?? false;
+                if (onlyActive && isMarkedDone)
+                    continue;
+
                 cards.Add(new FlashcardItem(
                     CardKey: cardKey,
                     DeckKey: deckKey,
@@ -208,7 +240,8 @@ public static class FlashcardDeckProjection
                     IsCustom: true,
                     CustomCardId: card.Id,
                     IsReady: isReady,
-                    UnavailableReason: isReady ? null : "Missing required card fields"));
+                    UnavailableReason: isReady ? null : "Missing required card fields",
+                    IsMarkedDone: isMarkedDone));
             }
         }
 

@@ -66,6 +66,43 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="ModernMarkDoneButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#1A10B981" />
+            <Setter Property="BorderBrush" Value="#4D10B981" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#FF34D399" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="TickBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"
+                                Padding="7,2"
+                                SnapsToDevicePixels="True">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="11" FontWeight="Bold" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                <TextBlock Text="Done" FontSize="11" FontWeight="SemiBold" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TickBorder" Property="Background" Value="#3310B981" />
+                                <Setter TargetName="TickBorder" Property="BorderBrush" Value="#FF10B981" />
+                                <Setter Property="Foreground" Value="#FFFFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="TickBorder" Property="Background" Value="#FF10B981" />
+                                <Setter Property="Foreground" Value="#FFFFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Border Background="{StaticResource CardBackgroundBrush}"
@@ -97,7 +134,12 @@
                     <TextBlock x:Name="ProgressText" Text="0 / 0" FontSize="11" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" />
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="MarkDoneButton"
+                            Style="{StaticResource ModernMarkDoneButtonStyle}"
+                            ToolTip="Mark as done / don't repeat (D)"
+                            Click="MarkDoneButton_Click"
+                            Margin="0,0,6,0" />
                     <Button x:Name="SettingsButton" Style="{StaticResource IconButton}" ToolTip="Settings" Click="SettingsButton_Click" Margin="0,0,4,0">
                         <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="13" />
                     </Button>

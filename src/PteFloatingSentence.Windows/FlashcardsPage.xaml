@@ -70,6 +70,107 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="ModernMarkDoneButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#1A10B981" />
+            <Setter Property="BorderBrush" Value="#4D10B981" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#FF34D399" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="TickBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"
+                                Padding="{TemplateBinding Padding}">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                           Text="&#xE73E;"
+                                           FontSize="11"
+                                           FontWeight="Bold"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,4,0" />
+                                <TextBlock Text="Done"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TickBorder" Property="Background" Value="#3310B981" />
+                                <Setter TargetName="TickBorder" Property="BorderBrush" Value="#FF10B981" />
+                                <Setter Property="Foreground" Value="#FFFFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="TickBorder" Property="Background" Value="#FF10B981" />
+                                <Setter Property="Foreground" Value="#FFFFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="FilterChipButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#FF1E293B" />
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ChipBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ChipBorder" Property="Background" Value="#FF334155" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CardDoneToggleButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent" Opacity="1.0" x:Name="Host">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Host" Property="Opacity" Value="0.8" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Host" Property="Opacity" Value="0.6" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -173,19 +274,32 @@
 
                     <!-- Search / Filter -->
                     <Grid Grid.Row="1" Margin="0,0,0,10">
-                        <TextBox x:Name="PhraseSearchBox"
-                                 Padding="8,6"
-                                 Background="#FF1E293B"
-                                 Foreground="{StaticResource TextPrimaryBrush}"
-                                 BorderBrush="{StaticResource InputBorderBrush}"
-                                 Text=""
-                                 TextChanged="PhraseSearchBox_TextChanged" />
-                        <TextBlock x:Name="SearchPlaceholderText"
-                                   Text="Search cards by phrase..."
-                                   FontSize="12"
-                                   Foreground="{StaticResource TextMutedBrush}"
-                                   IsHitTestVisible="False"
-                                   Margin="10,7,0,0" />
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <Grid Grid.Column="0" Margin="0,0,10,0">
+                            <TextBox x:Name="PhraseSearchBox"
+                                     Padding="8,6"
+                                     Background="#FF1E293B"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderBrush="{StaticResource InputBorderBrush}"
+                                     Text=""
+                                     TextChanged="PhraseSearchBox_TextChanged" />
+                            <TextBlock x:Name="SearchPlaceholderText"
+                                       Text="Search cards by phrase..."
+                                       FontSize="12"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       IsHitTestVisible="False"
+                                       Margin="10,7,0,0" />
+                        </Grid>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="FilterAllButton" Style="{StaticResource FilterChipButtonStyle}" Content="All" Click="FilterAllButton_Click" Margin="0,0,4,0" />
+                            <Button x:Name="FilterActiveButton" Style="{StaticResource FilterChipButtonStyle}" Content="Active" Click="FilterActiveButton_Click" Margin="0,0,4,0" />
+                            <Button x:Name="FilterDoneButton" Style="{StaticResource FilterChipButtonStyle}" Content="Done" Click="FilterDoneButton_Click" />
+                        </StackPanel>
                     </Grid>
 
                     <!-- Empty state message -->
@@ -223,10 +337,41 @@
 
                                             <!-- State & Actions -->
                                             <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                <Border Background="#FF1E293B" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right" Margin="0,0,0,6">
-                                                    <TextBlock Text="{Binding StateText}" FontSize="11" FontWeight="SemiBold" Foreground="{Binding StateBrush}" />
-                                                </Border>
-                                                <StackPanel Orientation="Horizontal" Visibility="{Binding IsCustom, Converter={StaticResource BoolToVis}}">
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,6">
+                                                    <!-- Done Checkmark Toggle Button -->
+                                                    <Button Style="{StaticResource CardDoneToggleButtonStyle}"
+                                                            Tag="{Binding CardKey}"
+                                                            Click="CardDoneToggle_Click"
+                                                            ToolTip="{Binding DoneTooltip}"
+                                                            Margin="0,0,6,0">
+                                                        <Border Background="{Binding DoneBackgroundBrush}"
+                                                                BorderBrush="{Binding DoneBorderBrush}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="12"
+                                                                Padding="8,3">
+                                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                                <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                                                           Text="&#xE73E;"
+                                                                           FontSize="11"
+                                                                           FontWeight="{Binding DoneFontWeight}"
+                                                                           Foreground="{Binding DoneForegroundBrush}"
+                                                                           VerticalAlignment="Center"
+                                                                           Margin="0,0,4,0" />
+                                                                <TextBlock Text="{Binding DoneText}"
+                                                                           FontSize="11"
+                                                                           FontWeight="{Binding DoneFontWeight}"
+                                                                           Foreground="{Binding DoneForegroundBrush}"
+                                                                           VerticalAlignment="Center" />
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </Button>
+
+                                                    <Border Background="#FF1E293B" CornerRadius="4" Padding="6,2">
+                                                        <TextBlock Text="{Binding StateText}" FontSize="11" FontWeight="SemiBold" Foreground="{Binding StateBrush}" />
+                                                    </Border>
+                                                </StackPanel>
+
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Visibility="{Binding IsCustom, Converter={StaticResource BoolToVis}}">
                                                     <Button Style="{StaticResource SecondarySmallButtonStyle}" Content="Edit" Padding="6,2" FontSize="11" Tag="{Binding CustomCardId}" Click="EditCardButton_Click" Margin="0,0,4,0" />
                                                     <Button Style="{StaticResource DangerSmallButtonStyle}" Content="Delete" Padding="6,2" FontSize="11" Tag="{Binding CustomCardId}" Click="DeleteCardButton_Click" />
                                                 </StackPanel>
@@ -264,7 +409,14 @@
                     </Border>
                 </StackPanel>
 
-                <Button Grid.Column="1" x:Name="ExitStudyButton" Style="{StaticResource SecondarySmallButtonStyle}" Content="Exit Study (Esc)" Click="ExitStudyButton_Click" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="StudyMarkDoneButton"
+                            Style="{StaticResource ModernMarkDoneButtonStyle}"
+                            ToolTip="Mark as done / don't repeat (D)"
+                            Margin="0,0,8,0"
+                            Click="StudyMarkDoneButton_Click" />
+                    <Button x:Name="ExitStudyButton" Style="{StaticResource SecondarySmallButtonStyle}" Content="Exit Study (Esc)" Click="ExitStudyButton_Click" />
+                </StackPanel>
             </Grid>
 
             <!-- Large Study Card -->

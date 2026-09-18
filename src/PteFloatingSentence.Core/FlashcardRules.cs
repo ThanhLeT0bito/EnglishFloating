@@ -63,6 +63,39 @@ public static class FlashcardRules
         return settings with { FlashcardProgress = list };
     }
 
+    public static AppSettings SetMarkedDone(AppSettings settings, string cardKey, bool isMarkedDone, DateTimeOffset timestamp)
+    {
+        var existing = settings.FlashcardProgress.FirstOrDefault(p => p.CardKey == cardKey);
+        var baseProgress = existing ?? new FlashcardProgress(cardKey, FlashcardLearningState.New, 0, 0, null, null);
+        var updated = baseProgress with
+        {
+            IsMarkedDone = isMarkedDone,
+            LastReviewedAt = timestamp
+        };
+
+        var list = new List<FlashcardProgress>(settings.FlashcardProgress.Count + 1);
+        var replaced = false;
+        foreach (var p in settings.FlashcardProgress)
+        {
+            if (p.CardKey == cardKey)
+            {
+                list.Add(updated);
+                replaced = true;
+            }
+            else
+            {
+                list.Add(p);
+            }
+        }
+
+        if (!replaced)
+        {
+            list.Add(updated);
+        }
+
+        return settings with { FlashcardProgress = list };
+    }
+
     public static IReadOnlyList<FlashcardProgress> NormalizeProgress(IEnumerable<FlashcardProgress> progress)
     {
         var dict = new Dictionary<string, FlashcardProgress>(StringComparer.Ordinal);
@@ -74,13 +107,13 @@ public static class FlashcardRules
             }
             else
             {
-                // Prefer the one with latest LastReviewedAt or higher review count
                 var itemTime = item.LastReviewedAt ?? DateTimeOffset.MinValue;
                 var existingTime = existing.LastReviewedAt ?? DateTimeOffset.MinValue;
-                if (itemTime > existingTime || (itemTime == existingTime && item.ReviewCount >= existing.ReviewCount))
-                {
-                    dict[item.CardKey] = item;
-                }
+                var isDone = itemTime >= existingTime ? item.IsMarkedDone : existing.IsMarkedDone;
+                var winner = (itemTime > existingTime || (itemTime == existingTime && item.ReviewCount >= existing.ReviewCount))
+                    ? item
+                    : existing;
+                dict[item.CardKey] = winner with { IsMarkedDone = isDone };
             }
         }
 

@@ -34,7 +34,8 @@ public sealed record FlashcardProgress(
     int ReviewCount,
     int AgainCount,
     FlashcardRating? LastRating,
-    DateTimeOffset? LastReviewedAt);
+    DateTimeOffset? LastReviewedAt,
+    bool IsMarkedDone = false);
 
 public sealed record FlashcardSourceSentence(
     Guid SentenceId,
@@ -57,7 +58,8 @@ public sealed record FlashcardItem(
     bool IsCustom,
     Guid? CustomCardId,
     bool IsReady = true,
-    string? UnavailableReason = null);
+    string? UnavailableReason = null,
+    bool IsMarkedDone = false);
 
 public sealed record FlashcardDeckSummary(
     string DeckKey,
@@ -67,4 +69,5 @@ public sealed record FlashcardDeckSummary(
     int TotalCount,
     int ReadyCount,
     int UnavailableCount,
-    int RememberedCount);
+    int RememberedCount,
+    int DoneCount = 0);

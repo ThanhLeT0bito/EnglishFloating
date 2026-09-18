@@ -333,6 +333,76 @@ public class FlashcardUiTests
         });
     }
 
+    [TestMethod]
+    public void FloatingFlashcardWindow_MarkDone_EmitsCardMarkedDoneRequested()
+    {
+        RunOnSta(() =>
+        {
+            var window = new FloatingFlashcardWindow();
+            var card1 = new FlashcardItem("card:key:1", "d1", "P1", "p1", null, "M1", "E1", [], FlashcardLearningState.New, 0, 0, null, null, true, null);
+            window.SetDeck("Deck", [card1]);
+
+            Assert.IsNotNull(window.ButtonMarkDone);
+
+            string? markedKey = null;
+            window.CardMarkedDoneRequested += (_, key) => markedKey = key;
+
+            window.MarkCurrentCardDone();
+
+            Assert.AreEqual("card:key:1", markedKey);
+
+            window.Close();
+        });
+    }
+
+    [TestMethod]
+    public void DisplayController_CardMarkedDone_ForwardsEventAndFiltersOutCardOnApply()
+    {
+        RunOnSta(() =>
+        {
+            var floatingWindow = new FloatingWindow();
+            var flashcardWindow = new FloatingFlashcardWindow();
+            var controller = new DisplayController(
+                floatingWindow,
+                flashcardWindow: flashcardWindow);
+
+            var listId = Guid.NewGuid();
+            var vocab1 = new VocabularyItem(Guid.NewGuid(), "p1", "p1", "m1", "e1", null, VocabularyStatus.Ready);
+            var vocab2 = new VocabularyItem(Guid.NewGuid(), "p2", "p2", "m2", "e2", null, VocabularyStatus.Ready);
+            var sentence = new StudySentence(Guid.NewGuid(), "Sentence.", false, [vocab1, vocab2]);
+            var list = new StudyList(listId, "List", 1, 0, [sentence]);
+            var deckKey = FlashcardRules.StudyListDeckKey(listId);
+
+            var settings = AppSettings.Default with
+            {
+                ActiveListId = listId,
+                ActiveFlashcardDeckKey = deckKey,
+                ShowFloatingFlashcard = true,
+                StudyLists = [list]
+            };
+
+            controller.Apply(settings);
+            Assert.AreEqual(2, flashcardWindow.CardCount);
+
+            string? reportedDoneKey = null;
+            controller.CardMarkedDone += (_, key) => reportedDoneKey = key;
+
+            flashcardWindow.MarkCurrentCardDone();
+            Assert.IsNotNull(reportedDoneKey);
+
+            // Update settings with marked done
+            settings = FlashcardRules.SetMarkedDone(settings, reportedDoneKey, true, DateTimeOffset.UtcNow);
+            controller.Apply(settings);
+
+            // Floating overlay now only contains the 1 active card
+            Assert.AreEqual(1, flashcardWindow.CardCount);
+            Assert.AreNotEqual(reportedDoneKey, flashcardWindow.CurrentCard?.CardKey);
+
+            controller.Dispose();
+            floatingWindow.Close();
+        });
+    }
+
     private static void RunOnSta(Action action)
     {
         Exception? exception = null;

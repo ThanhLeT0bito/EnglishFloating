@@ -16,6 +16,7 @@ public partial class FloatingFlashcardWindow : Window
     public event EventHandler? SettingsRequested;
     public event EventHandler? CloseRequested;
     public event EventHandler<(string CardKey, FlashcardRating Rating)>? CardRated;
+    public event EventHandler<string>? CardMarkedDoneRequested;
 
     public FloatingFlashcardWindow()
     {
@@ -33,6 +34,7 @@ public partial class FloatingFlashcardWindow : Window
     public System.Windows.Controls.Button ButtonAgain => AgainButton;
     public System.Windows.Controls.Button ButtonHard => HardButton;
     public System.Windows.Controls.Button ButtonRemembered => RememberedButton;
+    public System.Windows.Controls.Button ButtonMarkDone => MarkDoneButton;
 
     public void SetDeck(string deckName, IReadOnlyList<FlashcardItem> cards, int initialIndex = 0)
     {
@@ -183,6 +185,17 @@ public partial class FloatingFlashcardWindow : Window
 
     private void RememberedButton_Click(object sender, RoutedEventArgs e) => SubmitRating(FlashcardRating.Remembered);
 
+    public void MarkCurrentCardDone()
+    {
+        if (CurrentCard is null)
+            return;
+
+        var cardKey = CurrentCard.CardKey;
+        CardMarkedDoneRequested?.Invoke(this, cardKey);
+    }
+
+    private void MarkDoneButton_Click(object sender, RoutedEventArgs e) => MarkCurrentCardDone();
+
     private void SettingsButton_Click(object sender, RoutedEventArgs e) =>
         SettingsRequested?.Invoke(this, EventArgs.Empty);
 
@@ -203,6 +216,10 @@ public partial class FloatingFlashcardWindow : Window
                 break;
             case Key.Right:
                 NavigateNext();
+                e.Handled = true;
+                break;
+            case Key.D:
+                MarkCurrentCardDone();
                 e.Handled = true;
                 break;
             case Key.D1:

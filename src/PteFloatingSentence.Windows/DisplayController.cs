@@ -15,6 +15,7 @@ public sealed class DisplayController : IDisposable
     public event EventHandler? OpenFlashcardsRequested;
     public event EventHandler? RestoreOverlayRequested;
     public event EventHandler<(string CardKey, FlashcardRating Rating)>? FlashcardRated;
+    public event EventHandler<string>? CardMarkedDone;
     public event EventHandler? HideFlashcardRequested;
 
     public DisplayController(
@@ -61,14 +62,16 @@ public sealed class DisplayController : IDisposable
                 if (summary is not null)
                 {
                     deckName = summary.Name;
-                    deckCards = FlashcardDeckProjection.GetDeckCards(settings, deckKey);
+                    deckCards = FlashcardDeckProjection.GetDeckCards(settings, deckKey, onlyActive: true);
                 }
             }
 
             if (deckCards.Count > 0)
             {
                 EnsureFlashcardWindow();
-                _flashcardWindow!.SetDeck(deckName, deckCards);
+                var currentIndex = _flashcardWindow!.CurrentIndex;
+                var targetIndex = Math.Clamp(currentIndex, 0, deckCards.Count - 1);
+                _flashcardWindow!.SetDeck(deckName, deckCards, targetIndex);
                 _flashcardWindow.Show();
                 flashcardVisible = true;
             }
@@ -128,6 +131,7 @@ public sealed class DisplayController : IDisposable
         window.SettingsRequested += FlashcardWindow_SettingsRequested;
         window.CloseRequested += FlashcardWindow_CloseRequested;
         window.CardRated += FlashcardWindow_CardRated;
+        window.CardMarkedDoneRequested += FlashcardWindow_CardMarkedDone;
     }
 
     private void DetachFlashcardWindowEvents(FloatingFlashcardWindow window)
@@ -135,6 +139,7 @@ public sealed class DisplayController : IDisposable
         window.SettingsRequested -= FlashcardWindow_SettingsRequested;
         window.CloseRequested -= FlashcardWindow_CloseRequested;
         window.CardRated -= FlashcardWindow_CardRated;
+        window.CardMarkedDoneRequested -= FlashcardWindow_CardMarkedDone;
     }
 
     private void FlashcardWindow_SettingsRequested(object? sender, EventArgs e) =>
@@ -145,6 +150,9 @@ public sealed class DisplayController : IDisposable
 
     private void FlashcardWindow_CardRated(object? sender, (string CardKey, FlashcardRating Rating) e) =>
         FlashcardRated?.Invoke(this, e);
+
+    private void FlashcardWindow_CardMarkedDone(object? sender, string cardKey) =>
+        CardMarkedDone?.Invoke(this, cardKey);
 
     private void LauncherWindow_SettingsRequested(object? sender, EventArgs e) =>
         ShowSettingsRequested?.Invoke(this, EventArgs.Empty);

@@ -7,6 +7,8 @@ using PteFloatingSentence.Core;
 using UserControl = System.Windows.Controls.UserControl;
 using Button = System.Windows.Controls.Button;
 using MessageBox = System.Windows.MessageBox;
+using Color = System.Windows.Media.Color;
+using Brushes = System.Windows.Media.Brushes;
 
 namespace PteFloatingSentence.Windows;
 
@@ -17,6 +19,8 @@ public partial class FlashcardsPage : UserControl
     private string? _selectedDeckKey;
     private IReadOnlyList<FlashcardItem> _allCurrentDeckCards = [];
     private IReadOnlyList<FlashcardItem> _filteredCards = [];
+    private enum CardFilterTab { All, Active, Done }
+    private CardFilterTab _currentFilterTab = CardFilterTab.All;
 
     // Study state
     private bool _isStudying;
@@ -109,7 +113,7 @@ public partial class FlashcardsPage : UserControl
             s.DeckKey,
             s.Name,
             s.IsCustom ? "Custom" : "Study List",
-            $"{s.ReadyCount} cards · {s.RememberedCount} remembered"
+            $"{s.ReadyCount} cards · {s.RememberedCount} remembered{(s.DoneCount > 0 ? $" · {s.DoneCount} done" : "")}"
         )).ToList();
 
         DecksListBox.ItemsSource = items;
@@ -129,6 +133,10 @@ public partial class FlashcardsPage : UserControl
             _filteredCards = [];
             CardsListControl.ItemsSource = null;
             EmptyDeckNotice.Visibility = Visibility.Collapsed;
+            FilterAllButton.Content = "All (0)";
+            FilterActiveButton.Content = "Active (0)";
+            FilterDoneButton.Content = "Done (0)";
+            UpdateFilterButtonsVisual();
             return;
         }
 
@@ -145,7 +153,7 @@ public partial class FlashcardsPage : UserControl
         SelectedDeckNameText.Text = currentSummary.Name;
         SelectedDeckBadge.Visibility = Visibility.Visible;
         SelectedDeckBadgeText.Text = currentSummary.IsCustom ? "Custom Deck" : "Study List Deck";
-        SelectedDeckStatsText.Text = $"{currentSummary.ReadyCount} ready · {currentSummary.UnavailableCount} unavailable · {currentSummary.RememberedCount} remembered";
+        SelectedDeckStatsText.Text = $"{currentSummary.ReadyCount} ready · {currentSummary.DoneCount} done · {currentSummary.RememberedCount} remembered · {currentSummary.UnavailableCount} unavailable";
 
         var isCustom = currentSummary.IsCustom;
         AddCardButton.Visibility = isCustom ? Visibility.Visible : Visibility.Collapsed;
@@ -154,7 +162,73 @@ public partial class FlashcardsPage : UserControl
         _allCurrentDeckCards = FlashcardDeckProjection.GetDeckCards(_settings, _selectedDeckKey, includeUnavailable: true);
         StartStudyingButton.IsEnabled = _allCurrentDeckCards.Any(c => c.IsReady);
 
+        var allCount = _allCurrentDeckCards.Count;
+        var activeCount = _allCurrentDeckCards.Count(c => !c.IsMarkedDone);
+        var doneCount = _allCurrentDeckCards.Count(c => c.IsMarkedDone);
+
+        FilterAllButton.Content = $"All ({allCount})";
+        FilterActiveButton.Content = $"Active ({activeCount})";
+        FilterDoneButton.Content = $"Done ({doneCount})";
+        UpdateFilterButtonsVisual();
+
         ApplyFilter();
+    }
+
+    private void FilterAllButton_Click(object sender, RoutedEventArgs e)
+    {
+        _currentFilterTab = CardFilterTab.All;
+        UpdateFilterButtonsVisual();
+        ApplyFilter();
+    }
+
+    private void FilterActiveButton_Click(object sender, RoutedEventArgs e)
+    {
+        _currentFilterTab = CardFilterTab.Active;
+        UpdateFilterButtonsVisual();
+        ApplyFilter();
+    }
+
+    private void FilterDoneButton_Click(object sender, RoutedEventArgs e)
+    {
+        _currentFilterTab = CardFilterTab.Done;
+        UpdateFilterButtonsVisual();
+        ApplyFilter();
+    }
+
+    private void UpdateFilterButtonsVisual()
+    {
+        SetFilterButtonActive(FilterAllButton, _currentFilterTab == CardFilterTab.All);
+        SetFilterButtonActive(FilterActiveButton, _currentFilterTab == CardFilterTab.Active);
+        SetFilterButtonActive(FilterDoneButton, _currentFilterTab == CardFilterTab.Done);
+    }
+
+    private static void SetFilterButtonActive(Button button, bool isActive)
+    {
+        button.Background = isActive
+            ? new SolidColorBrush(Color.FromRgb(0x1D, 0x4E, 0xD8))
+            : new SolidColorBrush(Color.FromRgb(0x1E, 0x29, 0x3B));
+        button.BorderBrush = isActive
+            ? new SolidColorBrush(Color.FromRgb(0x3B, 0x82, 0xF6))
+            : new SolidColorBrush(Color.FromRgb(0x26, 0x34, 0x49));
+        button.Foreground = isActive
+            ? Brushes.White
+            : new SolidColorBrush(Color.FromRgb(0x94, 0xA3, 0xB8));
+    }
+
+    private void CardDoneToggle_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not string cardKey)
+            return;
+
+        var card = _allCurrentDeckCards.FirstOrDefault(c => c.CardKey == cardKey);
+        if (card is null)
+            return;
+
+        var newStatus = !card.IsMarkedDone;
+        _settings = FlashcardRules.SetMarkedDone(_settings, cardKey, newStatus, DateTimeOffset.UtcNow);
+        _onSettingsChanged?.Invoke(_settings);
+        RefreshDecksList();
+        UpdateDeckContentView();
     }
 
     private void ApplyFilter()
@@ -162,13 +236,23 @@ public partial class FlashcardsPage : UserControl
         var filter = PhraseSearchBox.Text?.Trim() ?? string.Empty;
         SearchPlaceholderText.Visibility = string.IsNullOrEmpty(filter) ? Visibility.Visible : Visibility.Collapsed;
 
+        var baseList = _allCurrentDeckCards;
+        if (_currentFilterTab == CardFilterTab.Active)
+        {
+            baseList = baseList.Where(c => !c.IsMarkedDone).ToList();
+        }
+        else if (_currentFilterTab == CardFilterTab.Done)
+        {
+            baseList = baseList.Where(c => c.IsMarkedDone).ToList();
+        }
+
         if (string.IsNullOrEmpty(filter))
         {
-            _filteredCards = _allCurrentDeckCards;
+            _filteredCards = baseList;
         }
         else
         {
-            _filteredCards = _allCurrentDeckCards
+            _filteredCards = baseList
                 .Where(c => c.Phrase.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
                             c.Meaning.Contains(filter, StringComparison.OrdinalIgnoreCase))
                 .ToList();
@@ -194,7 +278,9 @@ public partial class FlashcardsPage : UserControl
         {
             CardsScrollViewer.Visibility = Visibility.Collapsed;
             EmptyDeckNotice.Visibility = Visibility.Visible;
-            EmptyDeckNoticeText.Text = $"No cards match '{filter}'.";
+            EmptyDeckNoticeText.Text = !string.IsNullOrEmpty(filter)
+                ? $"No cards match '{filter}'."
+                : (_currentFilterTab == CardFilterTab.Done ? "No cards marked done yet." : "No active cards.");
         }
         else
         {
@@ -221,6 +307,21 @@ public partial class FlashcardsPage : UserControl
                         _ => new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x38, 0xBD, 0xF8))
                     };
 
+                var doneBorderBrush = c.IsMarkedDone
+                    ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x10, 0xB9, 0x81))
+                    : new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x33, 0x41, 0x55));
+                var doneBackgroundBrush = c.IsMarkedDone
+                    ? new SolidColorBrush(System.Windows.Media.Color.FromArgb(0x26, 0x10, 0xB9, 0x81))
+                    : new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1E, 0x29, 0x3B));
+                var doneForegroundBrush = c.IsMarkedDone
+                    ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x34, 0xD3, 0x99))
+                    : new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x94, 0xA3, 0xB8));
+                var doneFontWeight = c.IsMarkedDone ? FontWeights.SemiBold : FontWeights.Normal;
+                var doneText = "Done";
+                var doneTooltip = c.IsMarkedDone
+                    ? "Marked Done (Click to restore / study again)"
+                    : "Click to mark as Done (exclude from floating loop)";
+
                 return new CardRowViewModel(
                     c.Phrase,
                     c.PronunciationIpa,
@@ -231,7 +332,15 @@ public partial class FlashcardsPage : UserControl
                     stateText,
                     stateBrush,
                     c.IsCustom,
-                    c.CustomCardId
+                    c.CustomCardId,
+                    c.CardKey,
+                    c.IsMarkedDone,
+                    doneBorderBrush,
+                    doneBackgroundBrush,
+                    doneForegroundBrush,
+                    doneFontWeight,
+                    doneText,
+                    doneTooltip
                 );
             }).ToList();
 
@@ -420,6 +529,35 @@ public partial class FlashcardsPage : UserControl
 
     private void StudyRememberedButton_Click(object sender, RoutedEventArgs e) => SubmitStudyRating(FlashcardRating.Remembered);
 
+    private void StudyMarkDoneButton_Click(object sender, RoutedEventArgs e) => MarkCurrentStudyCardDone();
+
+    private void MarkCurrentStudyCardDone()
+    {
+        if (!_isStudying || _studyCards.Count == 0 || _studyIndex < 0 || _studyIndex >= _studyCards.Count)
+            return;
+
+        var card = _studyCards[_studyIndex];
+        _settings = FlashcardRules.SetMarkedDone(_settings, card.CardKey, true, DateTimeOffset.UtcNow);
+        _onSettingsChanged?.Invoke(_settings);
+
+        var remaining = _studyCards.Where((c, i) => i != _studyIndex).ToList();
+        if (remaining.Count == 0)
+        {
+            ExitInPageStudy();
+            RefreshDecksList();
+            UpdateDeckContentView();
+            return;
+        }
+
+        _studyCards = remaining;
+        if (_studyIndex >= _studyCards.Count)
+            _studyIndex = 0;
+
+        _studyIsShowingBack = false;
+        UpdateStudyCardDisplay();
+        RefreshDecksList();
+    }
+
     private void UserControl_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (_isStudying)
@@ -436,6 +574,10 @@ public partial class FlashcardsPage : UserControl
                     break;
                 case Key.Right:
                     StudyNext();
+                    e.Handled = true;
+                    break;
+                case Key.D:
+                    MarkCurrentStudyCardDone();
                     e.Handled = true;
                     break;
                 case Key.D1:
@@ -685,5 +827,13 @@ public partial class FlashcardsPage : UserControl
         string StateText,
         SolidColorBrush StateBrush,
         bool IsCustom,
-        Guid? CustomCardId);
+        Guid? CustomCardId,
+        string CardKey,
+        bool IsMarkedDone,
+        SolidColorBrush DoneBorderBrush,
+        SolidColorBrush DoneBackgroundBrush,
+        SolidColorBrush DoneForegroundBrush,
+        FontWeight DoneFontWeight,
+        string DoneText,
+        string DoneTooltip);
 }

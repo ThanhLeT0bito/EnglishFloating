@@ -375,4 +375,73 @@ public sealed class FlashcardDomainTests
         Assert.AreEqual("Ephemeral", cards[0].Phrase);
         Assert.IsTrue(cards[0].IsCustom);
     }
+
+    [TestMethod]
+    public void SetMarkedDone_TogglesCardDoneState_AndPersistsInSettings()
+    {
+        var settings = AppSettings.Default;
+        var cardKey = "deck:test:card1";
+        var now = DateTimeOffset.UtcNow;
+
+        // Initially not done
+        Assert.IsNull(settings.FlashcardProgress.FirstOrDefault(p => p.CardKey == cardKey));
+
+        // Mark done
+        settings = FlashcardRules.SetMarkedDone(settings, cardKey, true, now);
+        var progress = settings.FlashcardProgress.FirstOrDefault(p => p.CardKey == cardKey);
+        Assert.IsNotNull(progress);
+        Assert.IsTrue(progress.IsMarkedDone);
+        Assert.AreEqual(now, progress.LastReviewedAt);
+
+        // Restore / Unmark done
+        var later = now.AddMinutes(5);
+        settings = FlashcardRules.SetMarkedDone(settings, cardKey, false, later);
+        progress = settings.FlashcardProgress.FirstOrDefault(p => p.CardKey == cardKey);
+        Assert.IsNotNull(progress);
+        Assert.IsFalse(progress.IsMarkedDone);
+        Assert.AreEqual(later, progress.LastReviewedAt);
+    }
+
+    [TestMethod]
+    public void DeckProjection_WithOnlyActive_ExcludesMarkedDoneCards_AndComputesDoneCount()
+    {
+        var listId = Guid.NewGuid();
+        var sId = Guid.NewGuid();
+        var vocab1 = new VocabularyItem(Guid.NewGuid(), "phrase one", "phrase one", "m1", "e1", null, VocabularyStatus.Ready);
+        var vocab2 = new VocabularyItem(Guid.NewGuid(), "phrase two", "phrase two", "m2", "e2", null, VocabularyStatus.Ready);
+        var sentence = new StudySentence(sId, "Two phrases.", false, [vocab1, vocab2]);
+        var studyList = new StudyList(listId, "List With Done", 1, 0, [sentence]);
+
+        var settings = AppSettings.Default with
+        {
+            ActiveListId = listId,
+            StudyLists = [studyList]
+        };
+
+        var deckKey = FlashcardRules.StudyListDeckKey(listId);
+        var cardKey1 = FlashcardRules.StudyListCardKey(listId, "phrase one");
+
+        // Mark card 1 as done
+        settings = FlashcardRules.SetMarkedDone(settings, cardKey1, true, DateTimeOffset.UtcNow);
+
+        // Deck summaries should show DoneCount = 1
+        var summaries = FlashcardDeckProjection.GetDeckSummaries(settings);
+        var summary = summaries.First(s => s.DeckKey == deckKey);
+        Assert.AreEqual(2, summary.TotalCount);
+        Assert.AreEqual(2, summary.ReadyCount);
+        Assert.AreEqual(1, summary.DoneCount);
+
+        // GetDeckCards with onlyActive: false returns both, with IsMarkedDone correctly set
+        var allCards = FlashcardDeckProjection.GetDeckCards(settings, deckKey, onlyActive: false);
+        Assert.AreEqual(2, allCards.Count);
+        var card1 = allCards.First(c => c.Phrase == "phrase one");
+        var card2 = allCards.First(c => c.Phrase == "phrase two");
+        Assert.IsTrue(card1.IsMarkedDone);
+        Assert.IsFalse(card2.IsMarkedDone);
+
+        // GetDeckCards with onlyActive: true returns only card 2
+        var activeCards = FlashcardDeckProjection.GetDeckCards(settings, deckKey, onlyActive: true);
+        Assert.AreEqual(1, activeCards.Count);
+        Assert.AreEqual("phrase two", activeCards[0].Phrase);
+    }
 }
