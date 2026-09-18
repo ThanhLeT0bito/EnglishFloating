@@ -8,6 +8,19 @@ namespace PteFloatingSentence.Windows.Tests;
 public class WindowSurfaceTests
 {
     [TestMethod]
+    public void FloatingFlashcard_DragHandlerIsLimitedToHeaderSoCardReceivesMouseClicks()
+    {
+        var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "FloatingFlashcardWindow.xaml"));
+        var windowTagEnd = xaml.IndexOf('>');
+        var windowTag = xaml[..windowTagEnd];
+
+        Assert.IsFalse(windowTag.Contains("MouseLeftButtonDown", StringComparison.Ordinal));
+        StringAssert.Contains(xaml, "x:Name=\"DragHeader\"");
+        StringAssert.Contains(xaml, "MouseLeftButtonDown=\"Window_MouseLeftButtonDown\"");
+        StringAssert.Contains(xaml, "MouseLeftButtonUp=\"CardContentArea_MouseLeftButtonUp\"");
+    }
+
+    [TestMethod]
     public void AppSavePath_MergesSubmittedSettingsIntoLatestSnapshot()
     {
         var source = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "App.xaml.cs"));
