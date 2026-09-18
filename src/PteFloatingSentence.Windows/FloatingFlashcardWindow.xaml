@@ -237,19 +237,19 @@
                     <Button x:Name="AgainButton"
                             Style="{StaticResource RatingButtonStyle}"
                             Background="{StaticResource AgainBrush}"
-                            Content="Again (1)"
+                            Content="Again"
                             IsEnabled="False"
                             Click="AgainButton_Click" />
                     <Button x:Name="HardButton"
                             Style="{StaticResource RatingButtonStyle}"
                             Background="{StaticResource HardBrush}"
-                            Content="Hard (2)"
+                            Content="Hard"
                             IsEnabled="False"
                             Click="HardButton_Click" />
                     <Button x:Name="RememberedButton"
                             Style="{StaticResource RatingButtonStyle}"
                             Background="{StaticResource RememberedBrush}"
-                            Content="Remembered (3)"
+                            Content="Remembered"
                             IsEnabled="False"
                             Click="RememberedButton_Click" />
                 </StackPanel>
