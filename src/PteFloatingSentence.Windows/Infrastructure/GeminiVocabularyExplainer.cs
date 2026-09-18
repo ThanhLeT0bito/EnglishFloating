@@ -42,11 +42,15 @@ public sealed class GeminiVocabularyExplainer : IVocabularyExplainer, IDisposabl
         }
     }
 
-    public async Task<VocabularyExplanation> ExplainAsync(string phrase, string sourceSentence, CancellationToken cancellationToken = default)
+    public async Task<VocabularyExplanation> ExplainAsync(string phrase, string sourceSentence = "", CancellationToken cancellationToken = default)
     {
         var apiKey = _apiKeyProvider()?.Trim();
         if (string.IsNullOrEmpty(apiKey))
             throw new InvalidOperationException("Gemini API key is not configured.");
+
+        var promptText = string.IsNullOrWhiteSpace(sourceSentence)
+            ? $"Explain the English vocabulary word or phrase \"{phrase}\". Provide a short meaning in simple English, a new natural example sentence, and the IPA pronunciation."
+            : $"Explain the vocabulary phrase \"{phrase}\" from the following sentence: \"{sourceSentence}\". Provide a short meaning in simple English, a new example sentence, and the IPA pronunciation.";
 
         var requestPayload = new
         {
@@ -58,7 +62,7 @@ public sealed class GeminiVocabularyExplainer : IVocabularyExplainer, IDisposabl
                     {
                         new
                         {
-                            text = $"Explain the vocabulary phrase \"{phrase}\" from the following sentence: \"{sourceSentence}\". Provide a short meaning in simple English, a new example sentence, and the IPA pronunciation."
+                            text = promptText
                         }
                     }
                 }

@@ -4,5 +4,5 @@ public sealed record VocabularyExplanation(string Meaning, string Example, strin
 
 public interface IVocabularyExplainer
 {
-    Task<VocabularyExplanation> ExplainAsync(string phrase, string sourceSentence, CancellationToken cancellationToken = default);
+    Task<VocabularyExplanation> ExplainAsync(string phrase, string sourceSentence = "", CancellationToken cancellationToken = default);
 }

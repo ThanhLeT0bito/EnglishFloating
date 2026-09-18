@@ -145,11 +145,16 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore);
-        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
-        _settingsWindow.StartPracticeRequested += (_, listId) =>
+        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore, _explainer);
+        void OnStartPractice(object? sender, Guid listId) => _floatingWindow?.StartPractice(listId);
+        _settingsWindow.StartPracticeRequested += OnStartPractice;
+        _settingsWindow.Closed += (_, _) =>
         {
-            _floatingWindow?.StartPractice(listId);
+            if (_settingsWindow is not null)
+            {
+                _settingsWindow.StartPracticeRequested -= OnStartPractice;
+            }
+            _settingsWindow = null;
         };
         _settingsWindow.NavigateTo(page);
         _settingsWindow.Show();

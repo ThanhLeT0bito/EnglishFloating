@@ -1,21 +1,29 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using PteFloatingSentence.Core;
+using PteFloatingSentence.Windows.Infrastructure;
 
 using UserControl = System.Windows.Controls.UserControl;
 using Button = System.Windows.Controls.Button;
+using TextBox = System.Windows.Controls.TextBox;
+using TextBlock = System.Windows.Controls.TextBlock;
 using MessageBox = System.Windows.MessageBox;
 using Color = System.Windows.Media.Color;
 using Brushes = System.Windows.Media.Brushes;
 
 namespace PteFloatingSentence.Windows;
 
-public partial class FlashcardsPage : UserControl
+public partial class FlashcardsPage : UserControl, IDisposable
 {
     private AppSettings _settings = AppSettings.Default;
     private Action<AppSettings>? _onSettingsChanged;
+    private IVocabularyExplainer? _explainer;
+    private CancellationTokenSource? _aiCts;
     private string? _selectedDeckKey;
     private IReadOnlyList<FlashcardItem> _allCurrentDeckCards = [];
     private IReadOnlyList<FlashcardItem> _filteredCards = [];
@@ -37,6 +45,35 @@ public partial class FlashcardsPage : UserControl
     public FlashcardsPage()
     {
         InitializeComponent();
+        Unloaded += OnUnloaded;
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        Unloaded -= OnUnloaded;
+        Dispose();
+    }
+
+    public void Dispose()
+    {
+        CancelAiGeneration();
+    }
+
+    private void CancelAiGeneration()
+    {
+        if (_aiCts is not null)
+        {
+            try
+            {
+                _aiCts.Cancel();
+                _aiCts.Dispose();
+            }
+            catch (ObjectDisposedException) { }
+            finally
+            {
+                _aiCts = null;
+            }
+        }
     }
 
     public string? SelectedDeckKey => _selectedDeckKey;
@@ -49,11 +86,27 @@ public partial class FlashcardsPage : UserControl
     public Button ButtonAgain => StudyAgainButton;
     public Button ButtonRemembered => StudyRememberedButton;
     public string CurrentStudyPhrase => StudyFrontPhraseText.Text;
+    public TextBox InputPhrase => CardPhraseInput;
+    public TextBox InputPronunciation => CardPronunciationInput;
+    public TextBox InputMeaning => CardMeaningInput;
+    public TextBox InputExample => CardExampleInput;
+    public TextBlock TextDialogError => DialogErrorText;
+    public Button ButtonAiGenerate => AiGenerateButton;
+    public Button ButtonAddCard => AddCardButton;
 
-    public void LoadSettings(AppSettings settings, Action<AppSettings>? onSettingsChanged = null)
+    public void OpenAddCardDialog()
+    {
+        AddCardButton_Click(this, new RoutedEventArgs());
+    }
+
+    public void LoadSettings(AppSettings settings, Action<AppSettings>? onSettingsChanged = null, IVocabularyExplainer? explainer = null)
     {
         _settings = settings;
         _onSettingsChanged = onSettingsChanged;
+        if (explainer is not null)
+        {
+            _explainer = explainer;
+        }
 
         RefreshDecksList();
 
@@ -618,6 +671,7 @@ public partial class FlashcardsPage : UserControl
 
     private void NewDeckButton_Click(object sender, RoutedEventArgs e)
     {
+        CancelAiGeneration();
         _dialogMode = DialogMode.NewDeck;
         DialogTitleText.Text = "Create Custom Deck";
         DeckNameInput.Text = string.Empty;
@@ -656,6 +710,7 @@ public partial class FlashcardsPage : UserControl
 
     private void AddCardButton_Click(object sender, RoutedEventArgs e)
     {
+        CancelAiGeneration();
         _dialogMode = DialogMode.AddCard;
         _editingCardId = null;
         DialogTitleText.Text = "Add Custom Card";
@@ -683,6 +738,7 @@ public partial class FlashcardsPage : UserControl
             if (card is null)
                 return;
 
+            CancelAiGeneration();
             _dialogMode = DialogMode.EditCard;
             _editingCardId = cardId;
             DialogTitleText.Text = "Edit Custom Card";
@@ -724,6 +780,7 @@ public partial class FlashcardsPage : UserControl
 
     private void DialogSaveButton_Click(object sender, RoutedEventArgs e)
     {
+        CancelAiGeneration();
         DialogErrorText.Visibility = Visibility.Collapsed;
 
         if (_dialogMode == DialogMode.NewDeck)
@@ -805,8 +862,98 @@ public partial class FlashcardsPage : UserControl
 
     private void DialogCancelButton_Click(object sender, RoutedEventArgs e)
     {
+        CancelAiGeneration();
         DialogOverlay.Visibility = Visibility.Collapsed;
         _dialogMode = DialogMode.None;
+    }
+
+    public async Task<bool> AutoFillCardWithAiAsync(bool forceOverwrite = true, bool showError = true)
+    {
+        var phrase = CardPhraseInput.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(phrase))
+        {
+            if (showError)
+            {
+                DialogErrorText.Text = "Please enter a phrase first.";
+                DialogErrorText.Visibility = Visibility.Visible;
+            }
+            return false;
+        }
+
+        if (_explainer is null)
+        {
+            if (showError)
+            {
+                DialogErrorText.Text = "Gemini API key is not configured or AI service is unavailable.";
+                DialogErrorText.Visibility = Visibility.Visible;
+            }
+            return false;
+        }
+
+        CancelAiGeneration();
+        _aiCts = new CancellationTokenSource();
+        var token = _aiCts.Token;
+
+        AiGenerateButton.IsEnabled = false;
+        AiGenerateButton.Content = "✨ Generating...";
+        DialogErrorText.Visibility = Visibility.Collapsed;
+
+        try
+        {
+            var explanation = await _explainer.ExplainAsync(phrase, cancellationToken: token);
+            if (token.IsCancellationRequested)
+                return false;
+
+            if (forceOverwrite || string.IsNullOrWhiteSpace(CardPronunciationInput.Text))
+            {
+                CardPronunciationInput.Text = explanation.PronunciationIpa ?? string.Empty;
+            }
+
+            if (forceOverwrite || string.IsNullOrWhiteSpace(CardMeaningInput.Text))
+            {
+                CardMeaningInput.Text = explanation.Meaning ?? string.Empty;
+            }
+
+            if (forceOverwrite || string.IsNullOrWhiteSpace(CardExampleInput.Text))
+            {
+                CardExampleInput.Text = explanation.Example ?? string.Empty;
+            }
+
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+        catch (Exception ex)
+        {
+            if (!token.IsCancellationRequested && showError)
+            {
+                DialogErrorText.Text = $"AI auto-fill failed: {ex.Message}";
+                DialogErrorText.Visibility = Visibility.Visible;
+            }
+            return false;
+        }
+        finally
+        {
+            AiGenerateButton.IsEnabled = true;
+            AiGenerateButton.Content = "✨ Auto-fill with AI";
+        }
+    }
+
+    private async void AiGenerateButton_Click(object sender, RoutedEventArgs e)
+    {
+        await AutoFillCardWithAiAsync(forceOverwrite: true, showError: true);
+    }
+
+    private async void CardPhraseInput_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrWhiteSpace(CardPhraseInput.Text) &&
+            string.IsNullOrWhiteSpace(CardMeaningInput.Text) &&
+            string.IsNullOrWhiteSpace(CardExampleInput.Text))
+        {
+            await AutoFillCardWithAiAsync(forceOverwrite: false, showError: false);
+        }
     }
 
     #endregion

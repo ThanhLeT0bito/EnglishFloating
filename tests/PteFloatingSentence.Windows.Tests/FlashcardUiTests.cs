@@ -1,6 +1,9 @@
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using PteFloatingSentence.Core;
 using PteFloatingSentence.Windows;
+using PteFloatingSentence.Windows.Infrastructure;
 
 namespace PteFloatingSentence.Windows.Tests;
 
@@ -497,6 +500,122 @@ public class FlashcardUiTests
 
             window.Close();
         });
+    }
+
+    [TestMethod]
+    public void FlashcardsPage_AutoFillWithAi_PopulatesInputs()
+    {
+        RunOnSta(() =>
+        {
+            var page = new FlashcardsPage();
+            var customDeck = new CustomFlashcardDeck(
+                Guid.NewGuid(),
+                "Custom",
+                []);
+
+            var deckKey = FlashcardRules.CustomDeckKey(customDeck.Id);
+            var settings = AppSettings.Default with
+            {
+                CustomFlashcardDecks = [customDeck],
+                ActiveFlashcardDeckKey = deckKey
+            };
+
+            var explainer = new StubExplainer();
+            page.LoadSettings(settings, explainer: explainer);
+
+            page.OpenAddCardDialog();
+            page.InputPhrase.Text = "serendipity";
+
+            var task = page.AutoFillCardWithAiAsync(forceOverwrite: true, showError: true);
+            task.Wait();
+            Assert.IsTrue(task.Result);
+
+            Assert.AreEqual("/ˌsɛrənˈdɪpɪti/", page.InputPronunciation.Text);
+            Assert.AreEqual("Finding something good without looking for it", page.InputMeaning.Text);
+            Assert.AreEqual("Meeting her was pure serendipity.", page.InputExample.Text);
+
+            page.Dispose();
+        });
+    }
+
+    [TestMethod]
+    public void FlashcardsPage_AutoFillWithAi_WithoutExplainer_ShowsError()
+    {
+        RunOnSta(() =>
+        {
+            var page = new FlashcardsPage();
+            var customDeck = new CustomFlashcardDeck(
+                Guid.NewGuid(),
+                "Custom",
+                []);
+
+            var deckKey = FlashcardRules.CustomDeckKey(customDeck.Id);
+            var settings = AppSettings.Default with
+            {
+                CustomFlashcardDecks = [customDeck],
+                ActiveFlashcardDeckKey = deckKey
+            };
+
+            page.LoadSettings(settings, explainer: null);
+            page.OpenAddCardDialog();
+            page.InputPhrase.Text = "ephemeral";
+
+            var task = page.AutoFillCardWithAiAsync(forceOverwrite: true, showError: true);
+            task.Wait();
+            Assert.IsFalse(task.Result);
+
+            Assert.AreEqual(Visibility.Visible, page.TextDialogError.Visibility);
+            Assert.IsTrue(page.TextDialogError.Text.Contains("Gemini API key is not configured"));
+
+            page.Dispose();
+        });
+    }
+
+    [TestMethod]
+    public void FlashcardsPage_AutoFillWithAi_EmptyPhrase_ShowsError()
+    {
+        RunOnSta(() =>
+        {
+            var page = new FlashcardsPage();
+            var customDeck = new CustomFlashcardDeck(
+                Guid.NewGuid(),
+                "Custom",
+                []);
+
+            var deckKey = FlashcardRules.CustomDeckKey(customDeck.Id);
+            var settings = AppSettings.Default with
+            {
+                CustomFlashcardDecks = [customDeck],
+                ActiveFlashcardDeckKey = deckKey
+            };
+
+            var explainer = new StubExplainer();
+            page.LoadSettings(settings, explainer: explainer);
+            page.OpenAddCardDialog();
+            page.InputPhrase.Text = "   ";
+
+            var task = page.AutoFillCardWithAiAsync(forceOverwrite: true, showError: true);
+            task.Wait();
+            Assert.IsFalse(task.Result);
+
+            Assert.AreEqual(Visibility.Visible, page.TextDialogError.Visibility);
+            Assert.AreEqual("Please enter a phrase first.", page.TextDialogError.Text);
+
+            page.Dispose();
+        });
+    }
+
+    private sealed class StubExplainer : IVocabularyExplainer
+    {
+        public Task<VocabularyExplanation> ExplainAsync(string phrase, string sourceSentence = "", CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new VocabularyExplanation(
+                "Finding something good without looking for it",
+                "Meeting her was pure serendipity.",
+                "/ˌsɛrənˈdɪpɪti/"));
+        }
+
+        public void Dispose() { }
     }
 
     private static void RunOnSta(Action action)

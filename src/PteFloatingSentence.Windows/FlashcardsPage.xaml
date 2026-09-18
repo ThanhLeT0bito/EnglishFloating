@@ -171,6 +171,43 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="AiGenerateButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#1A8B5CF6" />
+            <Setter Property="BorderBrush" Value="#4D8B5CF6" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#FFA78BFA" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="AiBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="AiBorder" Property="Background" Value="#338B5CF6" />
+                                <Setter TargetName="AiBorder" Property="BorderBrush" Value="#FF8B5CF6" />
+                                <Setter Property="Foreground" Value="#FFFFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5" />
+                                <Setter Property="Cursor" Value="Wait" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -540,8 +577,16 @@
 
                     <!-- Card Form -->
                     <StackPanel x:Name="CardFormPanel" Visibility="Collapsed">
-                        <TextBlock Text="Phrase" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
-                        <TextBox x:Name="CardPhraseInput" Margin="0,0,0,8" />
+                        <Grid Margin="0,0,0,4">
+                            <TextBlock Text="Phrase" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                            <Button x:Name="AiGenerateButton"
+                                    HorizontalAlignment="Right"
+                                    Style="{StaticResource AiGenerateButtonStyle}"
+                                    Content="✨ Auto-fill with AI"
+                                    ToolTip="Automatically generate Pronunciation, Meaning, and Example using AI"
+                                    Click="AiGenerateButton_Click" />
+                        </Grid>
+                        <TextBox x:Name="CardPhraseInput" Margin="0,0,0,8" LostFocus="CardPhraseInput_LostFocus" />
 
                         <TextBlock Text="Pronunciation (IPA, optional)" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
                         <TextBox x:Name="CardPronunciationInput" Margin="0,0,0,8" />

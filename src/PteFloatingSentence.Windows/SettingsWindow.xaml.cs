@@ -11,6 +11,7 @@ public partial class SettingsWindow : Window
 {
     private readonly StudyListDraft _draft;
     private readonly ProtectedApiKeyStore? _apiKeyStore;
+    private readonly IVocabularyExplainer? _explainer;
     private bool _isRendering;
     private bool _apiKeyConfigured;
     private bool _apiKeyCleared;
@@ -105,11 +106,12 @@ public partial class SettingsWindow : Window
         };
     }
 
-    public SettingsWindow(AppSettings initial, Action<AppSettings> save, ProtectedApiKeyStore? apiKeyStore = null)
+    public SettingsWindow(AppSettings initial, Action<AppSettings> save, ProtectedApiKeyStore? apiKeyStore = null, IVocabularyExplainer? explainer = null)
     {
         InitializeComponent();
         _draft = new StudyListDraft(initial, save);
         _apiKeyStore = apiKeyStore;
+        _explainer = explainer;
         _apiKeyConfigured = initial.GeminiApiKeyConfigured;
         _setupPageStartPracticeHandler = OnSetupPageStartPracticeRequested;
         SetupPageControl.Initialize(_draft, ShowResult, () => RefreshUi());
@@ -124,7 +126,7 @@ public partial class SettingsWindow : Window
         DisplayPageControl.FullDisplayPreferencesChanged += OnFullDisplayPreferencesChanged;
         GeminiPageControl.LoadState(_apiKeyConfigured);
         GeminiPageControl.ClearKeyRequested += OnClearKeyRequested;
-        FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged);
+        FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged, _explainer);
         ReviewPracticePageControl?.Initialize(_draft.Settings, (listId, sentenceId, completed) =>
         {
             _draft.MarkSentenceCompleted(listId, sentenceId, completed);
@@ -177,6 +179,7 @@ public partial class SettingsWindow : Window
             GeminiPageControl.ClearKeyRequested -= OnClearKeyRequested;
         }
         ReviewPracticePageControl?.Dispose();
+        FlashcardsPageControl?.Dispose();
     }
 
     private void NewListButton_Click(object sender, RoutedEventArgs e)
@@ -319,7 +322,7 @@ public partial class SettingsWindow : Window
                 FlashcardDeckProjection.GetDeckSummaries(_draft.Settings));
             ReviewPageControl?.LoadData(new ReviewViewModel(_draft.Settings));
             GeminiPageControl?.LoadState(_apiKeyConfigured);
-            FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged);
+            FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged, _explainer);
         }
         finally
         {
