@@ -8,6 +8,18 @@ namespace PteFloatingSentence.Windows.Tests;
 public class WindowSurfaceTests
 {
     [TestMethod]
+    public void FloatingSentence_SuppressesTouchEditorFocusButKeepsMouseSelectionHandler()
+    {
+        var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "FloatingWindow.xaml"));
+        var code = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "FloatingWindow.xaml.cs"));
+
+        StringAssert.Contains(xaml, "PreviewTouchDown=\"SentenceBox_PreviewTouchDown\"");
+        StringAssert.Contains(xaml, "PreviewMouseLeftButtonUp=\"SentenceBox_PreviewMouseLeftButtonUp\"");
+        StringAssert.Contains(code, "private void SentenceBox_PreviewTouchDown");
+        StringAssert.Contains(code, "e.Handled = true;");
+    }
+
+    [TestMethod]
     public void FloatingFlashcard_DragHandlerIsLimitedToHeaderSoCardReceivesMouseClicks()
     {
         var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "FloatingFlashcardWindow.xaml"));
