@@ -6,3 +6,5 @@ obj/
 TestResults/
 *.user
 *.suo
+publish/
+dist/
