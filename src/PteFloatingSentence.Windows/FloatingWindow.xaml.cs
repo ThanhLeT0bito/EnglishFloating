@@ -323,6 +323,10 @@ public partial class FloatingWindow : Window
         if (!string.IsNullOrWhiteSpace(selection))
         {
             HandleSelection();
+            SentenceBox.ReleaseMouseCapture();
+            Mouse.Capture(null);
+            Keyboard.ClearFocus();
+            e.Handled = true;
             return;
         }
 
@@ -336,13 +340,17 @@ public partial class FloatingWindow : Window
                 e.Handled = true;
                 VocabularyClicked?.Invoke(this, itemId.Value);
                 SentenceBox.Selection.Select(SentenceBox.Document.ContentStart, SentenceBox.Document.ContentStart);
-                Focus();
+                SentenceBox.ReleaseMouseCapture();
+                Mouse.Capture(null);
+                Keyboard.ClearFocus();
                 return;
             }
         }
 
         SentenceBox.Selection.Select(SentenceBox.Document.ContentStart, SentenceBox.Document.ContentStart);
-        Focus();
+        SentenceBox.ReleaseMouseCapture();
+        Mouse.Capture(null);
+        Keyboard.ClearFocus();
         e.Handled = true;
     }
 
@@ -360,12 +368,12 @@ public partial class FloatingWindow : Window
             return;
 
         var trimmed = selection.Trim();
+        var cleaned = VocabularyRules.TrimPunctuation(trimmed);
 
-        // Require at least 2 characters to avoid triggering on accidental single-char selections
-        if (trimmed.Length < 2)
+        // Require at least 2 characters to avoid triggering on accidental single-char selections or punctuation
+        if (cleaned.Length < 2)
         {
             SentenceBox.Selection.Select(SentenceBox.Document.ContentStart, SentenceBox.Document.ContentStart);
-            Focus();
             return;
         }
 
@@ -380,24 +388,25 @@ public partial class FloatingWindow : Window
         {
             VocabularyClicked?.Invoke(this, itemIdFromSpan.Value);
             SentenceBox.Selection.Select(SentenceBox.Document.ContentStart, SentenceBox.Document.ContentStart);
-            Focus();
             return;
         }
 
         // 2. Check if the selection text matches any existing vocabulary in the sentence
-        var existing = VocabularyRules.FindEquivalent(_currentVocabulary, trimmed);
+        var existing = VocabularyRules.FindEquivalent(_currentVocabulary, cleaned);
         if (existing is not null)
         {
             VocabularyClicked?.Invoke(this, existing.Id);
             SentenceBox.Selection.Select(SentenceBox.Document.ContentStart, SentenceBox.Document.ContentStart);
-            Focus();
             return;
         }
 
-        // 3. New phrase: clear selection BEFORE invoking so subsequent clicks don't re-trigger
+        // 3. New phrase: clear selection and release capture BEFORE invoking
         SentenceBox.Selection.Select(SentenceBox.Document.ContentStart, SentenceBox.Document.ContentStart);
-        Focus();
-        VocabularySelected?.Invoke(this, trimmed);
+        SentenceBox.ReleaseMouseCapture();
+        Mouse.Capture(null);
+        Keyboard.ClearFocus();
+
+        VocabularySelected?.Invoke(this, cleaned);
     }
 
     private static Guid? FindVocabularyItemId(TextElement? element)
@@ -445,8 +454,17 @@ public partial class FloatingWindow : Window
             return;
         }
 
-        DragMove();
-        PositionChanged?.Invoke(this, (Left, Top));
+        if (e.ButtonState == MouseButtonState.Pressed)
+        {
+            try
+            {
+                DragMove();
+                PositionChanged?.Invoke(this, (Left, Top));
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
     }
 
     public void StartPractice(Guid? listId = null)
@@ -844,7 +862,7 @@ public partial class FloatingWindow : Window
 
     private static bool IsWithinButtonTree(object originalSource, System.Windows.Controls.Button button)
     {
-        for (var current = originalSource as DependencyObject; current is not null; current = GetVisualParent(current))
+        for (var current = originalSource as DependencyObject; current is not null; current = GetAnyParent(current))
         {
             if (ReferenceEquals(current, button))
                 return true;
@@ -855,7 +873,7 @@ public partial class FloatingWindow : Window
 
     private static bool IsWithinElementTree(object originalSource, FrameworkElement element)
     {
-        for (var current = originalSource as DependencyObject; current is not null; current = GetVisualParent(current))
+        for (var current = originalSource as DependencyObject; current is not null; current = GetAnyParent(current))
         {
             if (ReferenceEquals(current, element))
                 return true;
@@ -864,10 +882,20 @@ public partial class FloatingWindow : Window
         return false;
     }
 
-    private static DependencyObject? GetVisualParent(DependencyObject element) =>
-        element is Visual or System.Windows.Media.Media3D.Visual3D
-            ? VisualTreeHelper.GetParent(element)
-            : null;
+    private static DependencyObject? GetAnyParent(DependencyObject element)
+    {
+        if (element is Visual or System.Windows.Media.Media3D.Visual3D)
+        {
+            return VisualTreeHelper.GetParent(element) ?? (element as FrameworkElement)?.Parent;
+        }
+
+        if (element is FrameworkContentElement fce)
+        {
+            return fce.Parent;
+        }
+
+        return null;
+    }
 
     private static bool IsValidFontSize(double value) => !double.IsNaN(value) && !double.IsInfinity(value) && value is >= 12 and <= 96;
 

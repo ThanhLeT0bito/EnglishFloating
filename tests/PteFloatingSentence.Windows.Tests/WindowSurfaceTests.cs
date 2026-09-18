@@ -606,6 +606,76 @@ public class WindowSurfaceTests
     }
 
     [TestMethod]
+    public void FloatingWindow_HandleSelection_IgnoresSingleCharacterOrPunctuationSelection()
+    {
+        var thread = new Thread(() =>
+        {
+            var window = new FloatingWindow();
+            var sentence = new StudySentence(Guid.NewGuid(), "This is a great test.", false);
+            var list = new StudyList(Guid.NewGuid(), "List", 10, 0, [sentence]);
+            window.ApplySettings(AppSettings.Default with { StudyLists = [list], ActiveListId = list.Id });
+
+            string? selectedPhrase = null;
+            window.VocabularySelected += (_, phrase) => selectedPhrase = phrase;
+
+            var box = (System.Windows.Controls.RichTextBox)window.FindName("SentenceBox");
+            var para = box.Document.Blocks.OfType<System.Windows.Documents.Paragraph>().Single();
+            var run = para.Inlines.OfType<System.Windows.Documents.Run>().First();
+
+            var handleSelectionMethod = typeof(FloatingWindow).GetMethod("HandleSelection", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+
+            // 1. Single character "a"
+            var aIndex = run.Text.IndexOf(" a ", StringComparison.Ordinal) + 1;
+            var start = run.ContentStart.GetPositionAtOffset(aIndex);
+            var end = run.ContentStart.GetPositionAtOffset(aIndex + 1);
+            box.Selection.Select(start!, end!);
+
+            handleSelectionMethod.Invoke(window, null);
+            Assert.IsNull(selectedPhrase, "Single letter selection must not trigger VocabularySelected.");
+
+            // 2. Punctuation "."
+            var dotIndex = run.Text.IndexOf(".", StringComparison.Ordinal);
+            start = run.ContentStart.GetPositionAtOffset(dotIndex);
+            end = run.ContentStart.GetPositionAtOffset(dotIndex + 1);
+            box.Selection.Select(start!, end!);
+
+            handleSelectionMethod.Invoke(window, null);
+            Assert.IsNull(selectedPhrase, "Punctuation-only selection must not trigger VocabularySelected.");
+
+            window.Close();
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
+
+    [TestMethod]
+    public void FloatingWindow_IsWithinElementTree_RecognizesTextElementDescendants()
+    {
+        var thread = new Thread(() =>
+        {
+            var window = new FloatingWindow();
+            var sentence = new StudySentence(Guid.NewGuid(), "Recognize text element", false);
+            var list = new StudyList(Guid.NewGuid(), "List", 10, 0, [sentence]);
+            window.ApplySettings(AppSettings.Default with { StudyLists = [list], ActiveListId = list.Id });
+
+            var box = (System.Windows.Controls.RichTextBox)window.FindName("SentenceBox");
+            var para = box.Document.Blocks.OfType<System.Windows.Documents.Paragraph>().Single();
+            var run = para.Inlines.OfType<System.Windows.Documents.Run>().First();
+
+            var isWithinMethod = typeof(FloatingWindow).GetMethod("IsWithinElementTree", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+
+            var isWithin = (bool)isWithinMethod.Invoke(null, [run, box])!;
+            Assert.IsTrue(isWithin, "Run inside SentenceBox's FlowDocument must be recognized as within SentenceBox.");
+
+            window.Close();
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
+
+    [TestMethod]
     public void DisplayPageXaml_ContainsDisplaySectionAndControls()
     {
         var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "DisplayPage.xaml"));
