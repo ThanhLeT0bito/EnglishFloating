@@ -51,22 +51,26 @@ public partial class App : System.Windows.Application
         _displayController.OpenFlashcardsRequested += (_, _) => OpenSettings(SettingsPageId.Flashcards);
         _displayController.FlashcardRated += (_, args) =>
         {
+            if (_isShuttingDown) return;
             _settings = Core.FlashcardRules.ApplyRating(_settings, args.CardKey, args.Rating, DateTimeOffset.UtcNow);
             _displayController.Apply(_settings);
             PersistSettings();
         };
         _displayController.CardMarkedDone += (_, cardKey) =>
         {
+            if (_isShuttingDown) return;
             SaveSettings(Core.FlashcardRules.SetMarkedDone(_settings, cardKey, true, DateTimeOffset.UtcNow));
         };
         _displayController.HideFlashcardRequested += (_, _) =>
         {
+            if (_isShuttingDown) return;
             _settings = _settings with { ShowFloatingFlashcard = false };
             _displayController.Apply(_settings);
             PersistSettings();
         };
         _displayController.RestoreOverlayRequested += (_, _) =>
         {
+            if (_isShuttingDown) return;
             _settings = _settings with { ShowSentenceOverlay = true };
             _displayController.Apply(_settings);
             PersistSettings();
@@ -79,11 +83,13 @@ public partial class App : System.Windows.Application
         _floatingWindow.PositionChanged += FloatingWindow_PositionChanged;
         _floatingWindow.SentenceCompleted += (_, args) =>
         {
+            if (_isShuttingDown) return;
             _settings = Core.StudyListRules.MarkSentenceCompleted(_settings, args.ListId, args.SentenceId, args.Completed);
             PersistSettings();
         };
         _floatingWindow.VocabularySelected += async (_, selection) =>
         {
+            if (_isShuttingDown) return;
             var activeList = Core.StudyListRules.ActiveList(_settings);
             if (activeList.Sentences.Count > 0 && _vocabularyWorkflow is not null)
             {
@@ -105,6 +111,7 @@ public partial class App : System.Windows.Application
         };
         _floatingWindow.VocabularyClicked += (_, itemId) =>
         {
+            if (_isShuttingDown) return;
             var activeList = Core.StudyListRules.ActiveList(_settings);
             if (activeList.Sentences.Count > 0 && _vocabularyWorkflow is not null)
             {
@@ -120,19 +127,23 @@ public partial class App : System.Windows.Application
         };
         _floatingWindow.HideVocabularyRequested += (_, args) =>
         {
+            if (_isShuttingDown) return;
             _vocabularyWorkflow?.SetHidden(args.SentenceId, args.ItemId, true);
         };
         _floatingWindow.RetryVocabularyRequested += async (_, args) =>
         {
+            if (_isShuttingDown) return;
             if (_vocabularyWorkflow is not null)
                 await _vocabularyWorkflow.RetryAsync(args.SentenceId, args.ItemId);
         };
         _floatingWindow.DeleteVocabularyRequested += (_, args) =>
         {
+            if (_isShuttingDown) return;
             _vocabularyWorkflow?.Delete(args.SentenceId, args.ItemId);
         };
 
         _displayController.Apply(_settings);
+
     }
 
     private void OpenSettings(SettingsPageId page = SettingsPageId.Setup)

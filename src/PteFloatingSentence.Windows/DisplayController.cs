@@ -44,6 +44,9 @@ public sealed class DisplayController : IDisposable
 
     public void Apply(AppSettings settings)
     {
+        if (_disposed)
+            return;
+
         _floatingWindow.ApplySettings(settings, renderContent: settings.ShowSentenceOverlay);
 
         var sentenceVisible = settings.ShowSentenceOverlay;

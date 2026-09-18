@@ -41,6 +41,7 @@ public partial class FlashcardsPage : UserControl, IDisposable
     private enum DialogMode { None, NewDeck, AddCard, EditCard }
     private DialogMode _dialogMode = DialogMode.None;
     private Guid? _editingCardId;
+    private bool _disposed;
 
     public FlashcardsPage()
     {
@@ -56,6 +57,7 @@ public partial class FlashcardsPage : UserControl, IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
         CancelAiGeneration();
     }
 
@@ -869,6 +871,10 @@ public partial class FlashcardsPage : UserControl, IDisposable
 
     public async Task<bool> AutoFillCardWithAiAsync(bool forceOverwrite = true, bool showError = true)
     {
+        // Guard: do not run after the control has been disposed (e.g., dialog closed triggers LostFocus)
+        if (_disposed)
+            return false;
+
         var phrase = CardPhraseInput.Text?.Trim();
         if (string.IsNullOrWhiteSpace(phrase))
         {
@@ -893,6 +899,7 @@ public partial class FlashcardsPage : UserControl, IDisposable
         CancelAiGeneration();
         _aiCts = new CancellationTokenSource();
         var token = _aiCts.Token;
+
 
         AiGenerateButton.IsEnabled = false;
         AiGenerateButton.Content = "✨ Generating...";
