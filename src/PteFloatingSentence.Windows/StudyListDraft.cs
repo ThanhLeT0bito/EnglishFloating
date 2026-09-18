@@ -59,6 +59,17 @@ public sealed class StudyListDraft
             ShowVocabularyCards = showVocabulary
         };
 
+    public void UpdateFlashcardSettings(AppSettings settings)
+    {
+        _settings = _settings with
+        {
+            CustomFlashcardDecks = settings.CustomFlashcardDecks,
+            FlashcardProgress = settings.FlashcardProgress,
+            ShowFloatingFlashcard = settings.ShowFloatingFlashcard,
+            ActiveFlashcardDeckKey = settings.ActiveFlashcardDeckKey
+        };
+    }
+
     public ValidationResult DeleteSelectedList()
     {
         if (_settings.StudyLists.Count == 1)

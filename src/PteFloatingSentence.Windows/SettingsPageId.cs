@@ -6,6 +6,7 @@ public enum SettingsPageId
     Display,
     Review,
     ReviewPractice,
-    Gemini
+    Gemini,
+    Flashcards
 }
 

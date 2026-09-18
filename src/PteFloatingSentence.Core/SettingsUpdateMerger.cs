@@ -9,6 +9,10 @@ public static class SettingsUpdateMerger
         TextColor = submitted.TextColor,
         BackgroundOpacity = submitted.BackgroundOpacity,
         ShowSentenceOverlay = submitted.ShowSentenceOverlay,
-        ShowVocabularyCards = submitted.ShowVocabularyCards
+        ShowVocabularyCards = submitted.ShowVocabularyCards,
+        ShowFloatingFlashcard = submitted.ShowFloatingFlashcard,
+        ActiveFlashcardDeckKey = submitted.ActiveFlashcardDeckKey,
+        CustomFlashcardDecks = submitted.CustomFlashcardDecks,
+        FlashcardProgress = FlashcardRules.NormalizeProgress(latest.FlashcardProgress.Concat(submitted.FlashcardProgress))
     };
 }

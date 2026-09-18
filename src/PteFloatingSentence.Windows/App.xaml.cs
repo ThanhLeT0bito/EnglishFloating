@@ -48,6 +48,18 @@ public partial class App : System.Windows.Application
         _floatingWindow = new FloatingWindow { Left = position.Left, Top = position.Top };
         _displayController = new DisplayController(_floatingWindow);
         _displayController.ShowSettingsRequested += (_, _) => OpenSettings();
+        _displayController.OpenFlashcardsRequested += (_, _) => OpenSettings(SettingsPageId.Flashcards);
+        _displayController.FlashcardRated += (_, args) =>
+        {
+            _settings = Core.FlashcardRules.ApplyRating(_settings, args.CardKey, args.Rating, DateTimeOffset.UtcNow);
+            PersistSettings();
+        };
+        _displayController.HideFlashcardRequested += (_, _) =>
+        {
+            _settings = _settings with { ShowFloatingFlashcard = false };
+            _displayController.Apply(_settings);
+            PersistSettings();
+        };
         _displayController.RestoreOverlayRequested += (_, _) =>
         {
             _settings = _settings with { ShowSentenceOverlay = true };
@@ -118,10 +130,11 @@ public partial class App : System.Windows.Application
         _displayController.Apply(_settings);
     }
 
-    private void OpenSettings()
+    private void OpenSettings(SettingsPageId page = SettingsPageId.Setup)
     {
         if (_settingsWindow is not null)
         {
+            _settingsWindow.NavigateTo(page);
             _settingsWindow.Activate();
             return;
         }
@@ -132,6 +145,7 @@ public partial class App : System.Windows.Application
         {
             _floatingWindow?.StartPractice(listId);
         };
+        _settingsWindow.NavigateTo(page);
         _settingsWindow.Show();
     }
 

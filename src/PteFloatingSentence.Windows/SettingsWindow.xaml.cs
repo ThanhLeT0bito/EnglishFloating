@@ -19,6 +19,7 @@ public partial class SettingsWindow : Window
     public event EventHandler<Guid>? StartPracticeRequested;
 
     public SettingsPageId SelectedPage { get; private set; } = SettingsPageId.Setup;
+    public FrameworkElement SectionFlashcards => FlashcardsSection;
 
     public void NavigateTo(SettingsPageId page)
     {
@@ -40,6 +41,8 @@ public partial class SettingsWindow : Window
             ReviewPracticeSection.Visibility = SelectedPage == SettingsPageId.ReviewPractice ? Visibility.Visible : Visibility.Collapsed;
         if (GeminiSection is not null)
             GeminiSection.Visibility = SelectedPage == SettingsPageId.Gemini ? Visibility.Visible : Visibility.Collapsed;
+        if (FlashcardsSection is not null)
+            FlashcardsSection.Visibility = SelectedPage == SettingsPageId.Flashcards ? Visibility.Visible : Visibility.Collapsed;
     }
 
 
@@ -89,6 +92,7 @@ public partial class SettingsWindow : Window
             SettingsPageId.Review => ("Review", "Track vocabulary mastery and study progress"),
             SettingsPageId.ReviewPractice => ("Practice", "Practice sentences with masked hidden words"),
             SettingsPageId.Gemini => ("Gemini", "Configure Gemini API key for vocabulary explanations"),
+            SettingsPageId.Flashcards => ("Flashcards", "Study sentence vocabulary and custom decks"),
             _ => ("Settings", string.Empty)
         };
     }
@@ -106,6 +110,7 @@ public partial class SettingsWindow : Window
         DisplayPageControl.DisplayPreferencesChanged += OnDisplayPreferencesChanged;
         GeminiPageControl.LoadState(_apiKeyConfigured);
         GeminiPageControl.ClearKeyRequested += OnClearKeyRequested;
+        FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged);
         ReviewPracticePageControl?.Initialize(_draft.Settings, (listId, sentenceId, completed) =>
         {
             _draft.MarkSentenceCompleted(listId, sentenceId, completed);
@@ -117,6 +122,11 @@ public partial class SettingsWindow : Window
         UpdatePageHeader();
         RenderSelectedPage();
         RefreshUi();
+    }
+
+    private void OnFlashcardsSettingsChanged(AppSettings newSettings)
+    {
+        _draft.UpdateFlashcardSettings(newSettings);
     }
 
     private void OnDisplayPreferencesChanged(bool showSentence, bool showVocab)
@@ -280,10 +290,20 @@ public partial class SettingsWindow : Window
             DisplayPageControl?.LoadPreferences(_draft.Settings.ShowSentenceOverlay, _draft.Settings.ShowVocabularyCards);
             ReviewPageControl?.LoadData(new ReviewViewModel(_draft.Settings));
             GeminiPageControl?.LoadState(_apiKeyConfigured);
+            FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged);
         }
         finally
         {
             _isRendering = false;
+        }
+    }
+
+    public void OpenFlashcards(string? deckKey = null)
+    {
+        NavigateTo(SettingsPageId.Flashcards);
+        if (!string.IsNullOrEmpty(deckKey))
+        {
+            FlashcardsPageControl?.SelectDeck(deckKey);
         }
     }
 

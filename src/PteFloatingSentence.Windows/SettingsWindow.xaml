@@ -334,6 +334,9 @@
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Gemini}">
                         <TextBlock Text="Gemini" FontSize="14" />
                     </ListBoxItem>
+                    <ListBoxItem Tag="{x:Static local:SettingsPageId.Flashcards}">
+                        <TextBlock Text="Flashcards" FontSize="14" />
+                    </ListBoxItem>
                 </ListBox>
             </DockPanel>
         </Border>
@@ -386,6 +389,11 @@
                             <!-- Gemini Section -->
                             <Grid x:Name="GeminiSection" Visibility="Collapsed">
                                 <local:GeminiPage x:Name="GeminiPageControl" />
+                            </Grid>
+
+                            <!-- Flashcards Section -->
+                            <Grid x:Name="FlashcardsSection" Visibility="Collapsed">
+                                <local:FlashcardsPage x:Name="FlashcardsPageControl" />
                             </Grid>
                         </Grid>
                     </ContentControl>
