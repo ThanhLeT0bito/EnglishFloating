@@ -558,7 +558,21 @@ public class WindowSurfaceTests
 
         StringAssert.Contains(xaml, "x:Name=\"ShowSentenceOverlayInput\"");
         StringAssert.Contains(xaml, "x:Name=\"ShowVocabularyCardsInput\"");
+        StringAssert.Contains(xaml, "x:Name=\"ShowFloatingFlashcardInput\"");
+        StringAssert.Contains(xaml, "x:Name=\"FloatingDeckComboBox\"");
         StringAssert.Contains(xaml, "Overlay visibility");
+    }
+
+    [TestMethod]
+    public void FlashcardsPageXaml_ContainsDeckManagementAndStudyControls()
+    {
+        var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "FlashcardsPage.xaml"));
+
+        StringAssert.Contains(xaml, "x:Name=\"DecksListBox\"");
+        StringAssert.Contains(xaml, "x:Name=\"CardsListControl\"");
+        StringAssert.Contains(xaml, "x:Name=\"NewDeckButton\"");
+        StringAssert.Contains(xaml, "x:Name=\"StudyCardSurface\"");
+        StringAssert.Contains(xaml, "x:Name=\"StudyAgainButton\"");
     }
 
     [TestMethod]

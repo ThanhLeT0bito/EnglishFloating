@@ -597,6 +597,60 @@ public class SettingsWorkflowTests
     }
 
     [TestMethod]
+    public void DisplayPage_LoadsFullPreferences_AndEmitsFullDisplayPreferencesChangedOnToggle()
+    {
+        RunOnSta(() =>
+        {
+            var page = new DisplayPage();
+            var summaries = new[]
+            {
+                new PteFloatingSentence.Core.FlashcardDeckSummary("deck-1", null, "Deck 1", false, 5, 2, 1, 2)
+            };
+            page.LoadPreferences(
+                showSentenceOverlay: true,
+                showVocabularyCards: false,
+                showFloatingFlashcard: false,
+                activeDeckKey: "deck-1",
+                availableDecks: summaries);
+
+            var flashcardCheck = (CheckBox)page.FindName("ShowFloatingFlashcardInput");
+            var deckSelector = (ComboBox)page.FindName("FloatingDeckComboBox");
+
+            Assert.IsNotNull(flashcardCheck);
+            Assert.IsNotNull(deckSelector);
+            Assert.IsFalse(flashcardCheck.IsChecked);
+            Assert.AreEqual(1, deckSelector.Items.Count);
+
+            bool? emittedSentence = null;
+            bool? emittedVocab = null;
+            bool? emittedFlashcard = null;
+            string? emittedDeck = null;
+
+            Action<bool, bool, bool, string?> handler = (s, v, f, d) =>
+            {
+                emittedSentence = s;
+                emittedVocab = v;
+                emittedFlashcard = f;
+                emittedDeck = d;
+            };
+
+            page.FullDisplayPreferencesChanged += handler;
+            try
+            {
+                flashcardCheck.IsChecked = true;
+                Assert.AreEqual(true, emittedSentence);
+                Assert.AreEqual(false, emittedVocab);
+                Assert.AreEqual(true, emittedFlashcard);
+                Assert.AreEqual("deck-1", emittedDeck);
+            }
+            finally
+            {
+                page.FullDisplayPreferencesChanged -= handler;
+            }
+        });
+    }
+
+    [TestMethod]
     public void SettingsWindow_ReviewPractice_UsesSelectedListAndCurrentCompletion()
     {
         RunOnSta(() =>

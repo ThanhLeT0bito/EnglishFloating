@@ -59,6 +59,15 @@ public sealed class StudyListDraft
             ShowVocabularyCards = showVocabulary
         };
 
+    public void SetDisplayPreferences(bool showSentence, bool showVocabulary, bool showFloatingFlashcard, string? activeDeckKey) =>
+        _settings = _settings with
+        {
+            ShowSentenceOverlay = showSentence,
+            ShowVocabularyCards = showVocabulary,
+            ShowFloatingFlashcard = showFloatingFlashcard,
+            ActiveFlashcardDeckKey = activeDeckKey
+        };
+
     public void UpdateFlashcardSettings(AppSettings settings)
     {
         _settings = _settings with

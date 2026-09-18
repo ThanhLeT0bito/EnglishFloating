@@ -320,7 +320,10 @@
                          ItemContainerStyle="{StaticResource NavRailItemStyle}"
                          SelectionChanged="SettingsNavigation_SelectionChanged">
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Setup}">
-                        <TextBlock Text="Setup" FontSize="14" />
+                        <TextBlock Text="Sentences" FontSize="14" />
+                    </ListBoxItem>
+                    <ListBoxItem Tag="{x:Static local:SettingsPageId.Flashcards}">
+                        <TextBlock Text="Flashcards" FontSize="14" />
                     </ListBoxItem>
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Display}">
                         <TextBlock Text="Display" FontSize="14" />
@@ -333,9 +336,6 @@
                     </ListBoxItem>
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Gemini}">
                         <TextBlock Text="Gemini" FontSize="14" />
-                    </ListBoxItem>
-                    <ListBoxItem Tag="{x:Static local:SettingsPageId.Flashcards}">
-                        <TextBlock Text="Flashcards" FontSize="14" />
                     </ListBoxItem>
                 </ListBox>
             </DockPanel>
@@ -352,7 +352,7 @@
 
                 <!-- Page Header -->
                 <StackPanel Grid.Row="0" Margin="0,0,0,16">
-                    <TextBlock x:Name="PageTitle" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Setup" />
+                    <TextBlock x:Name="PageTitle" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Sentences" />
                     <TextBlock x:Name="PageSubtitle" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,4,0,0" Text="Configure study lists and practice sentences" />
                 </StackPanel>
 

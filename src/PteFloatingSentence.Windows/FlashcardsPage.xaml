@@ -166,9 +166,6 @@
 
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                             <Button x:Name="StartStudyingButton" Style="{StaticResource SmallButtonStyle}" Content="Start Studying" Margin="0,0,8,0" Click="StartStudyingButton_Click" />
-                            <ToggleButton x:Name="FloatDeckToggleButton" Style="{StaticResource ModernToggleButtonStyle}" Width="130" Height="32" Margin="0,0,8,0" Click="FloatDeckToggleButton_Click">
-                                <TextBlock x:Name="FloatDeckToggleText" Text="Float Flashcard" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </ToggleButton>
                             <Button x:Name="AddCardButton" Style="{StaticResource SecondarySmallButtonStyle}" Content="+ Add Card" Margin="0,0,8,0" Click="AddCardButton_Click" Visibility="Collapsed" />
                             <Button x:Name="DeleteDeckButton" Style="{StaticResource DangerSmallButtonStyle}" Content="Delete Deck" Click="DeleteDeckButton_Click" Visibility="Collapsed" />
                         </StackPanel>

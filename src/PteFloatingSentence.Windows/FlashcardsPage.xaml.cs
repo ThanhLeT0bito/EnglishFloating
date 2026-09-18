@@ -120,8 +120,6 @@ public partial class FlashcardsPage : UserControl
             SelectedDeckBadge.Visibility = Visibility.Collapsed;
             SelectedDeckStatsText.Text = string.Empty;
             StartStudyingButton.IsEnabled = false;
-            FloatDeckToggleButton.IsEnabled = false;
-            FloatDeckToggleButton.IsChecked = false;
             AddCardButton.Visibility = Visibility.Collapsed;
             DeleteDeckButton.Visibility = Visibility.Collapsed;
             _allCurrentDeckCards = [];
@@ -150,13 +148,8 @@ public partial class FlashcardsPage : UserControl
         AddCardButton.Visibility = isCustom ? Visibility.Visible : Visibility.Collapsed;
         DeleteDeckButton.Visibility = isCustom ? Visibility.Visible : Visibility.Collapsed;
 
-        var isFloatingActive = _settings.ShowFloatingFlashcard && _settings.ActiveFlashcardDeckKey == _selectedDeckKey;
-        FloatDeckToggleButton.IsChecked = isFloatingActive;
-        FloatDeckToggleText.Text = isFloatingActive ? "Floating Active" : "Float Flashcard";
-
         _allCurrentDeckCards = FlashcardDeckProjection.GetDeckCards(_settings, _selectedDeckKey);
         StartStudyingButton.IsEnabled = _allCurrentDeckCards.Count > 0;
-        FloatDeckToggleButton.IsEnabled = _allCurrentDeckCards.Count > 0;
 
         ApplyFilter();
     }
@@ -242,22 +235,6 @@ public partial class FlashcardsPage : UserControl
     }
 
     private void PhraseSearchBox_TextChanged(object sender, TextChangedEventArgs e) => ApplyFilter();
-
-    private void FloatDeckToggleButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (string.IsNullOrEmpty(_selectedDeckKey))
-            return;
-
-        var isChecked = FloatDeckToggleButton.IsChecked == true;
-        _settings = _settings with
-        {
-            ShowFloatingFlashcard = isChecked,
-            ActiveFlashcardDeckKey = isChecked ? _selectedDeckKey : _settings.ActiveFlashcardDeckKey
-        };
-
-        FloatDeckToggleText.Text = isChecked ? "Floating Active" : "Float Flashcard";
-        _onSettingsChanged?.Invoke(_settings);
-    }
 
     #region In-Page Study Mode
 

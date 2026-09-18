@@ -87,12 +87,12 @@ public partial class SettingsWindow : Window
 
         (PageTitle.Text, PageSubtitle.Text) = SelectedPage switch
         {
-            SettingsPageId.Setup => ("Setup", "Manage study lists and sentence practice order"),
-            SettingsPageId.Display => ("Display", "Configure floating sentence and vocabulary overlay preferences"),
+            SettingsPageId.Setup => ("Sentences", "Manage study lists and sentence practice order"),
+            SettingsPageId.Flashcards => ("Flashcards", "Study sentence vocabulary and custom decks"),
+            SettingsPageId.Display => ("Display", "Configure floating sentence and flashcard overlay preferences"),
             SettingsPageId.Review => ("Review", "Track vocabulary mastery and study progress"),
             SettingsPageId.ReviewPractice => ("Practice", "Practice sentences with masked hidden words"),
             SettingsPageId.Gemini => ("Gemini", "Configure Gemini API key for vocabulary explanations"),
-            SettingsPageId.Flashcards => ("Flashcards", "Study sentence vocabulary and custom decks"),
             _ => ("Settings", string.Empty)
         };
     }
@@ -106,8 +106,14 @@ public partial class SettingsWindow : Window
         _setupPageStartPracticeHandler = OnSetupPageStartPracticeRequested;
         SetupPageControl.Initialize(_draft, ShowResult, () => RefreshUi());
         SetupPageControl.StartPracticeRequested += _setupPageStartPracticeHandler;
-        DisplayPageControl.LoadPreferences(_draft.Settings.ShowSentenceOverlay, _draft.Settings.ShowVocabularyCards);
+        DisplayPageControl.LoadPreferences(
+            _draft.Settings.ShowSentenceOverlay,
+            _draft.Settings.ShowVocabularyCards,
+            _draft.Settings.ShowFloatingFlashcard,
+            _draft.Settings.ActiveFlashcardDeckKey,
+            FlashcardDeckProjection.GetDeckSummaries(_draft.Settings));
         DisplayPageControl.DisplayPreferencesChanged += OnDisplayPreferencesChanged;
+        DisplayPageControl.FullDisplayPreferencesChanged += OnFullDisplayPreferencesChanged;
         GeminiPageControl.LoadState(_apiKeyConfigured);
         GeminiPageControl.ClearKeyRequested += OnClearKeyRequested;
         FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged);
@@ -134,6 +140,11 @@ public partial class SettingsWindow : Window
         _draft.SetDisplayPreferences(showSentence, showVocab);
     }
 
+    private void OnFullDisplayPreferencesChanged(bool showSentence, bool showVocab, bool showFloatingFlashcard, string? activeDeckKey)
+    {
+        _draft.SetDisplayPreferences(showSentence, showVocab, showFloatingFlashcard, activeDeckKey);
+    }
+
     private void OnClearKeyRequested()
     {
         _apiKeyCleared = true;
@@ -151,6 +162,7 @@ public partial class SettingsWindow : Window
         if (DisplayPageControl is not null)
         {
             DisplayPageControl.DisplayPreferencesChanged -= OnDisplayPreferencesChanged;
+            DisplayPageControl.FullDisplayPreferencesChanged -= OnFullDisplayPreferencesChanged;
         }
         if (GeminiPageControl is not null)
         {
@@ -255,7 +267,11 @@ public partial class SettingsWindow : Window
 
         _draft.SetApiKeyConfigured(_apiKeyConfigured);
         if (DisplayPageControl is not null)
-            _draft.SetDisplayPreferences(DisplayPageControl.ShowSentenceOverlay, DisplayPageControl.ShowVocabularyCards);
+            _draft.SetDisplayPreferences(
+                DisplayPageControl.ShowSentenceOverlay,
+                DisplayPageControl.ShowVocabularyCards,
+                DisplayPageControl.ShowFloatingFlashcard,
+                DisplayPageControl.ActiveFlashcardDeckKey);
         var result = _draft.Save();
         ShowResult(result);
         if (result.IsValid)
@@ -287,7 +303,12 @@ public partial class SettingsWindow : Window
         try
         {
             SetupPageControl.RefreshFromDraft(_draft);
-            DisplayPageControl?.LoadPreferences(_draft.Settings.ShowSentenceOverlay, _draft.Settings.ShowVocabularyCards);
+            DisplayPageControl?.LoadPreferences(
+                _draft.Settings.ShowSentenceOverlay,
+                _draft.Settings.ShowVocabularyCards,
+                _draft.Settings.ShowFloatingFlashcard,
+                _draft.Settings.ActiveFlashcardDeckKey,
+                FlashcardDeckProjection.GetDeckSummaries(_draft.Settings));
             ReviewPageControl?.LoadData(new ReviewViewModel(_draft.Settings));
             GeminiPageControl?.LoadState(_apiKeyConfigured);
             FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged);
