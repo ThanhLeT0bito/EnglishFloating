@@ -150,13 +150,14 @@ public static class FlashcardRules
         if (string.IsNullOrWhiteSpace(example))
             return new(false, "Example sentence is required.");
 
-        var normalized = VocabularyRules.NormalizePhrase(phrase).ToLowerInvariant();
+        var normalized = VocabularyRules.CleanPhrase(phrase);
 
         if (existingDeck is not null)
         {
             var duplicate = existingDeck.Cards.Any(c =>
                 c.Id != editingCardId &&
-                string.Equals(c.NormalizedPhrase, normalized, StringComparison.OrdinalIgnoreCase));
+                (string.Equals(VocabularyRules.CleanPhrase(c.NormalizedPhrase), normalized, StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(VocabularyRules.CleanPhrase(c.Phrase), normalized, StringComparison.OrdinalIgnoreCase)));
 
             if (duplicate)
                 return new(false, "A card with this phrase already exists in this deck.");
@@ -220,8 +221,8 @@ public static class FlashcardRules
         if (!validation.IsValid)
             throw new ArgumentException(validation.Error);
 
-        var normalized = VocabularyRules.NormalizePhrase(phrase).ToLowerInvariant();
-        var trimmedPhrase = VocabularyRules.NormalizePhrase(phrase);
+        var normalized = VocabularyRules.CleanPhrase(phrase);
+        var trimmedPhrase = VocabularyRules.NormalizePhrase(VocabularyRules.TrimPunctuation(phrase));
         var card = new CustomVocabularyCard(
             Guid.NewGuid(),
             trimmedPhrase,
@@ -253,8 +254,8 @@ public static class FlashcardRules
         if (!validation.IsValid)
             throw new ArgumentException(validation.Error);
 
-        var normalized = VocabularyRules.NormalizePhrase(phrase).ToLowerInvariant();
-        var trimmedPhrase = VocabularyRules.NormalizePhrase(phrase);
+        var normalized = VocabularyRules.CleanPhrase(phrase);
+        var trimmedPhrase = VocabularyRules.NormalizePhrase(VocabularyRules.TrimPunctuation(phrase));
 
         var updatedCards = deck.Cards.Select(c => c.Id == cardId
             ? c with

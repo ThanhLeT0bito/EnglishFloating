@@ -54,6 +54,7 @@ public sealed class DisplayController : IDisposable
             var deckKey = settings.ActiveFlashcardDeckKey;
             IReadOnlyList<FlashcardItem> deckCards = [];
             var deckName = string.Empty;
+            var hasValidDeck = false;
 
             if (!string.IsNullOrWhiteSpace(deckKey))
             {
@@ -61,6 +62,7 @@ public sealed class DisplayController : IDisposable
                 var summary = summaries.FirstOrDefault(s => s.DeckKey == deckKey);
                 if (summary is not null)
                 {
+                    hasValidDeck = true;
                     deckName = summary.Name;
                     deckCards = FlashcardDeckProjection.GetDeckCards(settings, deckKey, onlyActive: true);
                 }
@@ -77,20 +79,15 @@ public sealed class DisplayController : IDisposable
             }
             else
             {
-                if (_flashcardWindow is not null)
-                {
-                    _flashcardWindow.Hide();
-                }
+                ReleaseFlashcardWindow();
                 flashcardVisible = false;
-                OpenFlashcardsRequested?.Invoke(this, EventArgs.Empty);
+                if (!hasValidDeck)
+                    OpenFlashcardsRequested?.Invoke(this, EventArgs.Empty);
             }
         }
         else
         {
-            if (_flashcardWindow is not null)
-            {
-                _flashcardWindow.Hide();
-            }
+            ReleaseFlashcardWindow();
             flashcardVisible = false;
         }
 
@@ -142,6 +139,16 @@ public sealed class DisplayController : IDisposable
         window.CardMarkedDoneRequested -= FlashcardWindow_CardMarkedDone;
     }
 
+    private void ReleaseFlashcardWindow()
+    {
+        if (_flashcardWindow is null)
+            return;
+
+        DetachFlashcardWindowEvents(_flashcardWindow);
+        _flashcardWindow.Close();
+        _flashcardWindow = null;
+    }
+
     private void FlashcardWindow_SettingsRequested(object? sender, EventArgs e) =>
         ShowSettingsRequested?.Invoke(this, EventArgs.Empty);
 
@@ -172,8 +179,7 @@ public sealed class DisplayController : IDisposable
 
         if (_flashcardWindow is not null)
         {
-            DetachFlashcardWindowEvents(_flashcardWindow);
-            _flashcardWindow.Close();
+            ReleaseFlashcardWindow();
         }
     }
 }

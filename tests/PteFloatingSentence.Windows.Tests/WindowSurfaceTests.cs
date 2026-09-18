@@ -8,6 +8,35 @@ namespace PteFloatingSentence.Windows.Tests;
 public class WindowSurfaceTests
 {
     [TestMethod]
+    public void AppSavePath_MergesSubmittedSettingsIntoLatestSnapshot()
+    {
+        var source = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "App.xaml.cs"));
+
+        StringAssert.Contains(source, "SettingsUpdateMerger.MergeEditableFields(_settings, settings)");
+    }
+
+    [TestMethod]
+    public void AppFloatingRatingPath_RefreshesDisplayFromUpdatedSettings()
+    {
+        var source = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "App.xaml.cs"));
+        var handlerStart = source.IndexOf("_displayController.FlashcardRated +=", StringComparison.Ordinal);
+        var handlerEnd = source.IndexOf("_displayController.CardMarkedDone +=", handlerStart, StringComparison.Ordinal);
+
+        Assert.IsTrue(handlerStart >= 0 && handlerEnd > handlerStart);
+        var handler = source[handlerStart..handlerEnd];
+        StringAssert.Contains(handler, "_displayController.Apply(_settings)");
+    }
+
+    [TestMethod]
+    public void FlashcardsManagementList_UsesRecyclingVirtualization()
+    {
+        var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "FlashcardsPage.xaml"));
+
+        StringAssert.Contains(xaml, "VirtualizingPanel.IsVirtualizing=\"True\"");
+        StringAssert.Contains(xaml, "VirtualizingPanel.VirtualizationMode=\"Recycling\"");
+    }
+
+    [TestMethod]
     public void RenderSignature_IsStableForEquivalentSentenceState()
     {
         var first = RenderSignature.Create("Practice this sentence.", 30, "#FFFFFFFF", 0.35, []);

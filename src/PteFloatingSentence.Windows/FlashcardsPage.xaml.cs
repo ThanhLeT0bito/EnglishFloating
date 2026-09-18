@@ -260,7 +260,7 @@ public partial class FlashcardsPage : UserControl
 
         if (_allCurrentDeckCards.Count == 0)
         {
-            CardsScrollViewer.Visibility = Visibility.Collapsed;
+            CardsListControl.Visibility = Visibility.Collapsed;
             EmptyDeckNotice.Visibility = Visibility.Visible;
 
             var summaries = FlashcardDeckProjection.GetDeckSummaries(_settings);
@@ -276,7 +276,7 @@ public partial class FlashcardsPage : UserControl
         }
         else if (_filteredCards.Count == 0)
         {
-            CardsScrollViewer.Visibility = Visibility.Collapsed;
+            CardsListControl.Visibility = Visibility.Collapsed;
             EmptyDeckNotice.Visibility = Visibility.Visible;
             EmptyDeckNoticeText.Text = !string.IsNullOrEmpty(filter)
                 ? $"No cards match '{filter}'."
@@ -284,7 +284,7 @@ public partial class FlashcardsPage : UserControl
         }
         else
         {
-            CardsScrollViewer.Visibility = Visibility.Visible;
+            CardsListControl.Visibility = Visibility.Visible;
             EmptyDeckNotice.Visibility = Visibility.Collapsed;
 
             var cardViewModels = _filteredCards.Select(c =>

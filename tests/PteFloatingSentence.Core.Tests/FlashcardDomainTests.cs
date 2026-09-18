@@ -309,6 +309,95 @@ public sealed class FlashcardDomainTests
     }
 
     [TestMethod]
+    public void ValidateCustomCard_RejectsPunctuationEquivalentPhrase()
+    {
+        var existing = new CustomVocabularyCard(
+            Guid.NewGuid(),
+            "business",
+            "business",
+            null,
+            "A company or commercial activity.",
+            "She runs a small business.");
+        var deck = new CustomFlashcardDeck(Guid.NewGuid(), "Words", [existing]);
+
+        var result = FlashcardRules.ValidateCustomCard(
+            "business,",
+            null,
+            "Commercial activity.",
+            "The business is growing.",
+            deck);
+
+        Assert.IsFalse(result.IsValid);
+        StringAssert.Contains(result.Error, "already exists");
+    }
+
+    [TestMethod]
+    public void ValidateCustomCard_RejectsEquivalentLegacyNormalizedPhrase()
+    {
+        var legacyCard = new CustomVocabularyCard(
+            Guid.NewGuid(),
+            "business,",
+            "business,",
+            null,
+            "A company or commercial activity.",
+            "She runs a small business.");
+        var deck = new CustomFlashcardDeck(Guid.NewGuid(), "Words", [legacyCard]);
+
+        var result = FlashcardRules.ValidateCustomCard(
+            "business",
+            null,
+            "Commercial activity.",
+            "The business is growing.",
+            deck);
+
+        Assert.IsFalse(result.IsValid);
+    }
+
+    [TestMethod]
+    public void StudyListProjection_PreservesProgressStoredUnderLegacyPunctuationKey()
+    {
+        var listId = Guid.NewGuid();
+        var legacyVocabulary = new VocabularyItem(
+            Guid.NewGuid(),
+            "business,",
+            "business,",
+            "A company or commercial activity.",
+            "She runs a small business.",
+            null,
+            VocabularyStatus.Ready);
+        var list = new StudyList(
+            listId,
+            "List",
+            1,
+            0,
+            [new StudySentence(Guid.NewGuid(), "She runs a business.", Vocabulary: [legacyVocabulary])]);
+        var legacyKey = FlashcardRules.StudyListCardKey(listId, "business,");
+        var settings = AppSettings.Default with
+        {
+            ActiveListId = listId,
+            StudyLists = [list],
+            FlashcardProgress =
+            [
+                new FlashcardProgress(
+                    legacyKey,
+                    FlashcardLearningState.Remembered,
+                    3,
+                    0,
+                    FlashcardRating.Remembered,
+                    DateTimeOffset.UtcNow)
+            ]
+        };
+
+        var card = FlashcardDeckProjection.GetDeckCards(
+            settings,
+            FlashcardRules.StudyListDeckKey(listId)).Single();
+
+        Assert.AreEqual(FlashcardRules.StudyListCardKey(listId, "business"), card.CardKey);
+        Assert.AreEqual(FlashcardLearningState.Remembered, card.State);
+        Assert.AreEqual(3, card.ReviewCount);
+    }
+
+    [TestMethod]
     public void CustomDeck_CrudAndProgressCleanup()
     {
         var settings = AppSettings.Default;

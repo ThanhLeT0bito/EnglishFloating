@@ -52,6 +52,7 @@ public partial class App : System.Windows.Application
         _displayController.FlashcardRated += (_, args) =>
         {
             _settings = Core.FlashcardRules.ApplyRating(_settings, args.CardKey, args.Rating, DateTimeOffset.UtcNow);
+            _displayController.Apply(_settings);
             PersistSettings();
         };
         _displayController.CardMarkedDone += (_, cardKey) =>
@@ -169,7 +170,7 @@ public partial class App : System.Windows.Application
 
     private void SaveSettings(Core.AppSettings settings)
     {
-        _settings = settings with { Left = _settings.Left, Top = _settings.Top };
+        _settings = Core.SettingsUpdateMerger.MergeEditableFields(_settings, settings);
         _displayController?.Apply(_settings);
         _settingsWindow?.UpdateSettingsFromApp(_settings);
         PersistSettings();

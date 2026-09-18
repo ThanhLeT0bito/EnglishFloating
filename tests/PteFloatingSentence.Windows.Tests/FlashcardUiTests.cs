@@ -171,13 +171,13 @@ public class FlashcardUiTests
             // Case 3: Both hidden -> Launcher visible!
             controller.Apply(baseSettings with { ShowSentenceOverlay = false, ShowFloatingFlashcard = false });
             Assert.AreEqual(Visibility.Hidden, floating.Visibility);
-            Assert.AreEqual(Visibility.Hidden, controller.FlashcardWindow.Visibility);
+            Assert.IsNull(controller.FlashcardWindow);
             Assert.AreEqual(Visibility.Visible, launcher.Visibility);
 
             // Case 4: Sentence visible, Flashcard hidden -> Launcher hidden
             controller.Apply(baseSettings with { ShowSentenceOverlay = true, ShowFloatingFlashcard = false });
             Assert.AreEqual(Visibility.Visible, floating.Visibility);
-            Assert.AreEqual(Visibility.Hidden, controller.FlashcardWindow.Visibility);
+            Assert.IsNull(controller.FlashcardWindow);
             Assert.AreEqual(Visibility.Hidden, launcher.Visibility);
         });
     }
@@ -399,6 +399,77 @@ public class FlashcardUiTests
             Assert.AreNotEqual(reportedDoneKey, flashcardWindow.CurrentCard?.CardKey);
 
             controller.Dispose();
+            floatingWindow.Close();
+        });
+    }
+
+    [TestMethod]
+    public void DisplayController_ValidDeckWithNoActiveCards_DoesNotRequestSettings()
+    {
+        RunOnSta(() =>
+        {
+            var floatingWindow = new FloatingWindow();
+            using var controller = new DisplayController(floatingWindow);
+            var listId = Guid.NewGuid();
+            var vocabulary = new VocabularyItem(Guid.NewGuid(), "word", "word", "meaning", "example", null, VocabularyStatus.Ready);
+            var sentence = new StudySentence(Guid.NewGuid(), "A sentence.", Vocabulary: [vocabulary]);
+            var list = new StudyList(listId, "List", 1, 0, [sentence]);
+            var deckKey = FlashcardRules.StudyListDeckKey(listId);
+            var cardKey = FlashcardRules.StudyListCardKey(listId, "word");
+            var settings = FlashcardRules.SetMarkedDone(AppSettings.Default with
+            {
+                ActiveListId = listId,
+                StudyLists = [list],
+                ActiveFlashcardDeckKey = deckKey,
+                ShowFloatingFlashcard = true,
+                ShowSentenceOverlay = false
+            }, cardKey, true, DateTimeOffset.UtcNow);
+            var requestedSettings = false;
+            controller.OpenFlashcardsRequested += (_, _) => requestedSettings = true;
+
+            controller.Apply(settings);
+
+            Assert.IsFalse(requestedSettings);
+            Assert.IsTrue(controller.LauncherWindow.IsVisible);
+            floatingWindow.Close();
+        });
+    }
+
+    [TestMethod]
+    public void DisplayController_DisablingFlashcards_ReleasesWindowAndRecreatesOnEnable()
+    {
+        RunOnSta(() =>
+        {
+            var floatingWindow = new FloatingWindow();
+            var createdWindows = new List<FloatingFlashcardWindow>();
+            FloatingFlashcardWindow Factory()
+            {
+                var window = new FloatingFlashcardWindow();
+                createdWindows.Add(window);
+                return window;
+            }
+
+            using var controller = new DisplayController(floatingWindow, flashcardWindowFactory: Factory);
+            var listId = Guid.NewGuid();
+            var vocabulary = new VocabularyItem(Guid.NewGuid(), "word", "word", "meaning", "example", null, VocabularyStatus.Ready);
+            var sentence = new StudySentence(Guid.NewGuid(), "A sentence.", Vocabulary: [vocabulary]);
+            var list = new StudyList(listId, "List", 1, 0, [sentence]);
+            var enabled = AppSettings.Default with
+            {
+                ActiveListId = listId,
+                StudyLists = [list],
+                ActiveFlashcardDeckKey = FlashcardRules.StudyListDeckKey(listId),
+                ShowFloatingFlashcard = true
+            };
+
+            controller.Apply(enabled);
+            controller.Apply(enabled with { ShowFloatingFlashcard = false });
+
+            Assert.IsNull(controller.FlashcardWindow);
+
+            controller.Apply(enabled);
+            Assert.AreEqual(2, createdWindows.Count);
+            Assert.AreSame(createdWindows[1], controller.FlashcardWindow);
             floatingWindow.Close();
         });
     }

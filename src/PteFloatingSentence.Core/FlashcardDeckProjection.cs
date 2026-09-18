@@ -25,8 +25,8 @@ public static class FlashcardDeckProjection
                 if (readyItem is not null)
                 {
                     readyCount++;
-                    var cardKey = FlashcardRules.StudyListCardKey(list.Id, readyItem.NormalizedPhrase);
-                    if (progressMap.TryGetValue(cardKey, out var progress))
+                    var progress = FindStudyListProgress(progressMap, list.Id, g);
+                    if (progress is not null)
                     {
                         if (progress.State == FlashcardLearningState.Remembered)
                             rememberedCount++;
@@ -40,8 +40,8 @@ public static class FlashcardDeckProjection
                     var firstItem = g.Items.FirstOrDefault();
                     if (firstItem is not null)
                     {
-                        var cardKey = FlashcardRules.StudyListCardKey(list.Id, firstItem.NormalizedPhrase);
-                        if (progressMap.TryGetValue(cardKey, out var progress) && progress.IsMarkedDone)
+                        var progress = FindStudyListProgress(progressMap, list.Id, g);
+                        if (progress?.IsMarkedDone == true)
                             doneCount++;
                     }
                 }
@@ -126,8 +126,8 @@ public static class FlashcardDeckProjection
                 var readyItem = g.Items.FirstOrDefault(IsReadyVocabulary);
                 if (readyItem is not null)
                 {
-                    var cardKey = FlashcardRules.StudyListCardKey(list.Id, readyItem.NormalizedPhrase);
-                    progressMap.TryGetValue(cardKey, out var progress);
+                    var cardKey = FlashcardRules.StudyListCardKey(list.Id, g.NormalizedPhrase);
+                    var progress = FindStudyListProgress(progressMap, list.Id, g);
 
                     var isMarkedDone = progress?.IsMarkedDone ?? false;
                     if (onlyActive && isMarkedDone)
@@ -141,7 +141,7 @@ public static class FlashcardDeckProjection
                         CardKey: cardKey,
                         DeckKey: deckKey,
                         Phrase: readyItem.Phrase,
-                        NormalizedPhrase: readyItem.NormalizedPhrase,
+                        NormalizedPhrase: g.NormalizedPhrase,
                         PronunciationIpa: readyItem.PronunciationIpa,
                         Meaning: readyItem.Meaning ?? string.Empty,
                         Example: example,
@@ -162,8 +162,8 @@ public static class FlashcardDeckProjection
                     if (firstItem is null)
                         continue;
 
-                    var cardKey = FlashcardRules.StudyListCardKey(list.Id, firstItem.NormalizedPhrase);
-                    progressMap.TryGetValue(cardKey, out var progress);
+                    var cardKey = FlashcardRules.StudyListCardKey(list.Id, g.NormalizedPhrase);
+                    var progress = FindStudyListProgress(progressMap, list.Id, g);
 
                     var isMarkedDone = progress?.IsMarkedDone ?? false;
                     if (onlyActive && isMarkedDone)
@@ -182,7 +182,7 @@ public static class FlashcardDeckProjection
                         CardKey: cardKey,
                         DeckKey: deckKey,
                         Phrase: firstItem.Phrase,
-                        NormalizedPhrase: firstItem.NormalizedPhrase,
+                        NormalizedPhrase: g.NormalizedPhrase,
                         PronunciationIpa: firstItem.PronunciationIpa,
                         Meaning: $"[{reason}]",
                         Example: g.SourceSentences.FirstOrDefault()?.Text ?? string.Empty,
@@ -274,7 +274,7 @@ public static class FlashcardDeckProjection
         {
             foreach (var vocab in sentence.Vocabulary)
             {
-                var norm = VocabularyRules.NormalizePhrase(vocab.Phrase).ToLowerInvariant();
+                var norm = VocabularyRules.CleanPhrase(vocab.Phrase);
                 if (string.IsNullOrEmpty(norm))
                     continue;
 
@@ -294,5 +294,28 @@ public static class FlashcardDeckProjection
         }
 
         return orderedGroups;
+    }
+
+    private static FlashcardProgress? FindStudyListProgress(
+        IReadOnlyDictionary<string, FlashcardProgress> progressMap,
+        Guid listId,
+        VocabGroup group)
+    {
+        var currentKey = FlashcardRules.StudyListCardKey(listId, group.NormalizedPhrase);
+        if (progressMap.TryGetValue(currentKey, out var current))
+            return current;
+
+        // Compatibility with cards saved before punctuation was cleaned from stable keys.
+        foreach (var item in group.Items)
+        {
+            if (string.IsNullOrWhiteSpace(item.NormalizedPhrase))
+                continue;
+
+            var legacyKey = FlashcardRules.StudyListCardKey(listId, item.NormalizedPhrase);
+            if (progressMap.TryGetValue(legacyKey, out var legacy))
+                return legacy;
+        }
+
+        return null;
     }
 }
