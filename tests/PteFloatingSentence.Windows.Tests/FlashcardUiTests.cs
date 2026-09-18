@@ -605,10 +605,73 @@ public class FlashcardUiTests
         });
     }
 
+    [TestMethod]
+    public void FlashcardsPage_AutoFillWithAi_CorrectsMisspelledPhrase()
+    {
+        RunOnSta(() =>
+        {
+            var page = new FlashcardsPage();
+            var customDeck = new CustomFlashcardDeck(
+                Guid.NewGuid(),
+                "Custom",
+                []);
+
+            var deckKey = FlashcardRules.CustomDeckKey(customDeck.Id);
+            var settings = AppSettings.Default with
+            {
+                CustomFlashcardDecks = [customDeck],
+                ActiveFlashcardDeckKey = deckKey
+            };
+
+            var explainer = new StubExplainer
+            {
+                ExplanationFactory = _ => new VocabularyExplanation(
+                    "The practice of training people to obey rules",
+                    "Parenting requires patience and discipline.",
+                    "/ˈdɪs.ə.plɪn/",
+                    CorrectedPhrase: "discipline")
+            };
+            page.LoadSettings(settings, explainer: explainer);
+
+            page.OpenAddCardDialog();
+            page.InputPhrase.Text = "displine";
+
+            var task = page.AutoFillCardWithAiAsync(forceOverwrite: true, showError: true);
+            task.Wait();
+            Assert.IsTrue(task.Result);
+
+            Assert.AreEqual("discipline", page.InputPhrase.Text);
+            Assert.AreEqual("/ˈdɪs.ə.plɪn/", page.InputPronunciation.Text);
+            Assert.AreEqual("The practice of training people to obey rules", page.InputMeaning.Text);
+            Assert.AreEqual("Parenting requires patience and discipline.", page.InputExample.Text);
+
+            page.Dispose();
+        });
+    }
+
+    [TestMethod]
+    public void FloatingFlashcardWindow_DragHeader_HasTransparentBackgroundAndMinHeight()
+    {
+        RunOnSta(() =>
+        {
+            var window = new FloatingFlashcardWindow();
+            var dragHeader = window.FindName("DragHeader") as System.Windows.Controls.Grid;
+            Assert.IsNotNull(dragHeader);
+            Assert.AreEqual(System.Windows.Media.Brushes.Transparent, dragHeader.Background);
+            Assert.IsTrue(dragHeader.MinHeight >= 32);
+            window.Close();
+        });
+    }
+
     private sealed class StubExplainer : IVocabularyExplainer
     {
+        public Func<string, VocabularyExplanation>? ExplanationFactory { get; set; }
+
         public Task<VocabularyExplanation> ExplainAsync(string phrase, string sourceSentence = "", CancellationToken cancellationToken = default)
         {
+            if (ExplanationFactory is not null)
+                return Task.FromResult(ExplanationFactory(phrase));
+
             return Task.FromResult(new VocabularyExplanation(
                 "Finding something good without looking for it",
                 "Meeting her was pure serendipity.",

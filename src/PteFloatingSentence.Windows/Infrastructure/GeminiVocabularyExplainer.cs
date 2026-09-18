@@ -49,8 +49,8 @@ public sealed class GeminiVocabularyExplainer : IVocabularyExplainer, IDisposabl
             throw new InvalidOperationException("Gemini API key is not configured.");
 
         var promptText = string.IsNullOrWhiteSpace(sourceSentence)
-            ? $"Explain the English vocabulary word or phrase \"{phrase}\". Provide a short meaning in simple English, a new natural example sentence, and the IPA pronunciation."
-            : $"Explain the vocabulary phrase \"{phrase}\" from the following sentence: \"{sourceSentence}\". Provide a short meaning in simple English, a new example sentence, and the IPA pronunciation.";
+            ? $"Explain the English vocabulary word or phrase \"{phrase}\". If the phrase contains any spelling error, typo, or misspelling (for example 'displine' -> 'discipline'), provide the correct standard English spelling in 'correctedPhrase'. If already spelled correctly, return the original phrase in 'correctedPhrase'. Provide a short meaning in simple English, a new natural example sentence, and the IPA pronunciation."
+            : $"Explain the vocabulary phrase \"{phrase}\" from the following sentence: \"{sourceSentence}\". If the phrase contains a spelling error, provide the corrected spelling in 'correctedPhrase', otherwise return the original phrase. Provide a short meaning in simple English, a new example sentence, and the IPA pronunciation.";
 
         var requestPayload = new
         {
@@ -75,6 +75,7 @@ public sealed class GeminiVocabularyExplainer : IVocabularyExplainer, IDisposabl
                     type = "OBJECT",
                     properties = new
                     {
+                        correctedPhrase = new { type = "STRING", description = "The correctly spelled standard English word or phrase. If the user input has a typo or spelling error (e.g. 'displine'), return the corrected word (e.g. 'discipline'). Otherwise return the original word." },
                         meaning = new { type = "STRING", description = "One short sentence in simple English explaining the word or phrase in context." },
                         example = new { type = "STRING", description = "One new English sentence showing natural usage." },
                         pronunciationIpa = new { type = "STRING", description = "IPA pronunciation text, e.g. /əˈplaɪ/." }
@@ -214,11 +215,16 @@ public sealed class GeminiVocabularyExplainer : IVocabularyExplainer, IDisposabl
             var meaning = root.GetProperty("meaning").GetString()?.Trim();
             var example = root.GetProperty("example").GetString()?.Trim();
             var ipa = root.GetProperty("pronunciationIpa").GetString()?.Trim();
+            string? correctedPhrase = null;
+            if (root.TryGetProperty("correctedPhrase", out var correctedProp) && correctedProp.ValueKind == JsonValueKind.String)
+            {
+                correctedPhrase = correctedProp.GetString()?.Trim();
+            }
 
             if (string.IsNullOrEmpty(meaning) || string.IsNullOrEmpty(example) || string.IsNullOrEmpty(ipa))
                 throw new InvalidOperationException("Incomplete explanation fields in Gemini response.");
 
-            return new VocabularyExplanation(meaning, example, ipa);
+            return new VocabularyExplanation(meaning, example, ipa, correctedPhrase);
         }
         catch (JsonException ex)
         {

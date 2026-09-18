@@ -1,6 +1,6 @@
 namespace PteFloatingSentence.Windows.Infrastructure;
 
-public sealed record VocabularyExplanation(string Meaning, string Example, string PronunciationIpa);
+public sealed record VocabularyExplanation(string Meaning, string Example, string PronunciationIpa, string? CorrectedPhrase = null);
 
 public interface IVocabularyExplainer
 {

@@ -904,6 +904,12 @@ public partial class FlashcardsPage : UserControl, IDisposable
             if (token.IsCancellationRequested)
                 return false;
 
+            if (!string.IsNullOrWhiteSpace(explanation.CorrectedPhrase) &&
+                !string.Equals(explanation.CorrectedPhrase, CardPhraseInput.Text?.Trim(), StringComparison.Ordinal))
+            {
+                CardPhraseInput.Text = explanation.CorrectedPhrase;
+            }
+
             if (forceOverwrite || string.IsNullOrWhiteSpace(CardPronunciationInput.Text))
             {
                 CardPronunciationInput.Text = explanation.PronunciationIpa ?? string.Empty;

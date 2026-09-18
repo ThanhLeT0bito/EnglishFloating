@@ -44,6 +44,41 @@ public sealed class GeminiVocabularyExplainerTests
     }
 
     [TestMethod]
+    public async Task ExplainAsync_WithMisspelledPhrase_ReturnsCorrectedPhrase()
+    {
+        var jsonResponse = """
+            {
+              "candidates": [
+                {
+                  "content": {
+                    "parts": [
+                      {
+                        "text": "{\n  \"correctedPhrase\": \"discipline\",\n  \"meaning\": \"The practice of training people to obey rules.\",\n  \"example\": \"He lacks self-discipline.\",\n  \"pronunciationIpa\": \"/ˈdɪsəplɪn/\"\n}"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+            """;
+
+        var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
+        });
+
+        var client = new HttpClient(handler);
+        var explainer = new GeminiVocabularyExplainer(() => SecretApiKey, client);
+
+        var result = await explainer.ExplainAsync("displine");
+
+        Assert.AreEqual("discipline", result.CorrectedPhrase);
+        Assert.AreEqual("The practice of training people to obey rules.", result.Meaning);
+        Assert.AreEqual("He lacks self-discipline.", result.Example);
+        Assert.AreEqual("/ˈdɪsəplɪn/", result.PronunciationIpa);
+    }
+
+    [TestMethod]
     public async Task ExplainAsync_MalformedJson_ThrowsConciseExceptionWithoutApiKey()
     {
         var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)

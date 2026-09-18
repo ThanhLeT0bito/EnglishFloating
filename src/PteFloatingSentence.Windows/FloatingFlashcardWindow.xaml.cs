@@ -167,10 +167,40 @@ public partial class FloatingFlashcardWindow : Window
 
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (IsWithinButtonTree(e.OriginalSource as DependencyObject, MarkDoneButton) ||
+            IsWithinButtonTree(e.OriginalSource as DependencyObject, SettingsButton) ||
+            IsWithinButtonTree(e.OriginalSource as DependencyObject, CloseButton))
+        {
+            return;
+        }
+
         if (e.ButtonState == MouseButtonState.Pressed)
         {
-            DragMove();
+            try
+            {
+                DragMove();
+            }
+            catch (InvalidOperationException)
+            {
+            }
         }
+    }
+
+    private static bool IsWithinButtonTree(DependencyObject? source, DependencyObject? target)
+    {
+        if (source is null || target is null)
+            return false;
+
+        var current = source;
+        while (current is not null)
+        {
+            if (ReferenceEquals(current, target))
+                return true;
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
     }
 
     private void CardContentArea_MouseLeftButtonUp(object sender, MouseButtonEventArgs e) => Flip();

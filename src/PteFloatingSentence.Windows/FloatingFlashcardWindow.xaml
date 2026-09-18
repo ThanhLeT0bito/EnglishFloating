@@ -120,6 +120,8 @@
             <Grid Grid.Row="0"
                   x:Name="DragHeader"
                   Margin="0,0,0,8"
+                  MinHeight="32"
+                  Background="Transparent"
                   Cursor="SizeAll"
                   MouseLeftButtonDown="Window_MouseLeftButtonDown">
                 <Grid.ColumnDefinitions>
