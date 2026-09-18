@@ -134,6 +134,7 @@ public partial class App : System.Windows.Application
     {
         if (_settingsWindow is not null)
         {
+            _settingsWindow.UpdateSettingsFromApp(_settings);
             _settingsWindow.NavigateTo(page);
             _settingsWindow.Activate();
             return;
@@ -166,6 +167,7 @@ public partial class App : System.Windows.Application
     {
         _settings = settings with { Left = _settings.Left, Top = _settings.Top };
         _displayController?.Apply(_settings);
+        _settingsWindow?.UpdateSettingsFromApp(_settings);
         PersistSettings();
     }
 

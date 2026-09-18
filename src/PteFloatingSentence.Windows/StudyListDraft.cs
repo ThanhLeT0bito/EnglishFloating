@@ -79,6 +79,19 @@ public sealed class StudyListDraft
         };
     }
 
+    public void UpdateSettingsFromApp(AppSettings settings)
+    {
+        _settings = _settings with
+        {
+            StudyLists = settings.StudyLists,
+            CustomFlashcardDecks = settings.CustomFlashcardDecks,
+            FlashcardProgress = settings.FlashcardProgress,
+            ActiveListId = settings.ActiveListId,
+            ShowFloatingFlashcard = settings.ShowFloatingFlashcard,
+            ActiveFlashcardDeckKey = settings.ActiveFlashcardDeckKey
+        };
+    }
+
     public ValidationResult DeleteSelectedList()
     {
         if (_settings.StudyLists.Count == 1)

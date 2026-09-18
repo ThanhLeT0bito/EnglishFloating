@@ -731,6 +731,47 @@ public class SettingsWorkflowTests
     }
 
     [TestMethod]
+    public void SettingsWindow_UpdateSettingsFromApp_RefreshesFlashcardsPageWithNewVocabulary()
+    {
+        RunOnSta(() =>
+        {
+            var listId = Guid.NewGuid();
+            var sentenceId = Guid.NewGuid();
+            var initialSentence = new StudySentence(sentenceId, "The cat sleeps on the mat.");
+            var initialList = new StudyList(listId, "Animals", 10, 0, [initialSentence]);
+            var initialSettings = new AppSettings { ActiveListId = listId, StudyLists = [initialList] };
+
+            var window = new SettingsWindow(initialSettings, _ => { });
+            window.NavigateTo(SettingsPageId.Flashcards);
+
+            var flashcardsControl = Named<FlashcardsPage>(window, "FlashcardsPageControl");
+            var cardsList = (ItemsControl)flashcardsControl.FindName("CardsListControl");
+
+            // Initially no vocabulary
+            Assert.AreEqual(0, cardsList.Items.Count);
+
+            // Live external addition (e.g. word highlighted on desktop sentence)
+            var newVocab = new VocabularyItem(
+                Guid.NewGuid(),
+                "cat",
+                "cat",
+                Meaning: "A small domesticated carnivorous mammal.",
+                Example: "The cat sleeps on the mat.",
+                Status: VocabularyStatus.Ready,
+                IsHidden: true); // Even if hidden from floating overlay!
+
+            var updatedSentence = initialSentence with { Vocabulary = [newVocab] };
+            var updatedList = initialList with { Sentences = [updatedSentence] };
+            var updatedSettings = initialSettings with { StudyLists = [updatedList] };
+
+            window.UpdateSettingsFromApp(updatedSettings);
+
+            // Assert that Flashcards page immediately contains the new card!
+            Assert.AreEqual(1, cardsList.Items.Count);
+        });
+    }
+
+    [TestMethod]
     public void SetupPage_StartPracticeButton_RaisesStartPracticeRequestedAndPassesSelectedListId()
     {
         RunOnSta(() =>

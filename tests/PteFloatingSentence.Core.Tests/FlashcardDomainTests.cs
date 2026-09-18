@@ -66,7 +66,7 @@ public sealed class FlashcardDomainTests
     }
 
     [TestMethod]
-    public void StudyListProjection_ExcludesHiddenAndCountsUnavailable()
+    public void StudyListProjection_IncludesHiddenCardPopupsAndCountsUnavailable()
     {
         var listId = Guid.NewGuid();
         var sId = Guid.NewGuid();
@@ -105,13 +105,47 @@ public sealed class FlashcardDomainTests
         var summaries = FlashcardDeckProjection.GetDeckSummaries(settings);
         var summary = summaries.First(s => s.DeckKey == deckKey);
 
-        Assert.AreEqual(1, summary.ReadyCount);
+        Assert.AreEqual(2, summary.ReadyCount);
         Assert.AreEqual(1, summary.UnavailableCount); // pendingItem is unavailable
-        Assert.AreEqual(2, summary.TotalCount); // 1 ready + 1 unavailable (hidden is completely excluded)
+        Assert.AreEqual(3, summary.TotalCount); // 2 ready (including hidden popup) + 1 unavailable
 
+        var readyCards = FlashcardDeckProjection.GetDeckCards(settings, deckKey);
+        Assert.AreEqual(2, readyCards.Count);
+        Assert.IsTrue(readyCards.Any(c => c.Phrase == "hidden phrase"));
+        Assert.IsTrue(readyCards.Any(c => c.Phrase == "ready phrase"));
+
+        var allCards = FlashcardDeckProjection.GetDeckCards(settings, deckKey, includeUnavailable: true);
+        Assert.AreEqual(3, allCards.Count);
+        var pendingCard = allCards.First(c => c.Phrase == "pending phrase");
+        Assert.IsFalse(pendingCard.IsReady);
+        Assert.AreEqual("Pending explanation...", pendingCard.UnavailableReason);
+    }
+
+    [TestMethod]
+    public void StudyListProjection_UsesSourceSentenceWhenExampleMissing()
+    {
+        var listId = Guid.NewGuid();
+        var sId = Guid.NewGuid();
+
+        var itemWithoutExample = new VocabularyItem(
+            Id: Guid.NewGuid(),
+            Phrase: "curious",
+            NormalizedPhrase: "curious",
+            Meaning: "eager to know",
+            Example: null,
+            Status: VocabularyStatus.Ready);
+
+        var sentence = new StudySentence(sId, "She was curious about the ancient map.", false, [itemWithoutExample]);
+        var studyList = new StudyList(listId, "Curious List", 1, 0, [sentence]);
+        var settings = AppSettings.Default with { StudyLists = [studyList] };
+
+        var deckKey = FlashcardRules.StudyListDeckKey(listId);
         var cards = FlashcardDeckProjection.GetDeckCards(settings, deckKey);
+
         Assert.AreEqual(1, cards.Count);
-        Assert.AreEqual("ready phrase", cards[0].Phrase);
+        Assert.AreEqual("curious", cards[0].Phrase);
+        Assert.AreEqual("eager to know", cards[0].Meaning);
+        Assert.AreEqual("She was curious about the ancient map.", cards[0].Example);
     }
 
     [TestMethod]

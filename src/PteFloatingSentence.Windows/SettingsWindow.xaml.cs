@@ -319,6 +319,12 @@ public partial class SettingsWindow : Window
         }
     }
 
+    public void UpdateSettingsFromApp(AppSettings newSettings)
+    {
+        _draft.UpdateSettingsFromApp(newSettings);
+        RefreshUi();
+    }
+
     public void OpenFlashcards(string? deckKey = null)
     {
         NavigateTo(SettingsPageId.Flashcards);

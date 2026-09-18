@@ -86,7 +86,7 @@ public static class FlashcardDeckProjection
         return summaries;
     }
 
-    public static IReadOnlyList<FlashcardItem> GetDeckCards(AppSettings settings, string deckKey)
+    public static IReadOnlyList<FlashcardItem> GetDeckCards(AppSettings settings, string deckKey, bool includeUnavailable = false)
     {
         var cards = new List<FlashcardItem>();
         var progressMap = FlashcardRules.NormalizeProgress(settings.FlashcardProgress)
@@ -106,28 +106,70 @@ public static class FlashcardDeckProjection
             foreach (var g in groups)
             {
                 var readyItem = g.Items.FirstOrDefault(IsReadyVocabulary);
-                if (readyItem is null)
-                    continue;
+                if (readyItem is not null)
+                {
+                    var cardKey = FlashcardRules.StudyListCardKey(list.Id, readyItem.NormalizedPhrase);
+                    progressMap.TryGetValue(cardKey, out var progress);
 
-                var cardKey = FlashcardRules.StudyListCardKey(list.Id, readyItem.NormalizedPhrase);
-                progressMap.TryGetValue(cardKey, out var progress);
+                    var example = !string.IsNullOrWhiteSpace(readyItem.Example)
+                        ? readyItem.Example
+                        : (g.SourceSentences.FirstOrDefault()?.Text ?? string.Empty);
 
-                cards.Add(new FlashcardItem(
-                    CardKey: cardKey,
-                    DeckKey: deckKey,
-                    Phrase: readyItem.Phrase,
-                    NormalizedPhrase: readyItem.NormalizedPhrase,
-                    PronunciationIpa: readyItem.PronunciationIpa,
-                    Meaning: readyItem.Meaning ?? string.Empty,
-                    Example: readyItem.Example ?? string.Empty,
-                    SourceSentences: g.SourceSentences,
-                    State: progress?.State ?? FlashcardLearningState.New,
-                    ReviewCount: progress?.ReviewCount ?? 0,
-                    AgainCount: progress?.AgainCount ?? 0,
-                    LastRating: progress?.LastRating,
-                    LastReviewedAt: progress?.LastReviewedAt,
-                    IsCustom: false,
-                    CustomCardId: null));
+                    cards.Add(new FlashcardItem(
+                        CardKey: cardKey,
+                        DeckKey: deckKey,
+                        Phrase: readyItem.Phrase,
+                        NormalizedPhrase: readyItem.NormalizedPhrase,
+                        PronunciationIpa: readyItem.PronunciationIpa,
+                        Meaning: readyItem.Meaning ?? string.Empty,
+                        Example: example,
+                        SourceSentences: g.SourceSentences,
+                        State: progress?.State ?? FlashcardLearningState.New,
+                        ReviewCount: progress?.ReviewCount ?? 0,
+                        AgainCount: progress?.AgainCount ?? 0,
+                        LastRating: progress?.LastRating,
+                        LastReviewedAt: progress?.LastReviewedAt,
+                        IsCustom: false,
+                        CustomCardId: null,
+                        IsReady: true));
+                }
+                else if (includeUnavailable)
+                {
+                    var firstItem = g.Items.FirstOrDefault();
+                    if (firstItem is null)
+                        continue;
+
+                    var cardKey = FlashcardRules.StudyListCardKey(list.Id, firstItem.NormalizedPhrase);
+                    progressMap.TryGetValue(cardKey, out var progress);
+
+                    var reason = firstItem.Status switch
+                    {
+                        VocabularyStatus.Pending => "Pending explanation...",
+                        VocabularyStatus.Failed => !string.IsNullOrWhiteSpace(firstItem.LastError)
+                            ? firstItem.LastError
+                            : "Explanation failed",
+                        _ => "Explanation missing"
+                    };
+
+                    cards.Add(new FlashcardItem(
+                        CardKey: cardKey,
+                        DeckKey: deckKey,
+                        Phrase: firstItem.Phrase,
+                        NormalizedPhrase: firstItem.NormalizedPhrase,
+                        PronunciationIpa: firstItem.PronunciationIpa,
+                        Meaning: $"[{reason}]",
+                        Example: g.SourceSentences.FirstOrDefault()?.Text ?? string.Empty,
+                        SourceSentences: g.SourceSentences,
+                        State: progress?.State ?? FlashcardLearningState.New,
+                        ReviewCount: progress?.ReviewCount ?? 0,
+                        AgainCount: progress?.AgainCount ?? 0,
+                        LastRating: progress?.LastRating,
+                        LastReviewedAt: progress?.LastReviewedAt,
+                        IsCustom: false,
+                        CustomCardId: null,
+                        IsReady: false,
+                        UnavailableReason: reason));
+                }
             }
         }
         else if (deckKey.StartsWith("custom:", StringComparison.OrdinalIgnoreCase))
@@ -142,7 +184,8 @@ public static class FlashcardDeckProjection
 
             foreach (var card in deck.Cards)
             {
-                if (!IsReadyCustomCard(card))
+                var isReady = IsReadyCustomCard(card);
+                if (!isReady && !includeUnavailable)
                     continue;
 
                 var cardKey = FlashcardRules.CustomCardKey(deck.Id, card.Id);
@@ -154,7 +197,7 @@ public static class FlashcardDeckProjection
                     Phrase: card.Phrase,
                     NormalizedPhrase: card.NormalizedPhrase,
                     PronunciationIpa: card.PronunciationIpa,
-                    Meaning: card.Meaning,
+                    Meaning: isReady ? card.Meaning : "[Incomplete card]",
                     Example: card.Example,
                     SourceSentences: [],
                     State: progress?.State ?? FlashcardLearningState.New,
@@ -163,7 +206,9 @@ public static class FlashcardDeckProjection
                     LastRating: progress?.LastRating,
                     LastReviewedAt: progress?.LastReviewedAt,
                     IsCustom: true,
-                    CustomCardId: card.Id));
+                    CustomCardId: card.Id,
+                    IsReady: isReady,
+                    UnavailableReason: isReady ? null : "Missing required card fields"));
             }
         }
 
@@ -173,8 +218,7 @@ public static class FlashcardDeckProjection
     private static bool IsReadyVocabulary(VocabularyItem item) =>
         item.Status == VocabularyStatus.Ready &&
         !string.IsNullOrWhiteSpace(item.Phrase) &&
-        !string.IsNullOrWhiteSpace(item.Meaning) &&
-        !string.IsNullOrWhiteSpace(item.Example);
+        !string.IsNullOrWhiteSpace(item.Meaning);
 
     private static bool IsReadyCustomCard(CustomVocabularyCard card) =>
         !string.IsNullOrWhiteSpace(card.Phrase) &&
@@ -197,9 +241,6 @@ public static class FlashcardDeckProjection
         {
             foreach (var vocab in sentence.Vocabulary)
             {
-                if (vocab.IsHidden)
-                    continue;
-
                 var norm = VocabularyRules.NormalizePhrase(vocab.Phrase).ToLowerInvariant();
                 if (string.IsNullOrEmpty(norm))
                     continue;

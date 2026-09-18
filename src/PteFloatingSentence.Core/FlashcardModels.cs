@@ -55,7 +55,9 @@ public sealed record FlashcardItem(
     FlashcardRating? LastRating,
     DateTimeOffset? LastReviewedAt,
     bool IsCustom,
-    Guid? CustomCardId);
+    Guid? CustomCardId,
+    bool IsReady = true,
+    string? UnavailableReason = null);
 
 public sealed record FlashcardDeckSummary(
     string DeckKey,

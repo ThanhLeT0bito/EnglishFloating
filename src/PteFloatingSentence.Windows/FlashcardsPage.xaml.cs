@@ -53,27 +53,30 @@ public partial class FlashcardsPage : UserControl
 
         RefreshDecksList();
 
-        // If no deck selected yet or selected deck no longer exists, select first deck
+        // If deck was already selected and still exists, keep it
         var summaries = FlashcardDeckProjection.GetDeckSummaries(_settings);
-        if (!string.IsNullOrEmpty(_settings.ActiveFlashcardDeckKey) && summaries.Any(s => s.DeckKey == _settings.ActiveFlashcardDeckKey))
+        var activeListDeckKey = FlashcardRules.StudyListDeckKey(_settings.ActiveListId);
+
+        if (_selectedDeckKey is not null && summaries.Any(s => s.DeckKey == _selectedDeckKey))
+        {
+            SelectDeck(_selectedDeckKey);
+        }
+        else if (!string.IsNullOrEmpty(_settings.ActiveFlashcardDeckKey) && summaries.Any(s => s.DeckKey == _settings.ActiveFlashcardDeckKey))
         {
             SelectDeck(_settings.ActiveFlashcardDeckKey);
         }
-        else if (_selectedDeckKey is null || !summaries.Any(s => s.DeckKey == _selectedDeckKey))
+        else if (summaries.Any(s => s.DeckKey == activeListDeckKey))
         {
-            if (summaries.Count > 0)
-            {
-                SelectDeck(summaries[0].DeckKey);
-            }
-            else
-            {
-                _selectedDeckKey = null;
-                UpdateDeckContentView();
-            }
+            SelectDeck(activeListDeckKey);
+        }
+        else if (summaries.Count > 0)
+        {
+            SelectDeck(summaries[0].DeckKey);
         }
         else
         {
-            SelectDeck(_selectedDeckKey);
+            _selectedDeckKey = null;
+            UpdateDeckContentView();
         }
     }
 
@@ -148,8 +151,8 @@ public partial class FlashcardsPage : UserControl
         AddCardButton.Visibility = isCustom ? Visibility.Visible : Visibility.Collapsed;
         DeleteDeckButton.Visibility = isCustom ? Visibility.Visible : Visibility.Collapsed;
 
-        _allCurrentDeckCards = FlashcardDeckProjection.GetDeckCards(_settings, _selectedDeckKey);
-        StartStudyingButton.IsEnabled = _allCurrentDeckCards.Count > 0;
+        _allCurrentDeckCards = FlashcardDeckProjection.GetDeckCards(_settings, _selectedDeckKey, includeUnavailable: true);
+        StartStudyingButton.IsEnabled = _allCurrentDeckCards.Any(c => c.IsReady);
 
         ApplyFilter();
     }
@@ -184,7 +187,7 @@ public partial class FlashcardsPage : UserControl
             }
             else
             {
-                EmptyDeckNoticeText.Text = "No ready vocabulary found in this study list yet. Add vocabulary to sentences in the Setup page.";
+                EmptyDeckNoticeText.Text = "No vocabulary found in this study list yet. Highlight words in the floating sentence to add them.";
             }
         }
         else if (_filteredCards.Count == 0)
@@ -198,28 +201,39 @@ public partial class FlashcardsPage : UserControl
             CardsScrollViewer.Visibility = Visibility.Visible;
             EmptyDeckNotice.Visibility = Visibility.Collapsed;
 
-            var cardViewModels = _filteredCards.Select(c => new CardRowViewModel(
-                c.Phrase,
-                c.PronunciationIpa,
-                c.Meaning,
-                c.Example,
-                c.SourceSentences.Count > 0 ? $"Sources ({c.SourceSentences.Count})" : string.Empty,
-                c.SourceSentences.Count > 0,
-                c.State switch
-                {
-                    FlashcardLearningState.Remembered => "Remembered",
-                    FlashcardLearningState.Learning => "Learning",
-                    _ => "New"
-                },
-                c.State switch
-                {
-                    FlashcardLearningState.Remembered => (SolidColorBrush)FindResource("RememberedBrush"),
-                    FlashcardLearningState.Learning => (SolidColorBrush)FindResource("HardBrush"),
-                    _ => new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x38, 0xBD, 0xF8))
-                },
-                c.IsCustom,
-                c.CustomCardId
-            )).ToList();
+            var cardViewModels = _filteredCards.Select(c =>
+            {
+                var stateText = !c.IsReady
+                    ? (!string.IsNullOrEmpty(c.UnavailableReason) && c.UnavailableReason.StartsWith("Pending") ? "Pending" : "Unavailable")
+                    : c.State switch
+                    {
+                        FlashcardLearningState.Remembered => "Remembered",
+                        FlashcardLearningState.Learning => "Learning",
+                        _ => "New"
+                    };
+
+                var stateBrush = !c.IsReady
+                    ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF8, 0x71, 0x71))
+                    : c.State switch
+                    {
+                        FlashcardLearningState.Remembered => (SolidColorBrush)FindResource("RememberedBrush"),
+                        FlashcardLearningState.Learning => (SolidColorBrush)FindResource("HardBrush"),
+                        _ => new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x38, 0xBD, 0xF8))
+                    };
+
+                return new CardRowViewModel(
+                    c.Phrase,
+                    c.PronunciationIpa,
+                    c.Meaning,
+                    c.Example,
+                    c.SourceSentences.Count > 0 ? $"Sources ({c.SourceSentences.Count})" : string.Empty,
+                    c.SourceSentences.Count > 0,
+                    stateText,
+                    stateBrush,
+                    c.IsCustom,
+                    c.CustomCardId
+                );
+            }).ToList();
 
             CardsListControl.ItemsSource = cardViewModels;
         }
@@ -240,10 +254,11 @@ public partial class FlashcardsPage : UserControl
 
     public void StartInPageStudy()
     {
-        if (_allCurrentDeckCards.Count == 0)
+        var readyCards = _allCurrentDeckCards.Where(c => c.IsReady).ToList();
+        if (readyCards.Count == 0)
             return;
 
-        _studyCards = _allCurrentDeckCards;
+        _studyCards = readyCards;
         _studyIndex = 0;
         _studyIsShowingBack = false;
         _studyCycleCount = 0;
