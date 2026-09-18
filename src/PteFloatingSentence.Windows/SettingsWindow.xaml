@@ -320,7 +320,10 @@
                          ItemContainerStyle="{StaticResource NavRailItemStyle}"
                          SelectionChanged="SettingsNavigation_SelectionChanged">
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Setup}">
-                        <TextBlock Text="Setup" FontSize="14" />
+                        <TextBlock Text="Sentences" FontSize="14" />
+                    </ListBoxItem>
+                    <ListBoxItem Tag="{x:Static local:SettingsPageId.Flashcards}">
+                        <TextBlock Text="Flashcards" FontSize="14" />
                     </ListBoxItem>
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Display}">
                         <TextBlock Text="Display" FontSize="14" />
@@ -349,12 +352,12 @@
 
                 <!-- Page Header -->
                 <StackPanel Grid.Row="0" Margin="0,0,0,16">
-                    <TextBlock x:Name="PageTitle" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Setup" />
+                    <TextBlock x:Name="PageTitle" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Sentences" />
                     <TextBlock x:Name="PageSubtitle" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,4,0,0" Text="Configure study lists and practice sentences" />
                 </StackPanel>
 
                 <!-- Content Host inside ScrollViewer -->
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ScrollViewer x:Name="PageScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <ContentControl x:Name="PageContentHost" Focusable="False">
                         <Grid>
                             <!-- Extracted SetupPage -->
@@ -386,6 +389,11 @@
                             <!-- Gemini Section -->
                             <Grid x:Name="GeminiSection" Visibility="Collapsed">
                                 <local:GeminiPage x:Name="GeminiPageControl" />
+                            </Grid>
+
+                            <!-- Flashcards Section -->
+                            <Grid x:Name="FlashcardsSection" Visibility="Collapsed">
+                                <local:FlashcardsPage x:Name="FlashcardsPageControl" />
                             </Grid>
                         </Grid>
                     </ContentControl>

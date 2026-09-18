@@ -8,6 +8,60 @@ namespace PteFloatingSentence.Windows.Tests;
 public class WindowSurfaceTests
 {
     [TestMethod]
+    public void FloatingSentence_SuppressesTouchEditorFocusButKeepsMouseSelectionHandler()
+    {
+        var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "FloatingWindow.xaml"));
+        var code = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "FloatingWindow.xaml.cs"));
+
+        StringAssert.Contains(xaml, "PreviewTouchDown=\"SentenceBox_PreviewTouchDown\"");
+        StringAssert.Contains(xaml, "PreviewMouseLeftButtonUp=\"SentenceBox_PreviewMouseLeftButtonUp\"");
+        StringAssert.Contains(code, "private void SentenceBox_PreviewTouchDown");
+        StringAssert.Contains(code, "e.Handled = true;");
+    }
+
+    [TestMethod]
+    public void FloatingFlashcard_DragHandlerIsLimitedToHeaderSoCardReceivesMouseClicks()
+    {
+        var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "FloatingFlashcardWindow.xaml"));
+        var windowTagEnd = xaml.IndexOf('>');
+        var windowTag = xaml[..windowTagEnd];
+
+        Assert.IsFalse(windowTag.Contains("MouseLeftButtonDown", StringComparison.Ordinal));
+        StringAssert.Contains(xaml, "x:Name=\"DragHeader\"");
+        StringAssert.Contains(xaml, "MouseLeftButtonDown=\"Window_MouseLeftButtonDown\"");
+        StringAssert.Contains(xaml, "MouseLeftButtonUp=\"CardContentArea_MouseLeftButtonUp\"");
+    }
+
+    [TestMethod]
+    public void AppSavePath_MergesSubmittedSettingsIntoLatestSnapshot()
+    {
+        var source = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "App.xaml.cs"));
+
+        StringAssert.Contains(source, "SettingsUpdateMerger.MergeEditableFields(_settings, settings)");
+    }
+
+    [TestMethod]
+    public void AppFloatingRatingPath_RefreshesDisplayFromUpdatedSettings()
+    {
+        var source = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "App.xaml.cs"));
+        var handlerStart = source.IndexOf("_displayController.FlashcardRated +=", StringComparison.Ordinal);
+        var handlerEnd = source.IndexOf("_displayController.CardMarkedDone +=", handlerStart, StringComparison.Ordinal);
+
+        Assert.IsTrue(handlerStart >= 0 && handlerEnd > handlerStart);
+        var handler = source[handlerStart..handlerEnd];
+        StringAssert.Contains(handler, "_displayController.Apply(_settings)");
+    }
+
+    [TestMethod]
+    public void FlashcardsManagementList_UsesRecyclingVirtualization()
+    {
+        var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "FlashcardsPage.xaml"));
+
+        StringAssert.Contains(xaml, "VirtualizingPanel.IsVirtualizing=\"True\"");
+        StringAssert.Contains(xaml, "VirtualizingPanel.VirtualizationMode=\"Recycling\"");
+    }
+
+    [TestMethod]
     public void RenderSignature_IsStableForEquivalentSentenceState()
     {
         var first = RenderSignature.Create("Practice this sentence.", 30, "#FFFFFFFF", 0.35, []);
@@ -558,7 +612,21 @@ public class WindowSurfaceTests
 
         StringAssert.Contains(xaml, "x:Name=\"ShowSentenceOverlayInput\"");
         StringAssert.Contains(xaml, "x:Name=\"ShowVocabularyCardsInput\"");
+        StringAssert.Contains(xaml, "x:Name=\"ShowFloatingFlashcardInput\"");
+        StringAssert.Contains(xaml, "x:Name=\"FloatingDeckComboBox\"");
         StringAssert.Contains(xaml, "Overlay visibility");
+    }
+
+    [TestMethod]
+    public void FlashcardsPageXaml_ContainsDeckManagementAndStudyControls()
+    {
+        var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "FlashcardsPage.xaml"));
+
+        StringAssert.Contains(xaml, "x:Name=\"DecksListBox\"");
+        StringAssert.Contains(xaml, "x:Name=\"CardsListControl\"");
+        StringAssert.Contains(xaml, "x:Name=\"NewDeckButton\"");
+        StringAssert.Contains(xaml, "x:Name=\"StudyCardSurface\"");
+        StringAssert.Contains(xaml, "x:Name=\"StudyAgainButton\"");
     }
 
     [TestMethod]

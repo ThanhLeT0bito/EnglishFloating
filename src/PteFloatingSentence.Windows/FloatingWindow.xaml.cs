@@ -337,8 +337,20 @@ public partial class FloatingWindow : Window
                 VocabularyClicked?.Invoke(this, itemId.Value);
                 SentenceBox.Selection.Select(SentenceBox.Document.ContentStart, SentenceBox.Document.ContentStart);
                 Focus();
+                return;
             }
         }
+
+        SentenceBox.Selection.Select(SentenceBox.Document.ContentStart, SentenceBox.Document.ContentStart);
+        Focus();
+        e.Handled = true;
+    }
+
+    private void SentenceBox_PreviewTouchDown(object sender, TouchEventArgs e)
+    {
+        SentenceBox.Selection.Select(SentenceBox.Document.ContentStart, SentenceBox.Document.ContentStart);
+        Focus();
+        e.Handled = true;
     }
 
     private void HandleSelection()

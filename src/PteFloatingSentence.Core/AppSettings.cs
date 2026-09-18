@@ -14,5 +14,9 @@ public sealed record AppSettings
     public bool GeminiApiKeyConfigured { get; init; } = false;
     public bool ShowSentenceOverlay { get; init; } = true;
     public bool ShowVocabularyCards { get; init; } = true;
+    public IReadOnlyList<CustomFlashcardDeck> CustomFlashcardDecks { get; init; } = [];
+    public IReadOnlyList<FlashcardProgress> FlashcardProgress { get; init; } = [];
+    public bool ShowFloatingFlashcard { get; init; } = false;
+    public string? ActiveFlashcardDeckKey { get; init; } = null;
     public static AppSettings Default => StudyListRules.CreateDefault("Right-click this sentence to open Settings.");
 }

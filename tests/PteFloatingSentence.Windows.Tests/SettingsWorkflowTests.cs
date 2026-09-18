@@ -597,6 +597,60 @@ public class SettingsWorkflowTests
     }
 
     [TestMethod]
+    public void DisplayPage_LoadsFullPreferences_AndEmitsFullDisplayPreferencesChangedOnToggle()
+    {
+        RunOnSta(() =>
+        {
+            var page = new DisplayPage();
+            var summaries = new[]
+            {
+                new PteFloatingSentence.Core.FlashcardDeckSummary("deck-1", null, "Deck 1", false, 5, 2, 1, 2)
+            };
+            page.LoadPreferences(
+                showSentenceOverlay: true,
+                showVocabularyCards: false,
+                showFloatingFlashcard: false,
+                activeDeckKey: "deck-1",
+                availableDecks: summaries);
+
+            var flashcardCheck = (CheckBox)page.FindName("ShowFloatingFlashcardInput");
+            var deckSelector = (ComboBox)page.FindName("FloatingDeckComboBox");
+
+            Assert.IsNotNull(flashcardCheck);
+            Assert.IsNotNull(deckSelector);
+            Assert.IsFalse(flashcardCheck.IsChecked);
+            Assert.AreEqual(1, deckSelector.Items.Count);
+
+            bool? emittedSentence = null;
+            bool? emittedVocab = null;
+            bool? emittedFlashcard = null;
+            string? emittedDeck = null;
+
+            Action<bool, bool, bool, string?> handler = (s, v, f, d) =>
+            {
+                emittedSentence = s;
+                emittedVocab = v;
+                emittedFlashcard = f;
+                emittedDeck = d;
+            };
+
+            page.FullDisplayPreferencesChanged += handler;
+            try
+            {
+                flashcardCheck.IsChecked = true;
+                Assert.AreEqual(true, emittedSentence);
+                Assert.AreEqual(false, emittedVocab);
+                Assert.AreEqual(true, emittedFlashcard);
+                Assert.AreEqual("deck-1", emittedDeck);
+            }
+            finally
+            {
+                page.FullDisplayPreferencesChanged -= handler;
+            }
+        });
+    }
+
+    [TestMethod]
     public void SettingsWindow_ReviewPractice_UsesSelectedListAndCurrentCompletion()
     {
         RunOnSta(() =>
@@ -673,6 +727,47 @@ public class SettingsWorkflowTests
             InvokeClick(window, "CancelButton_Click");
 
             Assert.IsFalse(saveInvoked);
+        });
+    }
+
+    [TestMethod]
+    public void SettingsWindow_UpdateSettingsFromApp_RefreshesFlashcardsPageWithNewVocabulary()
+    {
+        RunOnSta(() =>
+        {
+            var listId = Guid.NewGuid();
+            var sentenceId = Guid.NewGuid();
+            var initialSentence = new StudySentence(sentenceId, "The cat sleeps on the mat.");
+            var initialList = new StudyList(listId, "Animals", 10, 0, [initialSentence]);
+            var initialSettings = new AppSettings { ActiveListId = listId, StudyLists = [initialList] };
+
+            var window = new SettingsWindow(initialSettings, _ => { });
+            window.NavigateTo(SettingsPageId.Flashcards);
+
+            var flashcardsControl = Named<FlashcardsPage>(window, "FlashcardsPageControl");
+            var cardsList = (ItemsControl)flashcardsControl.FindName("CardsListControl");
+
+            // Initially no vocabulary
+            Assert.AreEqual(0, cardsList.Items.Count);
+
+            // Live external addition (e.g. word highlighted on desktop sentence)
+            var newVocab = new VocabularyItem(
+                Guid.NewGuid(),
+                "cat",
+                "cat",
+                Meaning: "A small domesticated carnivorous mammal.",
+                Example: "The cat sleeps on the mat.",
+                Status: VocabularyStatus.Ready,
+                IsHidden: true); // Even if hidden from floating overlay!
+
+            var updatedSentence = initialSentence with { Vocabulary = [newVocab] };
+            var updatedList = initialList with { Sentences = [updatedSentence] };
+            var updatedSettings = initialSettings with { StudyLists = [updatedList] };
+
+            window.UpdateSettingsFromApp(updatedSettings);
+
+            // Assert that Flashcards page immediately contains the new card!
+            Assert.AreEqual(1, cardsList.Items.Count);
         });
     }
 

@@ -1,0 +1,263 @@
+<Window x:Class="PteFloatingSentence.Windows.FloatingFlashcardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PTE Flashcard"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        Width="380"
+        Height="250"
+        MinWidth="320"
+        MinHeight="220"
+        KeyDown="Window_KeyDown">
+    <Window.Resources>
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FA0F172A" />
+        <SolidColorBrush x:Key="CardBorderBrush" Color="#FF334155" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFF8FAFC" />
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FFE2E8F0" />
+        <SolidColorBrush x:Key="TextMutedBrush" Color="#FF94A3B8" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#FF2563EB" />
+        <SolidColorBrush x:Key="AgainBrush" Color="#FFDC2626" />
+        <SolidColorBrush x:Key="HardBrush" Color="#FFD97706" />
+        <SolidColorBrush x:Key="RememberedBrush" Color="#FF16A34A" />
+
+        <Style x:Key="RatingButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="5"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.35" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="IconButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ModernMarkDoneButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#1A10B981" />
+            <Setter Property="BorderBrush" Value="#4D10B981" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#FF34D399" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="TickBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"
+                                Padding="7,2"
+                                SnapsToDevicePixels="True">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="11" FontWeight="Bold" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                <TextBlock Text="Done" FontSize="11" FontWeight="SemiBold" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TickBorder" Property="Background" Value="#3310B981" />
+                                <Setter TargetName="TickBorder" Property="BorderBrush" Value="#FF10B981" />
+                                <Setter Property="Foreground" Value="#FFFFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="TickBorder" Property="Background" Value="#FF10B981" />
+                                <Setter Property="Foreground" Value="#FFFFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{StaticResource CardBackgroundBrush}"
+            BorderBrush="{StaticResource CardBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="12"
+            Padding="12">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <Grid Grid.Row="0"
+                  x:Name="DragHeader"
+                  Margin="0,0,0,8"
+                  MinHeight="32"
+                  Background="Transparent"
+                  Cursor="SizeAll"
+                  MouseLeftButtonDown="Window_MouseLeftButtonDown">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border x:Name="DeckBadge" Background="#FF1E293B" CornerRadius="4" Padding="6,2" Margin="0,0,6,0">
+                        <TextBlock x:Name="DeckNameText" Text="Deck" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" />
+                    </Border>
+                    <Border x:Name="StateBadge" Background="#FF1E293B" CornerRadius="4" Padding="6,2" Margin="0,0,6,0">
+                        <TextBlock x:Name="StateBadgeText" Text="New" FontSize="11" FontWeight="SemiBold" Foreground="#FF38BDF8" />
+                    </Border>
+                    <TextBlock x:Name="ProgressText" Text="0 / 0" FontSize="11" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="MarkDoneButton"
+                            Style="{StaticResource ModernMarkDoneButtonStyle}"
+                            ToolTip="Mark as done / don't repeat (D)"
+                            Click="MarkDoneButton_Click"
+                            Margin="0,0,6,0" />
+                    <Button x:Name="SettingsButton" Style="{StaticResource IconButton}" ToolTip="Settings" Click="SettingsButton_Click" Margin="0,0,4,0">
+                        <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="13" />
+                    </Button>
+                    <Button x:Name="CloseButton" Style="{StaticResource IconButton}" ToolTip="Close (Esc)" Click="CloseButton_Click">
+                        <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="12" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- Card Body (Click to Flip) -->
+            <Border Grid.Row="1"
+                    x:Name="CardContentArea"
+                    Background="#181E293B"
+                    BorderBrush="#33475569"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12"
+                    Cursor="Hand"
+                    MouseLeftButtonUp="CardContentArea_MouseLeftButtonUp">
+                <Grid>
+                    <!-- Front Face -->
+                    <Grid x:Name="FrontFacePanel" Visibility="Visible">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock x:Name="FrontPhraseText"
+                                       FontSize="20"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="FrontPronunciationText"
+                                       FontSize="13"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       TextAlignment="Center"
+                                       Margin="0,4,0,0" />
+                            <TextBlock Text="Click or Space to flip"
+                                       FontSize="10"
+                                       Foreground="#FF64748B"
+                                       TextAlignment="Center"
+                                       Margin="0,10,0,0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Back Face -->
+                    <ScrollViewer x:Name="BackFacePanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="BackPhraseText"
+                                       FontSize="15"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="BackPronunciationText"
+                                       FontSize="12"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       Margin="0,1,0,6" />
+                            <TextBlock x:Name="BackMeaningText"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="#FF60A5FA"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,4" />
+                            <TextBlock x:Name="BackExampleText"
+                                       FontSize="12"
+                                       FontStyle="Italic"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,4" />
+                            <TextBlock x:Name="BackSourceText"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       TextWrapping="Wrap"
+                                       Visibility="Collapsed" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- Footer: Navigation & Ratings -->
+            <Grid Grid.Row="2" Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Button x:Name="PreviousButton" Style="{StaticResource IconButton}" ToolTip="Previous (Left arrow)" Click="PreviousButton_Click" VerticalAlignment="Center">
+                    <TextBlock Text="&#xE76B;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+                </Button>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button x:Name="AgainButton"
+                            Style="{StaticResource RatingButtonStyle}"
+                            Background="{StaticResource AgainBrush}"
+                            Content="Again"
+                            IsEnabled="False"
+                            Click="AgainButton_Click" />
+                    <Button x:Name="HardButton"
+                            Style="{StaticResource RatingButtonStyle}"
+                            Background="{StaticResource HardBrush}"
+                            Content="Hard"
+                            IsEnabled="False"
+                            Click="HardButton_Click" />
+                    <Button x:Name="RememberedButton"
+                            Style="{StaticResource RatingButtonStyle}"
+                            Background="{StaticResource RememberedBrush}"
+                            Content="Remembered"
+                            IsEnabled="False"
+                            Click="RememberedButton_Click" />
+                </StackPanel>
+
+                <Button x:Name="NextButton" Grid.Column="2" Style="{StaticResource IconButton}" ToolTip="Next (Right arrow)" Click="NextButton_Click" VerticalAlignment="Center">
+                    <TextBlock Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="14" />
+                </Button>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

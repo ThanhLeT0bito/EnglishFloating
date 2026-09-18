@@ -48,6 +48,23 @@ public partial class App : System.Windows.Application
         _floatingWindow = new FloatingWindow { Left = position.Left, Top = position.Top };
         _displayController = new DisplayController(_floatingWindow);
         _displayController.ShowSettingsRequested += (_, _) => OpenSettings();
+        _displayController.OpenFlashcardsRequested += (_, _) => OpenSettings(SettingsPageId.Flashcards);
+        _displayController.FlashcardRated += (_, args) =>
+        {
+            _settings = Core.FlashcardRules.ApplyRating(_settings, args.CardKey, args.Rating, DateTimeOffset.UtcNow);
+            _displayController.Apply(_settings);
+            PersistSettings();
+        };
+        _displayController.CardMarkedDone += (_, cardKey) =>
+        {
+            SaveSettings(Core.FlashcardRules.SetMarkedDone(_settings, cardKey, true, DateTimeOffset.UtcNow));
+        };
+        _displayController.HideFlashcardRequested += (_, _) =>
+        {
+            _settings = _settings with { ShowFloatingFlashcard = false };
+            _displayController.Apply(_settings);
+            PersistSettings();
+        };
         _displayController.RestoreOverlayRequested += (_, _) =>
         {
             _settings = _settings with { ShowSentenceOverlay = true };
@@ -118,20 +135,28 @@ public partial class App : System.Windows.Application
         _displayController.Apply(_settings);
     }
 
-    private void OpenSettings()
+    private void OpenSettings(SettingsPageId page = SettingsPageId.Setup)
     {
         if (_settingsWindow is not null)
         {
+            _settingsWindow.UpdateSettingsFromApp(_settings);
+            _settingsWindow.NavigateTo(page);
             _settingsWindow.Activate();
             return;
         }
 
-        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore);
-        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
-        _settingsWindow.StartPracticeRequested += (_, listId) =>
+        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore, _explainer);
+        void OnStartPractice(object? sender, Guid listId) => _floatingWindow?.StartPractice(listId);
+        _settingsWindow.StartPracticeRequested += OnStartPractice;
+        _settingsWindow.Closed += (_, _) =>
         {
-            _floatingWindow?.StartPractice(listId);
+            if (_settingsWindow is not null)
+            {
+                _settingsWindow.StartPracticeRequested -= OnStartPractice;
+            }
+            _settingsWindow = null;
         };
+        _settingsWindow.NavigateTo(page);
         _settingsWindow.Show();
     }
 
@@ -150,8 +175,9 @@ public partial class App : System.Windows.Application
 
     private void SaveSettings(Core.AppSettings settings)
     {
-        _settings = settings with { Left = _settings.Left, Top = _settings.Top };
+        _settings = Core.SettingsUpdateMerger.MergeEditableFields(_settings, settings);
         _displayController?.Apply(_settings);
+        _settingsWindow?.UpdateSettingsFromApp(_settings);
         PersistSettings();
     }
 

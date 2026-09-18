@@ -11,6 +11,7 @@ public partial class SettingsWindow : Window
 {
     private readonly StudyListDraft _draft;
     private readonly ProtectedApiKeyStore? _apiKeyStore;
+    private readonly IVocabularyExplainer? _explainer;
     private bool _isRendering;
     private bool _apiKeyConfigured;
     private bool _apiKeyCleared;
@@ -19,6 +20,7 @@ public partial class SettingsWindow : Window
     public event EventHandler<Guid>? StartPracticeRequested;
 
     public SettingsPageId SelectedPage { get; private set; } = SettingsPageId.Setup;
+    public FrameworkElement SectionFlashcards => FlashcardsSection;
 
     public void NavigateTo(SettingsPageId page)
     {
@@ -40,6 +42,16 @@ public partial class SettingsWindow : Window
             ReviewPracticeSection.Visibility = SelectedPage == SettingsPageId.ReviewPractice ? Visibility.Visible : Visibility.Collapsed;
         if (GeminiSection is not null)
             GeminiSection.Visibility = SelectedPage == SettingsPageId.Gemini ? Visibility.Visible : Visibility.Collapsed;
+        if (FlashcardsSection is not null)
+            FlashcardsSection.Visibility = SelectedPage == SettingsPageId.Flashcards ? Visibility.Visible : Visibility.Collapsed;
+
+        if (PageScrollViewer is not null)
+        {
+            PageScrollViewer.VerticalScrollBarVisibility = SelectedPage == SettingsPageId.Flashcards
+                ? ScrollBarVisibility.Disabled
+                : ScrollBarVisibility.Auto;
+            PageScrollViewer.ScrollToTop();
+        }
     }
 
 
@@ -84,8 +96,9 @@ public partial class SettingsWindow : Window
 
         (PageTitle.Text, PageSubtitle.Text) = SelectedPage switch
         {
-            SettingsPageId.Setup => ("Setup", "Manage study lists and sentence practice order"),
-            SettingsPageId.Display => ("Display", "Configure floating sentence and vocabulary overlay preferences"),
+            SettingsPageId.Setup => ("Sentences", "Manage study lists and sentence practice order"),
+            SettingsPageId.Flashcards => ("Flashcards", "Study sentence vocabulary and custom decks"),
+            SettingsPageId.Display => ("Display", "Configure floating sentence and flashcard overlay preferences"),
             SettingsPageId.Review => ("Review", "Track vocabulary mastery and study progress"),
             SettingsPageId.ReviewPractice => ("Practice", "Practice sentences with masked hidden words"),
             SettingsPageId.Gemini => ("Gemini", "Configure Gemini API key for vocabulary explanations"),
@@ -93,19 +106,27 @@ public partial class SettingsWindow : Window
         };
     }
 
-    public SettingsWindow(AppSettings initial, Action<AppSettings> save, ProtectedApiKeyStore? apiKeyStore = null)
+    public SettingsWindow(AppSettings initial, Action<AppSettings> save, ProtectedApiKeyStore? apiKeyStore = null, IVocabularyExplainer? explainer = null)
     {
         InitializeComponent();
         _draft = new StudyListDraft(initial, save);
         _apiKeyStore = apiKeyStore;
+        _explainer = explainer;
         _apiKeyConfigured = initial.GeminiApiKeyConfigured;
         _setupPageStartPracticeHandler = OnSetupPageStartPracticeRequested;
         SetupPageControl.Initialize(_draft, ShowResult, () => RefreshUi());
         SetupPageControl.StartPracticeRequested += _setupPageStartPracticeHandler;
-        DisplayPageControl.LoadPreferences(_draft.Settings.ShowSentenceOverlay, _draft.Settings.ShowVocabularyCards);
+        DisplayPageControl.LoadPreferences(
+            _draft.Settings.ShowSentenceOverlay,
+            _draft.Settings.ShowVocabularyCards,
+            _draft.Settings.ShowFloatingFlashcard,
+            _draft.Settings.ActiveFlashcardDeckKey,
+            FlashcardDeckProjection.GetDeckSummaries(_draft.Settings));
         DisplayPageControl.DisplayPreferencesChanged += OnDisplayPreferencesChanged;
+        DisplayPageControl.FullDisplayPreferencesChanged += OnFullDisplayPreferencesChanged;
         GeminiPageControl.LoadState(_apiKeyConfigured);
         GeminiPageControl.ClearKeyRequested += OnClearKeyRequested;
+        FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged, _explainer);
         ReviewPracticePageControl?.Initialize(_draft.Settings, (listId, sentenceId, completed) =>
         {
             _draft.MarkSentenceCompleted(listId, sentenceId, completed);
@@ -119,9 +140,19 @@ public partial class SettingsWindow : Window
         RefreshUi();
     }
 
+    private void OnFlashcardsSettingsChanged(AppSettings newSettings)
+    {
+        _draft.UpdateFlashcardSettings(newSettings);
+    }
+
     private void OnDisplayPreferencesChanged(bool showSentence, bool showVocab)
     {
         _draft.SetDisplayPreferences(showSentence, showVocab);
+    }
+
+    private void OnFullDisplayPreferencesChanged(bool showSentence, bool showVocab, bool showFloatingFlashcard, string? activeDeckKey)
+    {
+        _draft.SetDisplayPreferences(showSentence, showVocab, showFloatingFlashcard, activeDeckKey);
     }
 
     private void OnClearKeyRequested()
@@ -141,12 +172,14 @@ public partial class SettingsWindow : Window
         if (DisplayPageControl is not null)
         {
             DisplayPageControl.DisplayPreferencesChanged -= OnDisplayPreferencesChanged;
+            DisplayPageControl.FullDisplayPreferencesChanged -= OnFullDisplayPreferencesChanged;
         }
         if (GeminiPageControl is not null)
         {
             GeminiPageControl.ClearKeyRequested -= OnClearKeyRequested;
         }
         ReviewPracticePageControl?.Dispose();
+        FlashcardsPageControl?.Dispose();
     }
 
     private void NewListButton_Click(object sender, RoutedEventArgs e)
@@ -245,7 +278,11 @@ public partial class SettingsWindow : Window
 
         _draft.SetApiKeyConfigured(_apiKeyConfigured);
         if (DisplayPageControl is not null)
-            _draft.SetDisplayPreferences(DisplayPageControl.ShowSentenceOverlay, DisplayPageControl.ShowVocabularyCards);
+            _draft.SetDisplayPreferences(
+                DisplayPageControl.ShowSentenceOverlay,
+                DisplayPageControl.ShowVocabularyCards,
+                DisplayPageControl.ShowFloatingFlashcard,
+                DisplayPageControl.ActiveFlashcardDeckKey);
         var result = _draft.Save();
         ShowResult(result);
         if (result.IsValid)
@@ -277,13 +314,34 @@ public partial class SettingsWindow : Window
         try
         {
             SetupPageControl.RefreshFromDraft(_draft);
-            DisplayPageControl?.LoadPreferences(_draft.Settings.ShowSentenceOverlay, _draft.Settings.ShowVocabularyCards);
+            DisplayPageControl?.LoadPreferences(
+                _draft.Settings.ShowSentenceOverlay,
+                _draft.Settings.ShowVocabularyCards,
+                _draft.Settings.ShowFloatingFlashcard,
+                _draft.Settings.ActiveFlashcardDeckKey,
+                FlashcardDeckProjection.GetDeckSummaries(_draft.Settings));
             ReviewPageControl?.LoadData(new ReviewViewModel(_draft.Settings));
             GeminiPageControl?.LoadState(_apiKeyConfigured);
+            FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged, _explainer);
         }
         finally
         {
             _isRendering = false;
+        }
+    }
+
+    public void UpdateSettingsFromApp(AppSettings newSettings)
+    {
+        _draft.UpdateSettingsFromApp(newSettings);
+        RefreshUi();
+    }
+
+    public void OpenFlashcards(string? deckKey = null)
+    {
+        NavigateTo(SettingsPageId.Flashcards);
+        if (!string.IsNullOrEmpty(deckKey))
+        {
+            FlashcardsPageControl?.SelectDeck(deckKey);
         }
     }
 
