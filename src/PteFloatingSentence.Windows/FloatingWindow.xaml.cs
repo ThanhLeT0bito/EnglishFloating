@@ -481,6 +481,11 @@ public partial class FloatingWindow : Window
             SentenceCompleted?.Invoke(this, (targetList.Id, sentenceId, completed));
         });
 
+        if (_practiceSession.IsAllSentencesCompleted && targetList.Sentences.Count > 0)
+        {
+            _practiceSession.RestartList();
+        }
+
         IsPracticeMode = true;
         SentenceBox.Visibility = Visibility.Collapsed;
         NormalSentenceContainer.Visibility = Visibility.Collapsed;
