@@ -150,6 +150,10 @@ public partial class App : System.Windows.Application
     {
         if (_settingsWindow is not null)
         {
+            if (_settingsWindow.WindowState == WindowState.Minimized)
+            {
+                _settingsWindow.WindowState = WindowState.Normal;
+            }
             _settingsWindow.UpdateSettingsFromApp(_settings);
             _settingsWindow.NavigateTo(page);
             _settingsWindow.Activate();
@@ -169,6 +173,7 @@ public partial class App : System.Windows.Application
         };
         _settingsWindow.NavigateTo(page);
         _settingsWindow.Show();
+        _settingsWindow.Activate();
     }
 
     private void FloatingWindow_PositionChanged(object? sender, (double Left, double Top) position)
@@ -204,6 +209,8 @@ public partial class App : System.Windows.Application
             return;
 
         _isShuttingDown = true;
+        _settingsWindow?.Close();
+        _settingsWindow = null;
         _displayController?.Dispose();
         _vocabularyWorkflow?.Dispose();
         _explainer?.Dispose();
