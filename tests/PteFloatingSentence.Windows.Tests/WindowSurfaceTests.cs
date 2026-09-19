@@ -738,6 +738,14 @@ public class WindowSurfaceTests
     }
 
     [TestMethod]
+    public void SettingsWindowXaml_IsTopmostToRenderAboveFloatingSentenceAndFlashcard()
+    {
+        var xaml = File.ReadAllText(FindWorkspaceFile("src", "PteFloatingSentence.Windows", "SettingsWindow.xaml"));
+
+        StringAssert.Contains(xaml, "Topmost=\"True\"");
+    }
+
+    [TestMethod]
     public void SettingsWindow_LoadsAtMinimumSizeWithoutCrashing()
     {
         var thread = new Thread(() =>
