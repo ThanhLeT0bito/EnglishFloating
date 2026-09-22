@@ -9,6 +9,18 @@ public class JsonSettingsStoreTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
+    public async Task LoadAsync_LegacySettings_DefaultsLaunchAtWindowsSignInToTrue()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        await File.WriteAllTextAsync(path, "{\"Version\":2,\"Sentence\":\"Legacy\"}");
+
+        var loaded = await store.LoadAsync();
+
+        Assert.IsTrue(loaded.LaunchAtWindowsSignIn);
+    }
+
+    [TestMethod]
     public async Task LoadAsync_ReturnsNormalizedVersion2Settings_AfterSaveAsync()
     {
         var path = CreateSettingsPath();

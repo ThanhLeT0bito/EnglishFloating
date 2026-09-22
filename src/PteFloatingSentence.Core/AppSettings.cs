@@ -18,5 +18,6 @@ public sealed record AppSettings
     public IReadOnlyList<FlashcardProgress> FlashcardProgress { get; init; } = [];
     public bool ShowFloatingFlashcard { get; init; } = false;
     public string? ActiveFlashcardDeckKey { get; init; } = null;
+    public bool LaunchAtWindowsSignIn { get; init; } = true;
     public static AppSettings Default => StudyListRules.CreateDefault("Right-click this sentence to open Settings.");
 }
