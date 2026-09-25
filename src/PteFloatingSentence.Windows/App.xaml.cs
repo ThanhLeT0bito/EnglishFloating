@@ -1,5 +1,6 @@
 using System.Configuration;
 using System.Data;
+using System.Security.Principal;
 using System.Windows;
 using PteFloatingSentence.Windows.Infrastructure;
 
@@ -19,6 +20,8 @@ public partial class App : System.Windows.Application
     private FloatingWindow? _floatingWindow;
     private DisplayController? _displayController;
     private SettingsWindow? _settingsWindow;
+    private readonly WindowsStartupRegistration _startupRegistration = new();
+    private SingleInstanceGuard? _singleInstanceGuard;
     private bool _isShuttingDown;
 
     public App()
@@ -28,9 +31,16 @@ public partial class App : System.Windows.Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
+        if (!SingleInstanceGuard.TryAcquire(GetSingleInstanceName(), out _singleInstanceGuard))
+        {
+            Shutdown();
+            return;
+        }
+
         base.OnStartup(e);
 
         _settings = await _settingsStore.LoadAsync();
+        ReconcileStartupRegistration();
         var displays = Core.DisplayProjection.PrimaryFirst(System.Windows.Forms.Screen.AllScreens
             .Select(screen => (
                 new Core.DisplayBounds(
@@ -192,6 +202,7 @@ public partial class App : System.Windows.Application
     private void SaveSettings(Core.AppSettings settings)
     {
         _settings = Core.SettingsUpdateMerger.MergeEditableFields(_settings, settings);
+        ReconcileStartupRegistration();
         _displayController?.Apply(_settings);
         _settingsWindow?.UpdateSettingsFromApp(_settings);
         PersistSettings();
@@ -216,5 +227,25 @@ public partial class App : System.Windows.Application
         _explainer?.Dispose();
         await _persistenceQueue.FlushAsync();
         Shutdown();
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _singleInstanceGuard?.Dispose();
+        _singleInstanceGuard = null;
+        base.OnExit(e);
+    }
+
+    private void ReconcileStartupRegistration()
+    {
+        _startupRegistration.Reconcile(
+            _settings.LaunchAtWindowsSignIn,
+            Environment.ProcessPath ?? string.Empty);
+    }
+
+    private static string GetSingleInstanceName()
+    {
+        var userIdentifier = WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName;
+        return $"Local\\EnglishFloating.{userIdentifier}";
     }
 }

@@ -121,9 +121,11 @@ public partial class SettingsWindow : Window
             _draft.Settings.ShowVocabularyCards,
             _draft.Settings.ShowFloatingFlashcard,
             _draft.Settings.ActiveFlashcardDeckKey,
-            FlashcardDeckProjection.GetDeckSummaries(_draft.Settings));
+            FlashcardDeckProjection.GetDeckSummaries(_draft.Settings),
+            _draft.Settings.LaunchAtWindowsSignIn);
         DisplayPageControl.DisplayPreferencesChanged += OnDisplayPreferencesChanged;
         DisplayPageControl.FullDisplayPreferencesChanged += OnFullDisplayPreferencesChanged;
+        DisplayPageControl.LaunchAtWindowsSignInChanged += OnLaunchAtWindowsSignInChanged;
         GeminiPageControl.LoadState(_apiKeyConfigured);
         GeminiPageControl.ClearKeyRequested += OnClearKeyRequested;
         FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged, _explainer);
@@ -155,6 +157,14 @@ public partial class SettingsWindow : Window
         _draft.SetDisplayPreferences(showSentence, showVocab, showFloatingFlashcard, activeDeckKey);
     }
 
+    private void OnLaunchAtWindowsSignInChanged(bool enabled) =>
+        _draft.SetDisplayPreferences(
+            DisplayPageControl.ShowSentenceOverlay,
+            DisplayPageControl.ShowVocabularyCards,
+            DisplayPageControl.ShowFloatingFlashcard,
+            DisplayPageControl.ActiveFlashcardDeckKey,
+            enabled);
+
     private void OnClearKeyRequested()
     {
         _apiKeyCleared = true;
@@ -173,6 +183,7 @@ public partial class SettingsWindow : Window
         {
             DisplayPageControl.DisplayPreferencesChanged -= OnDisplayPreferencesChanged;
             DisplayPageControl.FullDisplayPreferencesChanged -= OnFullDisplayPreferencesChanged;
+            DisplayPageControl.LaunchAtWindowsSignInChanged -= OnLaunchAtWindowsSignInChanged;
         }
         if (GeminiPageControl is not null)
         {
@@ -282,7 +293,8 @@ public partial class SettingsWindow : Window
                 DisplayPageControl.ShowSentenceOverlay,
                 DisplayPageControl.ShowVocabularyCards,
                 DisplayPageControl.ShowFloatingFlashcard,
-                DisplayPageControl.ActiveFlashcardDeckKey);
+                DisplayPageControl.ActiveFlashcardDeckKey,
+                DisplayPageControl.LaunchAtWindowsSignIn);
         var result = _draft.Save();
         ShowResult(result);
         if (result.IsValid)
@@ -319,7 +331,8 @@ public partial class SettingsWindow : Window
                 _draft.Settings.ShowVocabularyCards,
                 _draft.Settings.ShowFloatingFlashcard,
                 _draft.Settings.ActiveFlashcardDeckKey,
-                FlashcardDeckProjection.GetDeckSummaries(_draft.Settings));
+                FlashcardDeckProjection.GetDeckSummaries(_draft.Settings),
+                _draft.Settings.LaunchAtWindowsSignIn);
             ReviewPageControl?.LoadData(new ReviewViewModel(_draft.Settings));
             GeminiPageControl?.LoadState(_apiKeyConfigured);
             FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged, _explainer);

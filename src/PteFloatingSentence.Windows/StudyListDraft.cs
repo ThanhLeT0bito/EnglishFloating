@@ -60,12 +60,16 @@ public sealed class StudyListDraft
         };
 
     public void SetDisplayPreferences(bool showSentence, bool showVocabulary, bool showFloatingFlashcard, string? activeDeckKey) =>
+        SetDisplayPreferences(showSentence, showVocabulary, showFloatingFlashcard, activeDeckKey, _settings.LaunchAtWindowsSignIn);
+
+    public void SetDisplayPreferences(bool showSentence, bool showVocabulary, bool showFloatingFlashcard, string? activeDeckKey, bool launchAtWindowsSignIn) =>
         _settings = _settings with
         {
             ShowSentenceOverlay = showSentence,
             ShowVocabularyCards = showVocabulary,
             ShowFloatingFlashcard = showFloatingFlashcard,
-            ActiveFlashcardDeckKey = activeDeckKey
+            ActiveFlashcardDeckKey = activeDeckKey,
+            LaunchAtWindowsSignIn = launchAtWindowsSignIn
         };
 
     public void UpdateFlashcardSettings(AppSettings settings)
@@ -87,8 +91,11 @@ public sealed class StudyListDraft
             CustomFlashcardDecks = settings.CustomFlashcardDecks,
             FlashcardProgress = settings.FlashcardProgress,
             ActiveListId = settings.ActiveListId,
+            ShowSentenceOverlay = settings.ShowSentenceOverlay,
+            ShowVocabularyCards = settings.ShowVocabularyCards,
             ShowFloatingFlashcard = settings.ShowFloatingFlashcard,
-            ActiveFlashcardDeckKey = settings.ActiveFlashcardDeckKey
+            ActiveFlashcardDeckKey = settings.ActiveFlashcardDeckKey,
+            LaunchAtWindowsSignIn = settings.LaunchAtWindowsSignIn
         };
     }
 

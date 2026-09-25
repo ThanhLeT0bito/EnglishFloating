@@ -212,6 +212,15 @@
                     </ComboBox>
                 </StackPanel>
 
+                <CheckBox x:Name="LaunchAtWindowsSignInInput"
+                          Content="Launch EnglishFloating when I sign in to Windows"
+                          Foreground="{StaticResource TextSecondaryBrush}"
+                          FontSize="13"
+                          Margin="0,0,0,16"
+                          VerticalContentAlignment="Center"
+                          Checked="OnPreferenceChanged"
+                          Unchecked="OnPreferenceChanged" />
+
                 <!-- Explanatory note -->
                 <Border Background="#1A334155" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12,10">
                     <StackPanel Orientation="Horizontal">
