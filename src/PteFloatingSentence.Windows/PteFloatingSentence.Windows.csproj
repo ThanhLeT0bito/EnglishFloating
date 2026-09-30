@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\PteFloatingSentence.Core\PteFloatingSentence.Core.csproj" />
@@ -13,5 +13,9 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>EnglishFloating</AssemblyName>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PteFloatingSentence.Windows.Tests" />
+  </ItemGroup>
 
 </Project>
