@@ -113,7 +113,8 @@ public partial class FloatingWindow : Window
         SentenceBox.IsHitTestVisible = _showVocabularyCards;
         SentenceBox.Cursor = _showVocabularyCards ? Cursors.IBeam : Cursors.Arrow;
         var sentenceVocabulary = _showVocabularyCards ? vocabulary : [];
-        var sentenceSignature = RenderSignature.Create(text, fontSize, settings.TextColor, settings.BackgroundOpacity, sentenceVocabulary);
+        var phraseBreaks = currentSentence?.PhraseBreakAfterWordIndices ?? [];
+        var sentenceSignature = RenderSignature.Create(text, fontSize, settings.TextColor, settings.BackgroundOpacity, sentenceVocabulary, phraseBreaks);
         var vocabularySignature = RenderSignature.Create(string.Empty, 0, string.Empty, 0, vocabulary);
         if (!renderContent)
         {
@@ -127,7 +128,7 @@ public partial class FloatingWindow : Window
 
         if (_renderSignature != sentenceSignature)
         {
-            RenderSentenceDocument(text, sentenceVocabulary, fontSize, foregroundBrush);
+            RenderSentenceDocument(text, sentenceVocabulary, fontSize, foregroundBrush, phraseBreaks);
             _renderSignature = sentenceSignature;
         }
 
@@ -170,7 +171,7 @@ public partial class FloatingWindow : Window
         return map;
     }
 
-    private void RenderSentenceDocument(string text, IReadOnlyList<VocabularyItem>? vocabulary, double fontSize, Brush foregroundBrush)
+    private void RenderSentenceDocument(string text, IReadOnlyList<VocabularyItem>? vocabulary, double fontSize, Brush foregroundBrush, IReadOnlyList<int> phraseBreaks)
     {
         ClearSentenceDocumentInlines();
         SentenceDocument.Blocks.Clear();
@@ -185,7 +186,7 @@ public partial class FloatingWindow : Window
 
         if (vocabulary is null || vocabulary.Count == 0)
         {
-            paragraph.Inlines.Add(new Run(text));
+            paragraph.Inlines.Add(new Run(SentencePhrasing.GetDisplayText(text, phraseBreaks)));
             SentenceDocument.Blocks.Add(paragraph);
             return;
         }
@@ -226,7 +227,7 @@ public partial class FloatingWindow : Window
         {
             if (start > cursor)
             {
-                paragraph.Inlines.Add(new Run(text.Substring(cursor, start - cursor)));
+                paragraph.Inlines.Add(new Run(SentencePhrasing.GetDisplayRange(text, cursor, start - cursor, phraseBreaks)));
             }
 
             var itemColor = colorMap.TryGetValue(item.Id, out var c) ? c : VocabularyPalette[0];
@@ -235,7 +236,7 @@ public partial class FloatingWindow : Window
             var hoverBrush = new SolidColorBrush(hoverColor);
             var hoverBackground = new SolidColorBrush(Color.FromArgb(0x33, itemColor.R, itemColor.G, itemColor.B));
 
-            var run = new Run(text.Substring(start, length))
+            var run = new Run(SentencePhrasing.GetDisplayRange(text, start, length, phraseBreaks))
             {
                 Tag = item.Id,
                 Cursor = Cursors.Hand
@@ -263,7 +264,7 @@ public partial class FloatingWindow : Window
 
         if (cursor < text.Length)
         {
-            paragraph.Inlines.Add(new Run(text.Substring(cursor)));
+            paragraph.Inlines.Add(new Run(SentencePhrasing.GetDisplayRange(text, cursor, text.Length - cursor, phraseBreaks)));
         }
 
         SentenceDocument.Blocks.Add(paragraph);
@@ -368,7 +369,7 @@ public partial class FloatingWindow : Window
             return;
 
         var trimmed = selection.Trim();
-        var cleaned = VocabularyRules.TrimPunctuation(trimmed);
+        var cleaned = VocabularyRules.NormalizePhrase(VocabularyRules.TrimPunctuation(trimmed));
 
         // Require at least 2 characters to avoid triggering on accidental single-char selections or punctuation
         if (cleaned.Length < 2)
@@ -480,6 +481,11 @@ public partial class FloatingWindow : Window
         {
             SentenceCompleted?.Invoke(this, (targetList.Id, sentenceId, completed));
         });
+
+        if (_practiceSession.IsAllSentencesCompleted && targetList.Sentences.Count > 0)
+        {
+            _practiceSession.RestartList();
+        }
 
         IsPracticeMode = true;
         SentenceBox.Visibility = Visibility.Collapsed;

@@ -1051,6 +1051,62 @@ public class WindowSurfaceTests
     }
 
     [TestMethod]
+    public void FloatingWindow_StartPractice_WhenAllSentencesAlreadyCompleted_RestartsListInsteadOfShowingCompletion()
+    {
+        Exception? threadEx = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var window = new FloatingWindow();
+                var s1 = new StudySentence(Guid.NewGuid(), "You must wear a hard hat on the construction site", IsCompleted: true);
+                var s2 = new StudySentence(Guid.NewGuid(), "Second sentence for practice here", IsCompleted: true);
+                var list = new StudyList(Guid.NewGuid(), "Completed Practice List", 10, 0, [s1, s2]);
+                var settings = AppSettings.Default with
+                {
+                    StudyLists = [list],
+                    ActiveListId = list.Id
+                };
+
+                window.ApplySettings(settings);
+                window.StartPractice();
+
+                Assert.IsTrue(window.IsPracticeMode);
+
+                var completionPanel = (System.Windows.Controls.Border)window.FindName("PracticeCompletionPanel");
+                Assert.AreEqual(System.Windows.Visibility.Collapsed, completionPanel.Visibility);
+
+                var projectionPanel = (System.Windows.Controls.WrapPanel)window.FindName("PracticeProjectionPanel");
+                var boxes = projectionPanel.Children.OfType<System.Windows.Controls.TextBox>().ToList();
+                Assert.IsTrue(boxes.Count >= 2);
+
+                // Inputs must not be read-only completed words
+                Assert.IsFalse(boxes[0].IsReadOnly);
+                Assert.IsTrue(boxes[0].Focusable);
+
+                // Other hidden boxes must have "_" placeholder rather than completed text
+                for (var i = 1; i < boxes.Count; i++)
+                {
+                    Assert.AreEqual("_", boxes[i].Text);
+                    Assert.IsFalse(boxes[i].IsReadOnly);
+                }
+            }
+            catch (Exception ex)
+            {
+                threadEx = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (threadEx is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(threadEx).Throw();
+        }
+    }
+
+    [TestMethod]
     public void FloatingWindow_ExitPractice_RestoresNormalMode()
     {
         Exception? threadEx = null;

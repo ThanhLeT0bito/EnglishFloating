@@ -132,6 +132,7 @@
                 <TextBox x:Name="SentenceInput" MinHeight="70" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
                 <StackPanel Grid.Column="1" Margin="10,0,0,0">
                     <Button x:Name="AddSentenceButton" Margin="0,0,0,8" Content="Add sentence" Click="AddSentenceButton_Click" />
+                    <Button x:Name="AddWithAiButton" Margin="0,0,0,8" Content="Add with AI" Click="AddWithAiButton_Click" />
                     <Button x:Name="UpdateSentenceButton" Margin="0,0,0,8" Style="{StaticResource SecondaryButton}" Content="Update selected" Click="UpdateSentenceButton_Click" />
                     <Button x:Name="DeleteSentenceButton" Margin="0" Style="{StaticResource DangerButton}" Content="Delete selected" Click="DeleteSentenceButton_Click" />
                 </StackPanel>

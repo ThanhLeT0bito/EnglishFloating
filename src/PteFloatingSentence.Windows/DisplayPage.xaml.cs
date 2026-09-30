@@ -16,10 +16,12 @@ public partial class DisplayPage : UserControl
     public bool ShowSentenceOverlay => ShowSentenceOverlayInput.IsChecked == true;
     public bool ShowVocabularyCards => ShowVocabularyCardsInput.IsChecked == true;
     public bool ShowFloatingFlashcard => ShowFloatingFlashcardInput.IsChecked == true;
+    public bool LaunchAtWindowsSignIn => LaunchAtWindowsSignInInput.IsChecked == true;
     public string? ActiveFlashcardDeckKey => _activeDeckKey;
 
     public event Action<bool, bool>? DisplayPreferencesChanged;
     public event Action<bool, bool, bool, string?>? FullDisplayPreferencesChanged;
+    public event Action<bool>? LaunchAtWindowsSignInChanged;
 
     public DisplayPage()
     {
@@ -31,7 +33,8 @@ public partial class DisplayPage : UserControl
         bool showVocabularyCards,
         bool showFloatingFlashcard = false,
         string? activeDeckKey = null,
-        IReadOnlyList<FlashcardDeckSummary>? availableDecks = null)
+        IReadOnlyList<FlashcardDeckSummary>? availableDecks = null,
+        bool launchAtWindowsSignIn = true)
     {
         _isRendering = true;
         try
@@ -39,6 +42,7 @@ public partial class DisplayPage : UserControl
             ShowSentenceOverlayInput.IsChecked = showSentenceOverlay;
             ShowVocabularyCardsInput.IsChecked = showVocabularyCards;
             ShowFloatingFlashcardInput.IsChecked = showFloatingFlashcard;
+            LaunchAtWindowsSignInInput.IsChecked = launchAtWindowsSignIn;
 
             _availableDecks = availableDecks ?? [];
             _activeDeckKey = activeDeckKey;
@@ -86,6 +90,7 @@ public partial class DisplayPage : UserControl
 
         DisplayPreferencesChanged?.Invoke(ShowSentenceOverlay, ShowVocabularyCards);
         FullDisplayPreferencesChanged?.Invoke(ShowSentenceOverlay, ShowVocabularyCards, ShowFloatingFlashcard, _activeDeckKey);
+        LaunchAtWindowsSignInChanged?.Invoke(LaunchAtWindowsSignIn);
     }
 
     private void FloatingDeckComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -97,6 +102,7 @@ public partial class DisplayPage : UserControl
             _activeDeckKey = item.DeckKey;
             DisplayPreferencesChanged?.Invoke(ShowSentenceOverlay, ShowVocabularyCards);
             FullDisplayPreferencesChanged?.Invoke(ShowSentenceOverlay, ShowVocabularyCards, ShowFloatingFlashcard, _activeDeckKey);
+            LaunchAtWindowsSignInChanged?.Invoke(LaunchAtWindowsSignIn);
         }
     }
 

@@ -7,6 +7,16 @@ namespace PteFloatingSentence.Core.Tests;
 public sealed class FlashcardDomainTests
 {
     [TestMethod]
+    public void SettingsUpdateMerger_UsesSubmittedStartupPreference()
+    {
+        var merged = SettingsUpdateMerger.MergeEditableFields(
+            AppSettings.Default with { LaunchAtWindowsSignIn = true },
+            AppSettings.Default with { LaunchAtWindowsSignIn = false });
+
+        Assert.IsFalse(merged.LaunchAtWindowsSignIn);
+    }
+
+    [TestMethod]
     public void StudyListProjection_MergesDuplicatePhrasesAndAggregatesSourceSentences()
     {
         var listId = Guid.NewGuid();

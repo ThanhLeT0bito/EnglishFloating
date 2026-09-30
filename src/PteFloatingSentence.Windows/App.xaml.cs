@@ -1,5 +1,6 @@
 using System.Configuration;
 using System.Data;
+using System.Security.Principal;
 using System.Windows;
 using PteFloatingSentence.Windows.Infrastructure;
 
@@ -14,11 +15,14 @@ public partial class App : System.Windows.Application
     private readonly SettingsPersistenceQueue _persistenceQueue;
     private readonly ProtectedApiKeyStore _apiKeyStore = new();
     private GeminiVocabularyExplainer? _explainer;
+    private GeminiSentencePhraser? _sentencePhraser;
     private VocabularyWorkflow? _vocabularyWorkflow;
     private Core.AppSettings _settings = Core.AppSettings.Default;
     private FloatingWindow? _floatingWindow;
     private DisplayController? _displayController;
     private SettingsWindow? _settingsWindow;
+    private readonly WindowsStartupRegistration _startupRegistration = new();
+    private SingleInstanceGuard? _singleInstanceGuard;
     private bool _isShuttingDown;
 
     public App()
@@ -28,9 +32,16 @@ public partial class App : System.Windows.Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
+        if (!SingleInstanceGuard.TryAcquire(GetSingleInstanceName(), out _singleInstanceGuard))
+        {
+            Shutdown();
+            return;
+        }
+
         base.OnStartup(e);
 
         _settings = await _settingsStore.LoadAsync();
+        ReconcileStartupRegistration();
         var displays = Core.DisplayProjection.PrimaryFirst(System.Windows.Forms.Screen.AllScreens
             .Select(screen => (
                 new Core.DisplayBounds(
@@ -43,6 +54,7 @@ public partial class App : System.Windows.Application
         _settings = _settings with { Left = position.Left, Top = position.Top };
 
         _explainer = new GeminiVocabularyExplainer(() => _apiKeyStore.Load());
+        _sentencePhraser = new GeminiSentencePhraser(() => _apiKeyStore.Load());
         _vocabularyWorkflow = new VocabularyWorkflow(_explainer, () => _settings, SaveSettings);
 
         _floatingWindow = new FloatingWindow { Left = position.Left, Top = position.Top };
@@ -160,7 +172,7 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore, _explainer);
+        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore, _explainer, _sentencePhraser);
         void OnStartPractice(object? sender, Guid listId) => _floatingWindow?.StartPractice(listId);
         _settingsWindow.StartPracticeRequested += OnStartPractice;
         _settingsWindow.Closed += (_, _) =>
@@ -192,6 +204,7 @@ public partial class App : System.Windows.Application
     private void SaveSettings(Core.AppSettings settings)
     {
         _settings = Core.SettingsUpdateMerger.MergeEditableFields(_settings, settings);
+        ReconcileStartupRegistration();
         _displayController?.Apply(_settings);
         _settingsWindow?.UpdateSettingsFromApp(_settings);
         PersistSettings();
@@ -214,7 +227,28 @@ public partial class App : System.Windows.Application
         _displayController?.Dispose();
         _vocabularyWorkflow?.Dispose();
         _explainer?.Dispose();
+        _sentencePhraser?.Dispose();
         await _persistenceQueue.FlushAsync();
         Shutdown();
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _singleInstanceGuard?.Dispose();
+        _singleInstanceGuard = null;
+        base.OnExit(e);
+    }
+
+    private void ReconcileStartupRegistration()
+    {
+        _startupRegistration.Reconcile(
+            _settings.LaunchAtWindowsSignIn,
+            Environment.ProcessPath ?? string.Empty);
+    }
+
+    private static string GetSingleInstanceName()
+    {
+        var userIdentifier = WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName;
+        return $"Local\\EnglishFloating.{userIdentifier}";
     }
 }

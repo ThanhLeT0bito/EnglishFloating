@@ -4,6 +4,7 @@ using UserControl = System.Windows.Controls.UserControl;
 using MessageBox = System.Windows.MessageBox;
 using ValidationResult = PteFloatingSentence.Core.ValidationResult;
 using PteFloatingSentence.Core;
+using PteFloatingSentence.Windows.Infrastructure;
 
 namespace PteFloatingSentence.Windows;
 
@@ -13,6 +14,7 @@ public partial class SetupPage : UserControl
     private Action<ValidationResult>? _showResult;
     private Action? _onDraftChanged;
     private bool _isRendering;
+    public ISentencePhraser? SentencePhraser { get; set; }
 
     public Func<ValidationResult>? CommitListEdits { get; set; }
     public Action<Guid>? SelectList { get; set; }
@@ -229,6 +231,31 @@ public partial class SetupPage : UserControl
 
         var result = AddSentence?.Invoke(SentenceInput.Text) ?? new ValidationResult(true, null);
         _showResult?.Invoke(result);
+    }
+
+    private void AddWithAiButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_draft is null || (CommitListEdits is not null && !CommitListEdits().IsValid)) return;
+        var validation = SentenceValidator.Validate(SentenceInput.Text);
+        if (!validation.IsValid)
+        {
+            _showResult?.Invoke(validation);
+            return;
+        }
+        if (SentencePhraser is null)
+        {
+            _showResult?.Invoke(new(false, "Gemini is unavailable. Check the API key in Settings."));
+            return;
+        }
+        var review = new SentencePhrasingReviewWindow(SentenceInput.Text, SentencePhraser) { Owner = Window.GetWindow(this) };
+        if (review.ShowDialog() != true || review.ConfirmedGroups is null) return;
+        var result = _draft.AddPhrasedSentence(review.ConfirmedGroups);
+        _showResult?.Invoke(result);
+        if (result.IsValid)
+        {
+            _onDraftChanged?.Invoke();
+            RefreshFromDraft(_draft);
+        }
     }
 
     internal void UpdateSentenceButton_Click(object sender, RoutedEventArgs e)

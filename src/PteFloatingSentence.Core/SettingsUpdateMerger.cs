@@ -15,6 +15,7 @@ public static class SettingsUpdateMerger
         ShowVocabularyCards = submitted.ShowVocabularyCards,
         ShowFloatingFlashcard = submitted.ShowFloatingFlashcard,
         ActiveFlashcardDeckKey = submitted.ActiveFlashcardDeckKey,
+        LaunchAtWindowsSignIn = submitted.LaunchAtWindowsSignIn,
         CustomFlashcardDecks = submitted.CustomFlashcardDecks,
         FlashcardProgress = FlashcardRules.NormalizeProgress(latest.FlashcardProgress.Concat(submitted.FlashcardProgress))
     };

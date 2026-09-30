@@ -22,9 +22,11 @@ public sealed record StudySentence(
     Guid Id,
     string Text,
     bool IsCompleted = false,
-    IReadOnlyList<VocabularyItem>? Vocabulary = null)
+    IReadOnlyList<VocabularyItem>? Vocabulary = null,
+    IReadOnlyList<int>? PhraseBreakAfterWordIndices = null)
 {
     public IReadOnlyList<VocabularyItem> Vocabulary { get; init; } = Vocabulary ?? [];
+    public IReadOnlyList<int> PhraseBreakAfterWordIndices { get; init; } = PhraseBreakAfterWordIndices ?? [];
 }
 
 public sealed record StudyList(
