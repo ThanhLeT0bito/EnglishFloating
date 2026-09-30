@@ -17,6 +17,9 @@ public static class SettingsUpdateMerger
         ActiveFlashcardDeckKey = submitted.ActiveFlashcardDeckKey,
         LaunchAtWindowsSignIn = submitted.LaunchAtWindowsSignIn,
         CustomFlashcardDecks = submitted.CustomFlashcardDecks,
-        FlashcardProgress = FlashcardRules.NormalizeProgress(latest.FlashcardProgress.Concat(submitted.FlashcardProgress))
+        FlashcardProgress = FlashcardRules.NormalizeProgress(latest.FlashcardProgress.Concat(submitted.FlashcardProgress)),
+        TtsVoice = submitted.TtsVoice,
+        TtsSpeed = submitted.TtsSpeed,
+        TtsMaxCacheSizeBytes = submitted.TtsMaxCacheSizeBytes
     };
 }
