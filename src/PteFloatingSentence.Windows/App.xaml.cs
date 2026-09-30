@@ -15,6 +15,7 @@ public partial class App : System.Windows.Application
     private readonly SettingsPersistenceQueue _persistenceQueue;
     private readonly ProtectedApiKeyStore _apiKeyStore = new();
     private GeminiVocabularyExplainer? _explainer;
+    private GeminiSentencePhraser? _sentencePhraser;
     private VocabularyWorkflow? _vocabularyWorkflow;
     private Core.AppSettings _settings = Core.AppSettings.Default;
     private FloatingWindow? _floatingWindow;
@@ -53,6 +54,7 @@ public partial class App : System.Windows.Application
         _settings = _settings with { Left = position.Left, Top = position.Top };
 
         _explainer = new GeminiVocabularyExplainer(() => _apiKeyStore.Load());
+        _sentencePhraser = new GeminiSentencePhraser(() => _apiKeyStore.Load());
         _vocabularyWorkflow = new VocabularyWorkflow(_explainer, () => _settings, SaveSettings);
 
         _floatingWindow = new FloatingWindow { Left = position.Left, Top = position.Top };
@@ -170,7 +172,7 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore, _explainer);
+        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore, _explainer, _sentencePhraser);
         void OnStartPractice(object? sender, Guid listId) => _floatingWindow?.StartPractice(listId);
         _settingsWindow.StartPracticeRequested += OnStartPractice;
         _settingsWindow.Closed += (_, _) =>
@@ -225,6 +227,7 @@ public partial class App : System.Windows.Application
         _displayController?.Dispose();
         _vocabularyWorkflow?.Dispose();
         _explainer?.Dispose();
+        _sentencePhraser?.Dispose();
         await _persistenceQueue.FlushAsync();
         Shutdown();
     }

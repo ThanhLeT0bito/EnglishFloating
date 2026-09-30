@@ -12,13 +12,17 @@ public readonly record struct RenderSignature(string Value)
         double fontSize,
         string textColor,
         double backgroundOpacity,
-        IReadOnlyList<VocabularyItem> vocabulary)
+        IReadOnlyList<VocabularyItem> vocabulary,
+        IReadOnlyList<int>? phraseBreakAfterWordIndices = null)
     {
         var builder = new StringBuilder(text.Length + vocabulary.Count * 80);
         builder.Append(text).Append('|')
             .Append(fontSize.ToString("R", CultureInfo.InvariantCulture)).Append('|')
             .Append(textColor).Append('|')
             .Append(backgroundOpacity.ToString("R", CultureInfo.InvariantCulture));
+
+        if (phraseBreakAfterWordIndices is { Count: > 0 })
+            builder.Append("|phrasing:").AppendJoin(',', phraseBreakAfterWordIndices);
 
         foreach (var item in vocabulary)
         {

@@ -13,6 +13,77 @@ namespace PteFloatingSentence.Windows.Tests;
 public class SettingsWorkflowTests
 {
     [TestMethod]
+    public void FloatingSentence_WideGapKeepsVocabularyHighlightAndSelectionCanonical()
+    {
+        RunOnSta(() =>
+        {
+            var vocabulary = VocabularyRules.CreatePending("gym after");
+            var sentence = new StudySentence(Guid.NewGuid(), "Go to the gym after work.", Vocabulary: [vocabulary], PhraseBreakAfterWordIndices: [4]);
+            var list = new StudyList(Guid.NewGuid(), "Groups", 10, 0, [sentence]);
+            var window = new FloatingWindow();
+            try
+            {
+                window.ApplySettings(new AppSettings { StudyLists = [list], ActiveListId = list.Id });
+                var box = (RichTextBox)window.FindName("SentenceBox");
+                var paragraph = (System.Windows.Documents.Paragraph)box.Document.Blocks.FirstBlock;
+                var span = paragraph.Inlines.OfType<System.Windows.Documents.Span>().Single();
+                Assert.AreEqual("gym\u2003\u2003after", new System.Windows.Documents.TextRange(span.ContentStart, span.ContentEnd).Text);
+                string? selected = null;
+                window.VocabularySelected += (_, text) => selected = text;
+                box.Selection.Select(paragraph.ContentStart, paragraph.ContentEnd);
+                typeof(FloatingWindow).GetMethod("HandleSelection", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, null);
+                Assert.AreEqual("Go to the gym after work", selected);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [TestMethod]
+    public void RenderSignature_DifferentPhraseBoundariesRequireRedraw()
+    {
+        var first = RenderSignature.Create("One two three", 20, "white", 0.5, [], [1]);
+        var second = RenderSignature.Create("One two three", 20, "white", 0.5, [], [2]);
+        Assert.AreNotEqual(first, second);
+    }
+
+    [TestMethod]
+    public void SentencePhrasingReview_LoadDoesNotConfirm_AndConfirmationUsesEditedGroups()
+    {
+        RunOnSta(() =>
+        {
+            var window = new SentencePhrasingReviewWindow("I go after werk.", new FakeSentencePhraser());
+            try
+            {
+                window.LoadProposalAsync().GetAwaiter().GetResult();
+                Assert.IsNull(window.ConfirmedGroups);
+                var input = (TextBox)window.FindName("GroupsInput");
+                input.Text = "I go\nafter work.";
+                Assert.IsTrue(window.TryConfirm());
+                Assert.AreEqual("I go\nafter work.", window.ConfirmedGroups);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [TestMethod]
+    public void SentencePhrasingReview_CloseWithoutConfirm_DiscardsProposal()
+    {
+        RunOnSta(() =>
+        {
+            var window = new SentencePhrasingReviewWindow("I go after werk.", new FakeSentencePhraser());
+            window.LoadProposalAsync().GetAwaiter().GetResult();
+            window.Close();
+            Assert.IsNull(window.ConfirmedGroups);
+        });
+    }
+
+    private sealed class FakeSentencePhraser : ISentencePhraser
+    {
+        public Task<IReadOnlyList<string>> SuggestAsync(string sentence, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<string>>(["I go", "after work."]);
+    }
+
+    [TestMethod]
     public void StudyListDraft_AddPhrasedSentence_StoresBreaksAndManualUpdateClearsThem()
     {
         var draft = new StudyListDraft(AppSettings.Default, _ => { });

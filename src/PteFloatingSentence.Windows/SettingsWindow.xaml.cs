@@ -106,7 +106,7 @@ public partial class SettingsWindow : Window
         };
     }
 
-    public SettingsWindow(AppSettings initial, Action<AppSettings> save, ProtectedApiKeyStore? apiKeyStore = null, IVocabularyExplainer? explainer = null)
+    public SettingsWindow(AppSettings initial, Action<AppSettings> save, ProtectedApiKeyStore? apiKeyStore = null, IVocabularyExplainer? explainer = null, ISentencePhraser? sentencePhraser = null)
     {
         InitializeComponent();
         _draft = new StudyListDraft(initial, save);
@@ -115,6 +115,7 @@ public partial class SettingsWindow : Window
         _apiKeyConfigured = initial.GeminiApiKeyConfigured;
         _setupPageStartPracticeHandler = OnSetupPageStartPracticeRequested;
         SetupPageControl.Initialize(_draft, ShowResult, () => RefreshUi());
+        SetupPageControl.SentencePhraser = sentencePhraser;
         SetupPageControl.StartPracticeRequested += _setupPageStartPracticeHandler;
         DisplayPageControl.LoadPreferences(
             _draft.Settings.ShowSentenceOverlay,
