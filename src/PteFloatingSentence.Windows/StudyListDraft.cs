@@ -127,6 +127,19 @@ public sealed class StudyListDraft
         return new(true, null);
     }
 
+    public ValidationResult AddPhrasedSentence(string groups)
+    {
+        var proposal = SentencePhrasing.ParseGroups(groups);
+        if (!proposal.Validation.IsValid)
+            return proposal.Validation;
+
+        var sentence = new StudySentence(Guid.NewGuid(), proposal.Text,
+            PhraseBreakAfterWordIndices: proposal.BreakAfterWordIndices);
+        ReplaceSelectedList(SelectedList with { Sentences = SelectedList.Sentences.Append(sentence).ToList() });
+        SelectSentence(sentence.Id);
+        return new(true, null);
+    }
+
     public ValidationResult UpdateSelectedSentence(string text)
     {
         if (SelectedSentenceId is not Guid sentenceId)
@@ -137,7 +150,7 @@ public sealed class StudyListDraft
             return validation;
 
         var sentences = SelectedList.Sentences
-            .Select(sentence => sentence.Id == sentenceId ? sentence with { Text = text.Trim() } : sentence)
+            .Select(sentence => sentence.Id == sentenceId ? sentence with { Text = text.Trim(), PhraseBreakAfterWordIndices = [] } : sentence)
             .ToList();
         ReplaceSelectedList(SelectedList with { Sentences = sentences });
         return new(true, null);

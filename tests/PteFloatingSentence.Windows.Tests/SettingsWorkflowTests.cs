@@ -13,6 +13,21 @@ namespace PteFloatingSentence.Windows.Tests;
 public class SettingsWorkflowTests
 {
     [TestMethod]
+    public void StudyListDraft_AddPhrasedSentence_StoresBreaksAndManualUpdateClearsThem()
+    {
+        var draft = new StudyListDraft(AppSettings.Default, _ => { });
+
+        var add = draft.AddPhrasedSentence("I usually go to the gym\nafter work\nwith my friends.");
+
+        Assert.IsTrue(add.IsValid);
+        var sentence = draft.SelectedList.Sentences.Last();
+        CollectionAssert.AreEqual(new[] { 6, 8 }, sentence.PhraseBreakAfterWordIndices.ToArray());
+        var update = draft.UpdateSelectedSentence("I usually go to the gym after work with my friends.");
+        Assert.IsTrue(update.IsValid);
+        Assert.AreEqual(0, draft.SelectedList.Sentences.Last().PhraseBreakAfterWordIndices.Count);
+    }
+
+    [TestMethod]
     public void StudyListDraft_CreateList_UsesUniqueIdAndDefaultTarget()
     {
         var settings = AppSettings.Default;

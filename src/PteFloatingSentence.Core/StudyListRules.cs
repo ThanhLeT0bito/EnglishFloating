@@ -130,7 +130,8 @@ public static class StudyListRules
             {
                 Id = RepairId(sentence.Id, sentenceIds),
                 Text = NormalizeSentence(sentence.Text),
-                Vocabulary = NormalizeVocabulary(sentence.Vocabulary)
+                Vocabulary = NormalizeVocabulary(sentence.Vocabulary),
+                PhraseBreakAfterWordIndices = SentencePhrasing.NormalizeBreaks(NormalizeSentence(sentence.Text), sentence.PhraseBreakAfterWordIndices)
             })
             .ToList();
         var currentSentenceIndex = sentences.Count == 0
