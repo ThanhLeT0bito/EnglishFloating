@@ -78,6 +78,44 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="AudioButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="#FF9CA3AF" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Content" Value="&#xE767;" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Border"
+                                CornerRadius="4"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#33334155" />
+                                <Setter Property="Foreground" Value="#FFFFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#FF1E293B" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Border" Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
     <Grid Background="#01000000">
         <Grid.RowDefinitions>
@@ -141,7 +179,14 @@
                             </RichTextBox.Resources>
                             <FlowDocument x:Name="SentenceDocument" TextAlignment="Center" PagePadding="0" />
                         </RichTextBox>
-                        <TextBlock x:Name="ProgressText" Margin="0,6,0,0" HorizontalAlignment="Center" Foreground="#FF9CA3AF" FontSize="12" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,6,0,0">
+                            <TextBlock x:Name="ProgressText" VerticalAlignment="Center" Foreground="#FF9CA3AF" FontSize="12" />
+                            <Button x:Name="AudioButton"
+                                    Style="{StaticResource AudioButtonStyle}"
+                                    Margin="6,0,0,0"
+                                    ToolTip="Play audio (TTS)"
+                                    Click="AudioButton_Click" />
+                        </StackPanel>
                     </StackPanel>
 
                     <!-- Practice mode view -->
