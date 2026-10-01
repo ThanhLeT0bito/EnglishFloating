@@ -91,6 +91,24 @@ public sealed class StudyListRulesTests
     }
 
     [TestMethod]
+    public void ValidateList_PreviouslyStoredPunctuationOnlySentence_ReturnsValid()
+    {
+        var result = StudyListRules.ValidateList(CreateList("Legacy", sentences: [Sentence("!!!")]));
+
+        Assert.IsTrue(result.IsValid);
+    }
+
+    [TestMethod]
+    public void ValidateList_TwentyOneWords_ReturnsWordLimitError()
+    {
+        var text = string.Join(' ', Enumerable.Repeat("word", 21));
+        var result = StudyListRules.ValidateList(CreateList("Practice", sentences: [Sentence(text)]));
+
+        Assert.IsFalse(result.IsValid);
+        Assert.AreEqual("Use 20 words or fewer.", result.Error);
+    }
+
+    [TestMethod]
     public void Normalize_RepairsMissingAndDuplicateIds()
     {
         var duplicateId = Guid.NewGuid();

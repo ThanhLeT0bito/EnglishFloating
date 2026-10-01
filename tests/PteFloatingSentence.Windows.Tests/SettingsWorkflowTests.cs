@@ -154,6 +154,24 @@ public class SettingsWorkflowTests
     }
 
     [TestMethod]
+    public void StudyListDraft_SaveUnrelatedChange_PreservesPreviouslyStoredPunctuationOnlySentence()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "!!!");
+        var list = new StudyList(Guid.NewGuid(), "Legacy", 10, 0, [sentence]);
+        var initial = new AppSettings { Sentence = "!!!", ActiveListId = list.Id, StudyLists = [list] };
+        AppSettings? saved = null;
+        var draft = new StudyListDraft(initial, settings => saved = settings);
+        draft.SetPracticeMode(PracticeMode.ListenAndWrite);
+
+        var result = draft.Save();
+
+        Assert.IsTrue(result.IsValid);
+        Assert.IsNotNull(saved);
+        Assert.AreEqual(PracticeMode.ListenAndWrite, saved.PracticeMode);
+        Assert.AreEqual("!!!", saved.StudyLists.Single().Sentences.Single().Text);
+    }
+
+    [TestMethod]
     public void StudyListDraft_SelectSentence_OnlyChangesSelectedListsCurrentIndex()
     {
         var first = new StudyList(Guid.NewGuid(), "First", 10, 0,

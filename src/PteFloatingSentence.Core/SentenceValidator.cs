@@ -9,6 +9,14 @@ public static class SentenceValidator
         if (string.IsNullOrWhiteSpace(sentence) || !sentence.Any(char.IsLetterOrDigit))
             return new(false, "Enter a sentence.");
 
+        return ValidateStored(sentence);
+    }
+
+    public static ValidationResult ValidateStored(string? sentence)
+    {
+        if (string.IsNullOrWhiteSpace(sentence))
+            return new(false, "Enter a sentence.");
+
         var words = sentence.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
         return words.Length <= 20
             ? new(true, null)

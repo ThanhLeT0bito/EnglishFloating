@@ -102,7 +102,7 @@ public static class StudyListRules
 
         foreach (var sentence in list.Sentences)
         {
-            var result = SentenceValidator.Validate(sentence.Text);
+            var result = SentenceValidator.ValidateStored(sentence.Text);
             if (!result.IsValid)
                 return result;
         }
@@ -198,10 +198,6 @@ public static class StudyListRules
     public static string NormalizeSentence(string? sentence)
     {
         var text = sentence?.Trim() ?? string.Empty;
-        if (text.Length == 0)
-            return DefaultSentence;
-
-        var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-        return words.Length <= 20 ? text : DefaultSentence;
+        return SentenceValidator.ValidateStored(text).IsValid ? text : DefaultSentence;
     }
 }
