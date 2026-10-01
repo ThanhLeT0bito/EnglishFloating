@@ -81,13 +81,14 @@
         </Style>
 
         <Style TargetType="TextBox">
-            <Setter Property="Padding" Value="7,4" />
+            <Setter Property="Padding" Value="8,4" />
             <Setter Property="Background" Value="#FF1E293B" />
             <Setter Property="Foreground" Value="#FFF8FAFC" />
             <Setter Property="BorderBrush" Value="{StaticResource InputBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CaretBrush" Value="#FFF8FAFC" />
             <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
@@ -97,7 +98,11 @@
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="5"
                                 Padding="{TemplateBinding Padding}">
-                            <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" />
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Focusable="False"
+                                          VerticalAlignment="Center"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Hidden" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -190,7 +195,6 @@
                 <ListBox x:Name="StudyListList"
                          Grid.Row="1"
                          MinHeight="100"
-                         MaxHeight="260"
                          SelectionChanged="StudyListList_SelectionChanged" />
 
                 <Button x:Name="NewListButton"
@@ -219,14 +223,14 @@
                 </Grid.RowDefinitions>
 
                 <!-- Row 0: List Header Actions -->
-                <Grid Grid.Row="0" Margin="0,0,0,8">
+                <Grid Grid.Row="0" Margin="0,0,0,10">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="List editor" />
-                        <TextBlock x:Name="ActiveListLabel" FontSize="11" Margin="0,1,0,0" Foreground="{StaticResource TextMutedBrush}" />
+                        <TextBlock x:Name="ActiveListLabel" FontSize="11" Margin="0,2,0,0" Foreground="{StaticResource TextMutedBrush}" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button x:Name="StartPracticeButton" Style="{StaticResource SuccessButton}" Content="▶  Start practice" Click="StartPracticeButton_Click" />
@@ -236,29 +240,29 @@
                 </Grid>
 
                 <!-- Row 1: List Name and Target (Compact Inline) -->
-                <Grid Grid.Row="1" Margin="0,0,0,8">
+                <Grid Grid.Row="1" Margin="0,0,0,10">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="70" />
+                        <ColumnDefinition Width="65" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Text="List name:" />
-                    <TextBox x:Name="ListNameInput" Grid.Column="1" Margin="0,0,12,0" Height="26" />
-                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Text="Target:" />
-                    <TextBox x:Name="TargetInput" Grid.Column="3" Height="26" />
+                    <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Text="List name:" />
+                    <TextBox x:Name="ListNameInput" Grid.Column="1" Margin="0,0,14,0" Height="30" VerticalContentAlignment="Center" Padding="8,4" />
+                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Text="Target:" />
+                    <TextBox x:Name="TargetInput" Grid.Column="3" Height="30" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Padding="6,4" />
                 </Grid>
 
                 <!-- Row 2: Sentences Header -->
-                <Grid Grid.Row="2" Margin="0,0,0,4">
+                <Grid Grid.Row="2" Margin="0,0,0,6">
                     <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Sentences (in order)" />
                 </Grid>
 
-                <!-- Row 3: Sentence List (Scroll inside here) -->
+                <!-- Row 3: Sentence List (Fills the space seamlessly down to the add box) -->
                 <ListBox x:Name="SentenceList"
                          Grid.Row="3"
-                         MinHeight="100"
-                         MaxHeight="200"
+                         MinHeight="120"
+                         VerticalAlignment="Stretch"
                          SelectionChanged="SentenceList_SelectionChanged" />
 
                 <!-- Row 4: Compact Sentence Editor & Add Form -->
@@ -272,11 +276,13 @@
                         <!-- Sentence Input Textbox -->
                         <TextBox x:Name="SentenceInput"
                                  Grid.Row="0"
-                                 MinHeight="34"
-                                 MaxHeight="50"
+                                 MinHeight="36"
+                                 MaxHeight="56"
                                  AcceptsReturn="True"
                                  TextWrapping="Wrap"
-                                 VerticalScrollBarVisibility="Auto" />
+                                 VerticalScrollBarVisibility="Auto"
+                                 VerticalContentAlignment="Top"
+                                 Padding="8,5" />
 
                         <!-- Action Toolbar underneath input -->
                         <Grid Grid.Row="1" Margin="0,6,0,0">
