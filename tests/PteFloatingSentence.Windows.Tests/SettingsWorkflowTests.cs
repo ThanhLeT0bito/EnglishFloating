@@ -991,6 +991,23 @@ public class SettingsWorkflowTests
     }
 
     [TestMethod]
+    public void DisplayPage_CanSelectRandomVoice_AndAppliesSettings()
+    {
+        RunOnSta(() =>
+        {
+            var page = new DisplayPage();
+            page.LoadSettings(AppSettings.Default);
+
+            var voiceCombo = (ComboBox)page.FindName("VoiceAccentComboBox");
+            voiceCombo.SelectedValue = "random";
+
+            Assert.AreEqual("random", page.TtsVoice);
+            var updated = page.ApplySettings(AppSettings.Default);
+            Assert.AreEqual("random", updated.TtsVoice);
+        });
+    }
+
+    [TestMethod]
     public void DisplayPage_ClearAudioCache_CallsClearCacheAndRefreshesLabel()
     {
         RunOnSta(() =>

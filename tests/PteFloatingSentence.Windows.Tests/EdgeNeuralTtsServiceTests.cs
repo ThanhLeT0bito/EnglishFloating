@@ -41,6 +41,30 @@ public class EdgeNeuralTtsServiceTests
         ssmlEmpty.Should().Contain("<voice name='en-US-JennyNeural'>");
     }
 
+    [Fact]
+    public void ResolveVoice_WhenRandom_PicksOneFromAvailableVoices()
+    {
+        var resolved = EdgeNeuralTtsService.ResolveVoice("random");
+        EdgeNeuralTtsService.AvailableVoices.Should().Contain(resolved);
+
+        var resolvedUpper = EdgeNeuralTtsService.ResolveVoice("RANDOM");
+        EdgeNeuralTtsService.AvailableVoices.Should().Contain(resolvedUpper);
+    }
+
+    [Fact]
+    public void ResolveVoice_WhenSpecificVoice_ReturnsTrimmedVoice()
+    {
+        EdgeNeuralTtsService.ResolveVoice("  en-AU-NatashaNeural  ").Should().Be("en-AU-NatashaNeural");
+        EdgeNeuralTtsService.ResolveVoice(null).Should().Be(EdgeNeuralTtsService.DefaultVoice);
+    }
+
+    [Fact]
+    public void BuildSsml_WhenRandomVoice_GeneratesValidSsmlWithOneOfAvailableVoices()
+    {
+        var ssml = EdgeNeuralTtsService.BuildSsml("Random speaker test", "random", 1.0);
+        EdgeNeuralTtsService.AvailableVoices.Should().Contain(v => ssml.Contains($"<voice name='{v}'>"));
+    }
+
     [Theory]
     [InlineData(1.0, "+0%")]
     [InlineData(1.1, "+10%")]

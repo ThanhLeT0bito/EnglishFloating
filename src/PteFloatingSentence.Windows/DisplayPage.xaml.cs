@@ -21,6 +21,7 @@ public partial class DisplayPage : UserControl
 {
     public static readonly IReadOnlyList<VoiceOption> AvailableVoices =
     [
+        new("random", "🎲 Random (Shuffle voices & accents)"),
         new("en-US-JennyNeural", "US - Jenny - Female"),
         new("en-US-GuyNeural", "US - Guy - Male"),
         new("en-AU-NatashaNeural", "AU - Natasha - Female - PTE"),
@@ -218,7 +219,8 @@ public partial class DisplayPage : UserControl
             }
             if (VoiceAccentComboBox.Items.Count > 0)
             {
-                VoiceAccentComboBox.SelectedIndex = 0;
+                var defaultIdx = AvailableVoices.ToList().FindIndex(v => v.VoiceId == "en-US-JennyNeural");
+                VoiceAccentComboBox.SelectedIndex = defaultIdx >= 0 ? defaultIdx : 0;
             }
         }
     }

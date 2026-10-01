@@ -37,6 +37,7 @@ public sealed class SentenceAudioPlayback : ISentenceAudioPlayback
 
     public async Task ToggleAsync(string text, string voice, double speed)
     {
+        var resolvedVoice = EdgeNeuralTtsService.ResolveVoice(voice);
         CancellationTokenSource request;
         long generation;
         lock (_gate)
@@ -57,13 +58,13 @@ public sealed class SentenceAudioPlayback : ISentenceAudioPlayback
         try
         {
             string path;
-            if (!_cache.TryGetCachedAudio(text, voice, speed, out path))
+            if (!_cache.TryGetCachedAudio(text, resolvedVoice, speed, out path))
             {
-                using var audio = await _tts.SynthesizeSpeechAsync(text, voice, speed, request.Token);
+                using var audio = await _tts.SynthesizeSpeechAsync(text, resolvedVoice, speed, request.Token);
                 request.Token.ThrowIfCancellationRequested();
-                await _cache.SaveAudioAsync(text, voice, speed, audio, request.Token);
+                await _cache.SaveAudioAsync(text, resolvedVoice, speed, audio, request.Token);
                 request.Token.ThrowIfCancellationRequested();
-                path = _cache.GetCacheFilePath(text, voice, speed);
+                path = _cache.GetCacheFilePath(text, resolvedVoice, speed);
             }
 
             Task playback;
