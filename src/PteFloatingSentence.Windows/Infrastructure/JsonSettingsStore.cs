@@ -88,7 +88,7 @@ public sealed class JsonSettingsStore
         var defaults = AppSettings.Default;
         return settings with
         {
-            Sentence = SentenceValidator.Validate(settings.Sentence).IsValid ? settings.Sentence : defaults.Sentence,
+            Sentence = StudyListRules.NormalizeSentence(settings.Sentence),
             FontSize = settings.FontSize is >= 12 and <= 96 ? settings.FontSize : defaults.FontSize,
             BackgroundOpacity = settings.BackgroundOpacity is >= 0 and <= 1 ? settings.BackgroundOpacity : defaults.BackgroundOpacity,
             TextColor = settings.TextColor is not null && ColorPattern.IsMatch(settings.TextColor)

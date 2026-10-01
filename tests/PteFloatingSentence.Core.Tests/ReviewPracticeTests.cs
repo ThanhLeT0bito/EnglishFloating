@@ -106,6 +106,18 @@ public class ReviewPracticeTests
     }
 
     [TestMethod]
+    public void CheckAnswer_QuotedFinalWord_AcceptsPlainWord()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "!!! “Hello”");
+        var review = ReviewPracticeRules.CreateProjection(sentence, seed: 7);
+
+        var result = ReviewPracticeRules.CheckAnswer(review, 0, "hello");
+
+        Assert.IsTrue(result.IsCorrect);
+        Assert.IsTrue(result.IsComplete);
+    }
+
+    [TestMethod]
     public void CreateProjection_ThreeWordSentence_HidesOneWordNotLast()
     {
         var sentence = new StudySentence(Guid.NewGuid(), "One two three.");

@@ -195,9 +195,13 @@ public static class StudyListRules
         return id;
     }
 
-    private static string NormalizeSentence(string? sentence)
+    public static string NormalizeSentence(string? sentence)
     {
         var text = sentence?.Trim() ?? string.Empty;
-        return SentenceValidator.Validate(text).IsValid ? text : DefaultSentence;
+        if (text.Length == 0)
+            return DefaultSentence;
+
+        var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        return words.Length <= 20 ? text : DefaultSentence;
     }
 }

@@ -52,6 +52,17 @@ public sealed class StudyListRulesTests
     }
 
     [TestMethod]
+    public void Normalize_PreservesPreviouslySavedPunctuationOnlySentence()
+    {
+        var list = CreateList("Legacy", sentences: [Sentence("!!!")]);
+        var settings = new AppSettings { Sentence = "!!!", StudyLists = [list], ActiveListId = list.Id };
+
+        var normalized = StudyListRules.Normalize(settings);
+
+        Assert.AreEqual("!!!", normalized.StudyLists.Single().Sentences.Single().Text);
+    }
+
+    [TestMethod]
     public void MoveCurrentSentence_EmptyActiveList_ReturnsUnchangedSettings()
     {
         var emptyList = CreateList("Empty", currentSentenceIndex: 0, sentences: []);

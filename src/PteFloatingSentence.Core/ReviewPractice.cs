@@ -23,10 +23,6 @@ public sealed record ReviewAnswerResult(
 
 public static class ReviewPracticeRules
 {
-    private static readonly char[] TrimPunctuationChars = [
-        '.', ',', '!', '?', ';', ':', '"', '\'', '(', ')', '[', ']', '{', '}', '-', '—'
-    ];
-
     public static bool IsCorrectDictation(string expected, string? answer)
     {
         static string Normalize(string? text) => string.Join(" ",
@@ -96,8 +92,8 @@ public static class ReviewPracticeRules
         var tokenIndex = review.HiddenTokenIndexes[hiddenPosition];
         var expectedToken = review.Tokens[tokenIndex];
 
-        var normalizedExpected = expectedToken.SourceText.Trim().Trim(TrimPunctuationChars);
-        var normalizedActual = (answer ?? string.Empty).Trim().Trim(TrimPunctuationChars);
+        var normalizedExpected = TrimOuterPunctuation(expectedToken.SourceText.Trim());
+        var normalizedActual = TrimOuterPunctuation((answer ?? string.Empty).Trim());
 
         if (string.Equals(normalizedExpected, normalizedActual, StringComparison.OrdinalIgnoreCase))
         {

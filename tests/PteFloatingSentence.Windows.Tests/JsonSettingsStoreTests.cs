@@ -67,6 +67,36 @@ public class JsonSettingsStoreTests
     }
 
     [TestMethod]
+    public async Task LoadAndSaveAsync_PreservesPreviouslySavedPunctuationOnlyVersion2Sentence()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        await File.WriteAllTextAsync(path, """
+            {
+              "Version": 2,
+              "Sentence": "!!!",
+              "StudyLists": [{
+                "Id": "11111111-1111-1111-1111-111111111111",
+                "Name": "Legacy",
+                "TargetSentenceCount": 1,
+                "CurrentSentenceIndex": 0,
+                "Sentences": [{"Id": "22222222-2222-2222-2222-222222222222", "Text": "!!!"}]
+              }],
+              "ActiveListId": "11111111-1111-1111-1111-111111111111"
+            }
+            """);
+
+        var loaded = await store.LoadAsync();
+        Assert.AreEqual("!!!", loaded.Sentence);
+        Assert.AreEqual("!!!", loaded.StudyLists.Single().Sentences.Single().Text);
+
+        await store.SaveAsync(loaded);
+        var reloaded = await store.LoadAsync();
+        Assert.AreEqual("!!!", reloaded.Sentence);
+        Assert.AreEqual("!!!", reloaded.StudyLists.Single().Sentences.Single().Text);
+    }
+
+    [TestMethod]
     public async Task LoadAsync_ReturnsDefaults_WhenFileContainsInvalidJson()
     {
         var path = CreateSettingsPath();

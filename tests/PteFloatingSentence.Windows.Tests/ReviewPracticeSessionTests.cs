@@ -103,6 +103,19 @@ public class ReviewPracticeSessionTests
     }
 
     [TestMethod]
+    public void Submit_QuotedFinalWord_CompletesAfterPlainAnswer()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "!!! “Hello”");
+        var list = new StudyList(Guid.NewGuid(), "Test List", 10, 0, [sentence]);
+        var session = new ReviewPracticeSession(list, seed: 7);
+
+        var result = session.Submit("hello");
+
+        Assert.IsTrue(result.IsCorrect);
+        Assert.IsTrue(session.IsAllSentencesCompleted);
+    }
+
+    [TestMethod]
     public void Submit_AfterCorrectDictation_DoesNotCompleteAgain()
     {
         var sentence = new StudySentence(Guid.NewGuid(), "Alpha beta gamma.");
