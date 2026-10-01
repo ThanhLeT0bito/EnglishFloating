@@ -14,6 +14,42 @@ namespace PteFloatingSentence.Windows.Tests;
 
 public class FloatingAudioWorkflowTests
 {
+    [Theory]
+    [InlineData(PracticeMode.TextHints)]
+    [InlineData(PracticeMode.ListenAndWrite)]
+    public void PracticeSpeaker_UsesSharedPlayback_AndModeListExitStopIt(PracticeMode mode)
+    {
+        RunOnSta(() =>
+        {
+            var player = new FakeAudioPlayer();
+            var cache = new FakeAudioCacheManager();
+            cache.CachedFiles["cached.mp3"] = "audio";
+            var settings = CreateTwoSentenceSettings() with { PracticeMode = mode };
+            var window = new FloatingWindow(player, new FakeTtsService(), cache);
+            window.ApplySettings(settings);
+            window.StartPractice();
+            var panel = (PracticePanel)window.FindName("FloatingPracticePanel");
+            var speaker = (Button)panel.FindName("PracticeAudioButton");
+            speaker.Visibility.Should().Be(Visibility.Visible);
+            speaker.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            player.IsPlaying.Should().BeTrue();
+            var changed = settings with { PracticeMode = mode == PracticeMode.TextHints ? PracticeMode.ListenAndWrite : PracticeMode.TextHints };
+            window.ApplySettings(changed);
+            player.IsPlaying.Should().BeFalse();
+            speaker.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            player.IsPlaying.Should().BeTrue();
+            window.StartPractice(settings.ActiveListId);
+            player.IsPlaying.Should().BeFalse();
+            speaker.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            window.ExitPractice();
+            player.IsPlaying.Should().BeFalse();
+            ((Button)window.FindName("AudioButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            player.IsPlaying.Should().BeTrue();
+            window.Close();
+            player.IsPlaying.Should().BeFalse();
+        });
+    }
+
     [Fact]
     public void NavigatingToNextSentence_StopsActiveAudioPlayback()
     {

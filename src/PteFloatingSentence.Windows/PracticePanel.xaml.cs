@@ -53,6 +53,15 @@ public partial class PracticePanel : UserControl
         Render();
     }
 
+    public void Clear()
+    {
+        DetachAudio();
+        ResetInteraction();
+        _audio = null;
+        _session = null;
+        Render();
+    }
+
     public void UpdateMode(PracticeMode mode)
     {
         _settings = _settings with { PracticeMode = mode };
@@ -156,6 +165,7 @@ public partial class PracticePanel : UserControl
         if (PracticeRoot is null) return;
         PracticeRoot.Margin = new Thickness(Compact ? 6 : 16);
         FontSize = Compact ? 14 : 16;
+        PracticePreviousButton.Visibility = PracticeNextButton.Visibility = Compact ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private async void PracticeAudioButton_Click(object sender, RoutedEventArgs e)
@@ -225,7 +235,9 @@ public partial class PracticePanel : UserControl
         SentenceChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private void Previous_Click(object sender, RoutedEventArgs e) => Navigate(s => s.MovePreviousSentence());
-    private void Next_Click(object sender, RoutedEventArgs e) => Navigate(s => s.MoveNextSentence());
+    public void MovePreviousSentence() => Navigate(s => s.MovePreviousSentence());
+    public void MoveNextSentence() => Navigate(s => s.MoveNextSentence());
+    private void Previous_Click(object sender, RoutedEventArgs e) => MovePreviousSentence();
+    private void Next_Click(object sender, RoutedEventArgs e) => MoveNextSentence();
     private void Restart_Click(object sender, RoutedEventArgs e) => Navigate(s => s.RestartList());
 }

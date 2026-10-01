@@ -4,13 +4,8 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using Brush = System.Windows.Media.Brush;
-using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
 using Cursors = System.Windows.Input.Cursors;
-using KeyEventArgs = System.Windows.Input.KeyEventArgs;
-using KeyEventHandler = System.Windows.Input.KeyEventHandler;
-using TextBox = System.Windows.Controls.TextBox;
-using UserControl = System.Windows.Controls.UserControl;
 using PteFloatingSentence.Core;
 using PteFloatingSentence.Windows.Infrastructure;
 
@@ -24,10 +19,6 @@ public partial class FloatingWindow : Window
     private string? _currentSentenceText;
     private ReviewPracticeSession? _practiceSession;
     private AppSettings _settings = AppSettings.Default;
-    private readonly KeyEventHandler _practiceKeyDownHandler;
-    private readonly RoutedEventHandler _practiceGotFocusHandler;
-    private readonly RoutedEventHandler _practiceLostFocusHandler;
-    private bool _practiceHandlersAttached;
 
     private IAudioPlayer _audioPlayer;
     private ITtsService _ttsService;
@@ -96,9 +87,6 @@ public partial class FloatingWindow : Window
         _audioPlayback = CreateAudioPlayback();
 
         InitializeComponent();
-        _practiceKeyDownHandler = PracticeProjectionPanel_KeyDown;
-        _practiceGotFocusHandler = PracticeProjectionPanel_GotFocus;
-        _practiceLostFocusHandler = PracticeProjectionPanel_LostFocus;
         IsVisibleChanged += FloatingWindow_IsVisibleChanged;
     }
 
@@ -137,6 +125,8 @@ public partial class FloatingWindow : Window
 
     public void ApplySettings(AppSettings settings, bool renderContent)
     {
+        var practicePreferencesChanged = _settings.PracticeMode != settings.PracticeMode ||
+            _settings.TtsVoice != settings.TtsVoice || _settings.TtsSpeed != settings.TtsSpeed;
         _settings = settings;
         var defaults = AppSettings.Default;
         var activeList = StudyListRules.ActiveList(settings);
@@ -176,6 +166,13 @@ public partial class FloatingWindow : Window
 
         if (IsPracticeMode)
         {
+            if (_practiceSession is not null)
+            {
+                _hasMultipleSentences = _practiceSession.List.Sentences.Count > 1;
+                PreviousButton.IsEnabled = NextButton.IsEnabled = _hasMultipleSentences;
+                UpdateNavigationVisibility(isPointerOver: IsMouseOver);
+                if (practicePreferencesChanged) FloatingPracticePanel.Load(_practiceSession, settings, _audioPlayback);
+            }
             SentenceBox.Visibility = Visibility.Collapsed;
             NormalSentenceContainer.Visibility = Visibility.Collapsed;
             PracticeContainer.Visibility = Visibility.Visible;
@@ -584,8 +581,7 @@ public partial class FloatingWindow : Window
         NextButton.IsEnabled = _hasMultipleSentences;
         UpdateNavigationVisibility(isPointerOver: IsMouseOver);
 
-        AttachPracticeEventHandlers();
-        UpdatePracticeUI();
+        FloatingPracticePanel.Load(_practiceSession, _settings, _audioPlayback);
         PracticeModeChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -595,11 +591,9 @@ public partial class FloatingWindow : Window
         if (!IsPracticeMode)
             return;
 
-        DetachPracticeEventHandlers();
+        FloatingPracticePanel.Clear();
         _practiceSession = null;
         IsPracticeMode = false;
-
-        PracticeProjectionPanel.Children.Clear();
 
         PreviousButton.Width = double.NaN;
         PreviousButton.Height = double.NaN;
@@ -644,242 +638,6 @@ public partial class FloatingWindow : Window
         ExitPractice();
     }
 
-    private void PracticeRestartButton_Click(object sender, RoutedEventArgs e)
-    {
-        _practiceSession?.RestartList();
-        UpdatePracticeUI();
-    }
-
-    private void AttachPracticeEventHandlers()
-    {
-        if (_practiceHandlersAttached) return;
-        PracticeProjectionPanel.AddHandler(UIElement.KeyDownEvent, _practiceKeyDownHandler, true);
-        PracticeProjectionPanel.AddHandler(UIElement.GotFocusEvent, _practiceGotFocusHandler, true);
-        PracticeProjectionPanel.AddHandler(UIElement.LostFocusEvent, _practiceLostFocusHandler, true);
-        _practiceHandlersAttached = true;
-    }
-
-    private void DetachPracticeEventHandlers()
-    {
-        if (!_practiceHandlersAttached) return;
-        PracticeProjectionPanel.RemoveHandler(UIElement.KeyDownEvent, _practiceKeyDownHandler);
-        PracticeProjectionPanel.RemoveHandler(UIElement.GotFocusEvent, _practiceGotFocusHandler);
-        PracticeProjectionPanel.RemoveHandler(UIElement.LostFocusEvent, _practiceLostFocusHandler);
-        _practiceHandlersAttached = false;
-    }
-
-    private void UpdatePracticeUI()
-    {
-        if (_practiceSession is null) return;
-
-        if (_practiceSession.List.Sentences.Count == 0)
-        {
-            PracticeProgressLabel.Text = "Practice · No sentences";
-            PracticeCompletionPanel.Visibility = Visibility.Collapsed;
-            PracticeFeedbackLabel.Visibility = Visibility.Collapsed;
-            PracticeProjectionPanel.Children.Clear();
-            return;
-        }
-
-        PracticeProgressLabel.Text = $"Practice · Sentence {_practiceSession.SentenceIndex + 1} of {_practiceSession.List.Sentences.Count}";
-        PracticeFeedbackLabel.Visibility = Visibility.Collapsed;
-        PracticeFeedbackLabel.Text = string.Empty;
-
-        if (_practiceSession.IsAllSentencesCompleted)
-        {
-            PracticeCompletionPanel.Visibility = Visibility.Visible;
-        }
-        else
-        {
-            PracticeCompletionPanel.Visibility = Visibility.Collapsed;
-        }
-
-        PracticeProjectionPanel.Children.Clear();
-        var review = _practiceSession.CurrentReview;
-        var fontSize = IsValidFontSize(_settings.FontSize) ? _settings.FontSize : AppSettings.Default.FontSize;
-        var foregroundBrush = ToBrush(_settings.TextColor, AppSettings.Default.TextColor);
-
-        for (var i = 0; i < review.Tokens.Count; i++)
-        {
-            var token = review.Tokens[i];
-            if (!token.IsHidden)
-            {
-                var tb = new TextBlock
-                {
-                    Text = token.DisplayText,
-                    FontSize = fontSize,
-                    Foreground = foregroundBrush,
-                    Margin = new Thickness(2, 2, 4, 2),
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-                PracticeProjectionPanel.Children.Add(tb);
-            }
-            else
-            {
-                var hiddenPos = -1;
-                for (var h = 0; h < review.HiddenTokenIndexes.Count; h++)
-                {
-                    if (review.HiddenTokenIndexes[h] == i)
-                    {
-                        hiddenPos = h;
-                        break;
-                    }
-                }
-
-                var isTokenCompleted = _practiceSession.IsComplete || hiddenPos < _practiceSession.CurrentHiddenPosition;
-                if (isTokenCompleted)
-                {
-                    var box = new TextBox
-                    {
-                        Text = token.SourceText,
-                        FontSize = fontSize,
-                        Foreground = new SolidColorBrush(Color.FromRgb(0x34, 0xD3, 0x99)),
-                        Background = Brushes.Transparent,
-                        BorderThickness = new Thickness(0),
-                        Padding = new Thickness(2, 0, 2, 0),
-                        Margin = new Thickness(2, 2, 4, 2),
-                        TextAlignment = TextAlignment.Center,
-                        VerticalAlignment = VerticalAlignment.Center,
-                        IsReadOnly = true,
-                        Focusable = false,
-                        Tag = hiddenPos
-                    };
-                    PracticeProjectionPanel.Children.Add(box);
-                }
-                else
-                {
-                    var box = new TextBox
-                    {
-                        Text = "_",
-                        FontSize = fontSize,
-                        Foreground = new SolidColorBrush(Color.FromRgb(0x9C, 0xA3, 0xAF)),
-                        Background = Brushes.Transparent,
-                        BorderThickness = new Thickness(0),
-                        Padding = new Thickness(2, 0, 2, 0),
-                        Margin = new Thickness(2, 2, 4, 2),
-                        TextAlignment = TextAlignment.Center,
-                        VerticalAlignment = VerticalAlignment.Center,
-                        MinWidth = Math.Max(20, token.SourceText.Length * (fontSize * 0.58)),
-                        Tag = hiddenPos
-                    };
-                    PracticeProjectionPanel.Children.Add(box);
-                }
-            }
-        }
-
-        FocusHiddenTextBox(_practiceSession.CurrentHiddenPosition);
-
-        PreviousButton.Width = double.NaN;
-        PreviousButton.Height = double.NaN;
-        NextButton.Width = double.NaN;
-        NextButton.Height = double.NaN;
-        SentenceCard.InvalidateMeasure();
-        SentenceCard.Measure(new System.Windows.Size(900, double.PositiveInfinity));
-        ApplyNavigationButtonSize(SentenceCard.DesiredSize.Height);
-    }
-
-    public ReviewAnswerResult? SubmitPracticeAnswer(TextBox textBox, string answer)
-    {
-        if (_practiceSession is null || textBox.Tag is not int hiddenPos)
-            return null;
-
-        var result = _practiceSession.Submit(answer);
-        if (result.IsCorrect)
-        {
-            var tokenIndex = _practiceSession.CurrentReview.HiddenTokenIndexes[hiddenPos];
-            var correctWord = _practiceSession.CurrentReview.Tokens[tokenIndex].SourceText;
-            textBox.Text = correctWord;
-            textBox.Foreground = new SolidColorBrush(Color.FromRgb(0x34, 0xD3, 0x99));
-            textBox.Background = Brushes.Transparent;
-            textBox.BorderThickness = new Thickness(0);
-            textBox.IsReadOnly = true;
-            textBox.Focusable = false;
-            PracticeFeedbackLabel.Visibility = Visibility.Collapsed;
-
-            if (result.IsComplete)
-            {
-                OnPracticeSentenceCompleted();
-            }
-            else
-            {
-                FocusHiddenTextBox(result.NextHiddenTokenPosition);
-            }
-        }
-        else
-        {
-            textBox.Foreground = new SolidColorBrush(Color.FromRgb(0xEF, 0x44, 0x44));
-            PracticeFeedbackLabel.Text = result.Error ?? "Try again.";
-            PracticeFeedbackLabel.Visibility = Visibility.Visible;
-            textBox.SelectAll();
-        }
-
-        return result;
-    }
-
-    private void OnPracticeSentenceCompleted()
-    {
-        if (_practiceSession is null) return;
-
-        if (_practiceSession.IsAllSentencesCompleted)
-        {
-            PracticeCompletionPanel.Visibility = Visibility.Visible;
-        }
-        else
-        {
-            _practiceSession.MoveNextSentence();
-            UpdatePracticeUI();
-        }
-    }
-
-    private void FocusHiddenTextBox(int hiddenPos)
-    {
-        var targetBox = PracticeProjectionPanel.Children
-            .OfType<TextBox>()
-            .FirstOrDefault(tb => tb.Tag is int p && p == hiddenPos);
-        if (targetBox is not null && targetBox.Focusable)
-        {
-            targetBox.Focus();
-        }
-    }
-
-    private void PracticeProjectionPanel_KeyDown(object sender, KeyEventArgs e)
-    {
-        if ((e.Key == Key.Enter || e.Key == Key.Space) && e.OriginalSource is TextBox textBox && textBox.Tag is int hiddenPos)
-        {
-            e.Handled = true;
-            var text = textBox.Text == "_" ? string.Empty : textBox.Text.Trim();
-            SubmitPracticeAnswer(textBox, text);
-        }
-    }
-
-    private void PracticeProjectionPanel_GotFocus(object sender, RoutedEventArgs e)
-    {
-        if (e.OriginalSource is TextBox textBox && !textBox.IsReadOnly)
-        {
-            if (textBox.Text == "_")
-            {
-                textBox.Text = string.Empty;
-            }
-            else
-            {
-                textBox.SelectAll();
-            }
-            textBox.Foreground = ToBrush(_settings.TextColor, AppSettings.Default.TextColor);
-        }
-    }
-
-    private void PracticeProjectionPanel_LostFocus(object sender, RoutedEventArgs e)
-    {
-        if (e.OriginalSource is TextBox textBox && !textBox.IsReadOnly)
-        {
-            if (string.IsNullOrWhiteSpace(textBox.Text) || textBox.Text == "_")
-            {
-                textBox.Text = "_";
-                textBox.Foreground = new SolidColorBrush(Color.FromRgb(0x9C, 0xA3, 0xAF));
-            }
-        }
-    }
-
     private void Window_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e) => UpdateNavigationVisibility(isPointerOver: true);
 
     private void Window_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e) => UpdateNavigationVisibility(isPointerOver: false);
@@ -890,8 +648,7 @@ public partial class FloatingWindow : Window
         StopAndResetAudio();
         if (IsPracticeMode && _practiceSession is not null)
         {
-            _practiceSession.MovePreviousSentence();
-            UpdatePracticeUI();
+            FloatingPracticePanel.MovePreviousSentence();
             return;
         }
 
@@ -904,8 +661,7 @@ public partial class FloatingWindow : Window
         StopAndResetAudio();
         if (IsPracticeMode && _practiceSession is not null)
         {
-            _practiceSession.MoveNextSentence();
-            UpdatePracticeUI();
+            FloatingPracticePanel.MoveNextSentence();
             return;
         }
 
@@ -1013,9 +769,9 @@ public partial class FloatingWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         IsVisibleChanged -= FloatingWindow_IsVisibleChanged;
+        FloatingPracticePanel.Clear();
         _audioPlayback.StateChanged -= AudioPlayback_StateChanged;
         _audioPlayback.Dispose();
-        DetachPracticeEventHandlers();
         ClearSentenceDocumentInlines();
         base.OnClosed(e);
     }
@@ -1145,6 +901,8 @@ public partial class FloatingWindow : Window
             previous.Stop();
         _audioPlayback = CreateAudioPlayback();
         SetAudioButtonIdle();
+        if (IsPracticeMode && _practiceSession is not null)
+            FloatingPracticePanel.Load(_practiceSession, _settings, _audioPlayback);
     }
 
     private void AudioPlayback_StateChanged(AudioPlaybackState state)
