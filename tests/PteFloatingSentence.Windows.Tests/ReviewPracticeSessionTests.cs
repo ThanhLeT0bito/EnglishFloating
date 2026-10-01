@@ -85,6 +85,24 @@ public class ReviewPracticeSessionTests
     }
 
     [TestMethod]
+    public void Submit_OnlyFinalTokenHasWord_CompletesAfterCorrectAnswer()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "!!! Hello");
+        var list = new StudyList(Guid.NewGuid(), "Test List", 10, 0, [sentence]);
+        var callbackCount = 0;
+        var session = new ReviewPracticeSession(list, seed: 7, onSentenceCompleted: (_, _) => callbackCount++);
+
+        Assert.IsFalse(session.Submit("wrong").IsCorrect);
+        Assert.IsFalse(session.IsComplete);
+        var result = session.Submit("hello");
+
+        Assert.IsTrue(result.IsCorrect);
+        Assert.IsTrue(result.IsComplete);
+        Assert.IsTrue(session.IsAllSentencesCompleted);
+        Assert.AreEqual(1, callbackCount);
+    }
+
+    [TestMethod]
     public void Submit_AfterCorrectDictation_DoesNotCompleteAgain()
     {
         var sentence = new StudySentence(Guid.NewGuid(), "Alpha beta gamma.");

@@ -131,7 +131,9 @@ public static class ReviewPracticeRules
 
         if (candidateIndexes.Count == 0)
         {
-            return Array.Empty<int>();
+            return words[lastWordIndex].Any(char.IsLetterOrDigit)
+                ? [lastWordIndex]
+                : Array.Empty<int>();
         }
 
         int targetCount;

@@ -96,6 +96,16 @@ public class ReviewPracticeTests
     }
 
     [TestMethod]
+    public void CreateProjection_OnlyFinalTokenHasWord_HidesFinalToken()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "!!! Hello");
+        var review = ReviewPracticeRules.CreateProjection(sentence, seed: 7);
+
+        CollectionAssert.AreEqual(new[] { 1 }, review.HiddenTokenIndexes.ToArray());
+        Assert.AreEqual("!!! _", review.DisplayText);
+    }
+
+    [TestMethod]
     public void CreateProjection_ThreeWordSentence_HidesOneWordNotLast()
     {
         var sentence = new StudySentence(Guid.NewGuid(), "One two three.");
