@@ -14,14 +14,14 @@
         <SolidColorBrush x:Key="AccentHoverBrush" Color="#FF1D4ED8" />
 
         <Style TargetType="Button">
-            <Setter Property="Padding" Value="12,7" />
-            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="Margin" Value="0,0,6,0" />
             <Setter Property="Background" Value="{StaticResource AccentBrush}" />
             <Setter Property="Foreground" Value="White" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="11" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -30,7 +30,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6"
+                                CornerRadius="5"
                                 Padding="{TemplateBinding Padding}"
                                 SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -81,7 +81,7 @@
         </Style>
 
         <Style TargetType="TextBox">
-            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Padding" Value="7,4" />
             <Setter Property="Background" Value="#FF1E293B" />
             <Setter Property="Foreground" Value="#FFF8FAFC" />
             <Setter Property="BorderBrush" Value="{StaticResource InputBorderBrush}" />
@@ -95,7 +95,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6"
+                                CornerRadius="5"
                                 Padding="{TemplateBinding Padding}">
                             <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" />
                         </Border>
@@ -121,8 +121,8 @@
         </Style>
 
         <Style TargetType="ListBoxItem">
-            <Setter Property="Padding" Value="10,8" />
-            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Margin" Value="0,0,0,4" />
             <Setter Property="Background" Value="{StaticResource CardSubtleBrush}" />
             <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
@@ -136,7 +136,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6"
+                                CornerRadius="5"
                                 Padding="{TemplateBinding Padding}"
                                 Margin="{TemplateBinding Margin}"
                                 SnapsToDevicePixels="True">
@@ -163,14 +163,14 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="260" />
-            <ColumnDefinition Width="14" />
+            <ColumnDefinition Width="230" />
+            <ColumnDefinition Width="12" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
         <!-- Study Lists Sidebar -->
         <Border Grid.Column="0"
-                Padding="12"
+                Padding="10"
                 Background="{StaticResource CardSubtleBrush}"
                 BorderBrush="{StaticResource PanelBorderBrush}"
                 BorderThickness="1"
@@ -182,20 +182,20 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" Margin="0,0,0,10">
-                    <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Study lists" />
-                    <TextBlock FontSize="11" Margin="0,2,0,0" Foreground="{StaticResource TextMutedBrush}" Text="Organize your daily practice" TextWrapping="Wrap" />
+                <StackPanel Grid.Row="0" Margin="0,0,0,8">
+                    <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Study lists" />
+                    <TextBlock FontSize="11" Margin="0,1,0,0" Foreground="{StaticResource TextMutedBrush}" Text="Organize daily practice" />
                 </StackPanel>
 
                 <ListBox x:Name="StudyListList"
                          Grid.Row="1"
-                         MinHeight="180"
-                         MaxHeight="380"
+                         MinHeight="100"
+                         MaxHeight="260"
                          SelectionChanged="StudyListList_SelectionChanged" />
 
                 <Button x:Name="NewListButton"
                         Grid.Row="2"
-                        Margin="0,10,0,0"
+                        Margin="0,8,0,0"
                         HorizontalAlignment="Stretch"
                         Content="＋  New study list"
                         Click="NewListButton_Click" />
@@ -204,7 +204,7 @@
 
         <!-- List Editor and Sentences -->
         <Border Grid.Column="2"
-                Padding="14"
+                Padding="12"
                 Background="{StaticResource CardSubtleBrush}"
                 BorderBrush="{StaticResource PanelBorderBrush}"
                 BorderThickness="1"
@@ -218,15 +218,15 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- List Header Actions -->
-                <Grid Grid.Row="0" Margin="0,0,0,12">
+                <!-- Row 0: List Header Actions -->
+                <Grid Grid.Row="0" Margin="0,0,0,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="List editor" />
-                        <TextBlock x:Name="ActiveListLabel" FontSize="11" Margin="0,2,0,0" Foreground="{StaticResource TextMutedBrush}" />
+                        <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="List editor" />
+                        <TextBlock x:Name="ActiveListLabel" FontSize="11" Margin="0,1,0,0" Foreground="{StaticResource TextMutedBrush}" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button x:Name="StartPracticeButton" Style="{StaticResource SuccessButton}" Content="▶  Start practice" Click="StartPracticeButton_Click" />
@@ -235,54 +235,70 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- List Name and Target -->
-                <Grid Grid.Row="1" Margin="0,0,0,12">
+                <!-- Row 1: List Name and Target (Compact Inline) -->
+                <Grid Grid.Row="1" Margin="0,0,0,8">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="14" />
-                        <ColumnDefinition Width="130" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="70" />
                     </Grid.ColumnDefinitions>
-                    <StackPanel>
-                        <TextBlock Margin="0,0,0,5" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Text="List name" />
-                        <TextBox x:Name="ListNameInput" />
-                    </StackPanel>
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Margin="0,0,0,5" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Text="Target sentences" />
-                        <TextBox x:Name="TargetInput" />
-                    </StackPanel>
+                    <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Text="List name:" />
+                    <TextBox x:Name="ListNameInput" Grid.Column="1" Margin="0,0,12,0" Height="26" />
+                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Text="Target:" />
+                    <TextBox x:Name="TargetInput" Grid.Column="3" Height="26" />
                 </Grid>
 
-                <!-- Sentences Header -->
-                <Grid Grid.Row="2" Margin="0,0,0,6">
-                    <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Sentences (in order)" />
+                <!-- Row 2: Sentences Header -->
+                <Grid Grid.Row="2" Margin="0,0,0,4">
+                    <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Sentences (in order)" />
                 </Grid>
 
-                <!-- Sentence List -->
+                <!-- Row 3: Sentence List (Scroll inside here) -->
                 <ListBox x:Name="SentenceList"
                          Grid.Row="3"
-                         MinHeight="140"
-                         MaxHeight="260"
+                         MinHeight="100"
+                         MaxHeight="200"
                          SelectionChanged="SentenceList_SelectionChanged" />
 
-                <!-- Sentence Editor Form -->
-                <Grid Grid.Row="4" Margin="0,12,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="140" />
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="SentenceInput"
-                             MinHeight="68"
-                             MaxHeight="100"
-                             AcceptsReturn="True"
-                             TextWrapping="Wrap"
-                             VerticalScrollBarVisibility="Auto" />
-                    <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Bottom">
-                        <Button x:Name="AddSentenceButton" Margin="0,0,0,6" HorizontalAlignment="Stretch" Content="Add sentence" Click="AddSentenceButton_Click" />
-                        <Button x:Name="AddWithAiButton" Style="{StaticResource AiButtonStyle}" Margin="0,0,0,6" HorizontalAlignment="Stretch" Content="✨ Add with AI" Click="AddWithAiButton_Click" />
-                        <Button x:Name="UpdateSentenceButton" Style="{StaticResource SecondaryButton}" Margin="0,0,0,6" HorizontalAlignment="Stretch" Content="Update selected" Click="UpdateSentenceButton_Click" />
-                        <Button x:Name="DeleteSentenceButton" Style="{StaticResource DangerButton}" Margin="0" HorizontalAlignment="Stretch" Content="Delete selected" Click="DeleteSentenceButton_Click" />
-                    </StackPanel>
-                </Grid>
+                <!-- Row 4: Compact Sentence Editor & Add Form -->
+                <Border Grid.Row="4" Margin="0,8,0,0" Padding="8" Background="#FF111827" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="6">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Sentence Input Textbox -->
+                        <TextBox x:Name="SentenceInput"
+                                 Grid.Row="0"
+                                 MinHeight="34"
+                                 MaxHeight="50"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto" />
+
+                        <!-- Action Toolbar underneath input -->
+                        <Grid Grid.Row="1" Margin="0,6,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Add actions (Left) -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                <Button x:Name="AddSentenceButton" Content="＋ Add sentence" Click="AddSentenceButton_Click" />
+                                <Button x:Name="AddWithAiButton" Style="{StaticResource AiButtonStyle}" Content="✨ AI phrased" Click="AddWithAiButton_Click" />
+                            </StackPanel>
+
+                            <!-- Selected actions (Right) -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button x:Name="UpdateSentenceButton" Style="{StaticResource SecondaryButton}" Content="Update selected" Click="UpdateSentenceButton_Click" />
+                                <Button x:Name="DeleteSentenceButton" Style="{StaticResource DangerButton}" Margin="0" Content="Delete selected" Click="DeleteSentenceButton_Click" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Border>
             </Grid>
         </Border>
     </Grid>
