@@ -46,9 +46,9 @@ public partial class ReviewPracticePage : UserControl, IDisposable
         _gotFocusHandler = OnSentencePanelGotFocus;
         _lostFocusHandler = OnSentencePanelLostFocus;
 
-        SentenceProjectionPanel.AddHandler(UIElement.KeyDownEvent, _keyDownHandler);
-        SentenceProjectionPanel.AddHandler(UIElement.GotFocusEvent, _gotFocusHandler);
-        SentenceProjectionPanel.AddHandler(UIElement.LostFocusEvent, _lostFocusHandler);
+        SentenceProjectionPanel.AddHandler(UIElement.KeyDownEvent, _keyDownHandler, true);
+        SentenceProjectionPanel.AddHandler(UIElement.GotFocusEvent, _gotFocusHandler, true);
+        SentenceProjectionPanel.AddHandler(UIElement.LostFocusEvent, _lostFocusHandler, true);
 
         _audio.StateChanged += AudioPlayback_StateChanged;
         Unloaded += OnPageUnloaded;
@@ -294,7 +294,7 @@ public partial class ReviewPracticePage : UserControl, IDisposable
             return;
         }
 
-        if (e.Key == Key.Enter && e.OriginalSource is TextBox box)
+        if ((e.Key == Key.Enter || e.Key == Key.Space) && e.OriginalSource is TextBox box)
         {
             e.Handled = true;
             SubmitBoxAnswer(box);
@@ -371,7 +371,7 @@ public partial class ReviewPracticePage : UserControl, IDisposable
     {
         if (_session is null || _session.IsComplete) return;
 
-        var answer = box.Text == "_" ? string.Empty : box.Text;
+        var answer = box.Text == "_" ? string.Empty : box.Text.Trim();
         var result = _session.Submit(answer);
 
         if (result.IsCorrect)

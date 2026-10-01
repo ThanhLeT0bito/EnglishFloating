@@ -81,7 +81,7 @@
         </Style>
 
         <Style TargetType="TextBox">
-            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Padding" Value="10,0" />
             <Setter Property="Background" Value="#FF1E293B" />
             <Setter Property="Foreground" Value="#FFF8FAFC" />
             <Setter Property="BorderBrush" Value="{StaticResource InputBorderBrush}" />
@@ -89,6 +89,7 @@
             <Setter Property="CaretBrush" Value="#FFF8FAFC" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="MinHeight" Value="32" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
@@ -96,11 +97,13 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="5"
-                                Padding="{TemplateBinding Padding}">
+                                CornerRadius="6"
+                                SnapsToDevicePixels="True">
                             <ScrollViewer x:Name="PART_ContentHost"
                                           Focusable="False"
-                                          VerticalAlignment="Center"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Stretch"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
                                           HorizontalScrollBarVisibility="Hidden"
                                           VerticalScrollBarVisibility="Hidden" />
                         </Border>
@@ -245,12 +248,12 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="65" />
+                        <ColumnDefinition Width="80" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Text="List name:" />
-                    <TextBox x:Name="ListNameInput" Grid.Column="1" Margin="0,0,14,0" Height="30" VerticalContentAlignment="Center" Padding="8,4" />
+                    <TextBox x:Name="ListNameInput" Grid.Column="1" Margin="0,0,14,0" Height="32" VerticalContentAlignment="Center" Padding="10,0" />
                     <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Text="Target:" />
-                    <TextBox x:Name="TargetInput" Grid.Column="3" Height="30" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Padding="6,4" />
+                    <TextBox x:Name="TargetInput" Grid.Column="3" Height="32" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" Padding="6,0" />
                 </Grid>
 
                 <!-- Row 2: Sentences Header -->
@@ -276,13 +279,13 @@
                         <!-- Sentence Input Textbox -->
                         <TextBox x:Name="SentenceInput"
                                  Grid.Row="0"
-                                 MinHeight="36"
-                                 MaxHeight="56"
+                                 MinHeight="40"
+                                 MaxHeight="64"
                                  AcceptsReturn="True"
                                  TextWrapping="Wrap"
                                  VerticalScrollBarVisibility="Auto"
                                  VerticalContentAlignment="Top"
-                                 Padding="8,5" />
+                                 Padding="10,6" />
 
                         <!-- Action Toolbar underneath input -->
                         <Grid Grid.Row="1" Margin="0,6,0,0">

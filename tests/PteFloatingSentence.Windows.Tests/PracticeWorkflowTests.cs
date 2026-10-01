@@ -82,6 +82,40 @@ public class PracticeWorkflowTests
         Assert.IsTrue(session.IsComplete);
     }
 
+    [TestMethod]
+    public void Settings_ReviewPracticePage_SpaceOrEnterSubmitsAnswer_AdvancesWord() => Sta(() =>
+    {
+        var list = new StudyList(Guid.NewGuid(), "Target", 10, 0, [
+            new(Guid.NewGuid(), "Alpha beta.")
+        ]);
+        var audio = new FakeAudio();
+        var page = new ReviewPracticePage(audio);
+        page.Initialize(new AppSettings { ActiveListId = list.Id, StudyLists = [list] }, seed: 42);
+
+        var panel = Named<Panel>(page, "SentenceProjectionPanel");
+        var activeBox = panel.Children.OfType<TextBox>().First(b => (int)b.Tag == 0);
+
+        var session = (ReviewPracticeSession)typeof(ReviewPracticePage).GetField("_session", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(page)!;
+        var tokenIdx = session.CurrentReview.HiddenTokenIndexes[0];
+        var word = session.CurrentReview.Tokens[tokenIdx].SourceText;
+
+        activeBox.Text = word;
+        var spaceArgs = new System.Windows.Input.KeyEventArgs(
+            System.Windows.Input.Keyboard.PrimaryDevice,
+            new System.Windows.Interop.HwndSource(0, 0, 0, 0, 0, "", IntPtr.Zero),
+            0,
+            System.Windows.Input.Key.Space)
+        {
+            RoutedEvent = System.Windows.UIElement.KeyDownEvent,
+            Source = activeBox
+        };
+        activeBox.RaiseEvent(spaceArgs);
+
+        Assert.IsTrue(activeBox.Text.Contains(word));
+        Assert.IsFalse(activeBox.IsEnabled);
+        page.Dispose();
+    });
+
     private static T Named<T>(FrameworkElement owner, string name) where T : class
     {
         var value = owner.FindName(name) as T;
