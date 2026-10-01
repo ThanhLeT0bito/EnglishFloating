@@ -1137,11 +1137,15 @@ public partial class FloatingWindow : Window
                 }
                 return;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 if (ReferenceEquals(_audioCts, cts))
                 {
                     StopAndResetAudio();
+                    if (AudioButton is not null)
+                    {
+                        AudioButton.ToolTip = $"Audio error: {ex.Message}";
+                    }
                 }
                 return;
             }
@@ -1180,15 +1184,23 @@ public partial class FloatingWindow : Window
                         if (ReferenceEquals(_audioCts, cts))
                         {
                             StopAndResetAudio();
+                            if (AudioButton is not null)
+                            {
+                                AudioButton.ToolTip = $"Playback error: {ex.Message}";
+                            }
                         }
                     });
                 });
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             if (ReferenceEquals(_audioCts, cts))
             {
                 StopAndResetAudio();
+                if (AudioButton is not null)
+                {
+                    AudioButton.ToolTip = $"Playback error: {ex.Message}";
+                }
             }
         }
     }

@@ -185,17 +185,10 @@ public class EdgeNeuralTtsServiceTests
         var service = new EdgeNeuralTtsService();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
-        try
-        {
-            using var stream = await service.SynthesizeSpeechAsync("Test", "en-US-JennyNeural", 1.0, cts.Token);
-            stream.Should().NotBeNull();
-            stream.Length.Should().BeGreaterThan(100);
-            stream.Position.Should().Be(0);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or WebSocketException or TimeoutException or OperationCanceledException)
-        {
-            // If network is offline or blocked, test passes gracefully
-        }
+        using var stream = await service.SynthesizeSpeechAsync("Test", "en-US-JennyNeural", 1.0, cts.Token);
+        stream.Should().NotBeNull();
+        stream.Length.Should().BeGreaterThan(100);
+        stream.Position.Should().Be(0);
     }
 
     private sealed class FakeWebSocketClient : IWebSocketClient

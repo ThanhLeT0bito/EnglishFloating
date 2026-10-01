@@ -1,6 +1,7 @@
 using System.IO;
 using System.Net.WebSockets;
 using System.Security;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace PteFloatingSentence.Windows.Infrastructure;
@@ -21,8 +22,10 @@ public interface IWebSocketClient : IDisposable
 public sealed class EdgeNeuralTtsService : ITtsService
 {
     public const string DefaultVoice = "en-US-JennyNeural";
-    public const string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0";
-    private const string BaseEndpoint = "wss://speech.platform.bing.com/consumer/speech/synthesize/readahead/edge/v1?TrustedClientToken=6A5AA1D4EA654941A3D44C6D7E847D48";
+    public const string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0";
+    public const string TrustedClientToken = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
+    public const string SecMsGecVersion = "1-143.0.3650.75";
+    private const string BaseEndpoint = "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=" + TrustedClientToken;
 
     private readonly Func<IWebSocketClient> _webSocketFactory;
 
@@ -61,6 +64,17 @@ public sealed class EdgeNeuralTtsService : ITtsService
         return $"<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='{selectedVoice}'><prosody rate='{rateString}'>{escapedText}</prosody></voice></speak>";
     }
 
+    public static string GenerateSecMsGec()
+    {
+        var unixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var ticks = unixSeconds + 11644473600L;
+        ticks -= ticks % 300L;
+        ticks *= 10000000L;
+        var strToHash = $"{ticks}{TrustedClientToken}";
+        var hash = SHA256.HashData(Encoding.ASCII.GetBytes(strToHash));
+        return Convert.ToHexString(hash);
+    }
+
     public async Task<Stream> SynthesizeSpeechAsync(
         string text,
         string voice,
@@ -75,7 +89,8 @@ public sealed class EdgeNeuralTtsService : ITtsService
         cancellationToken.ThrowIfCancellationRequested();
 
         var connectionId = Guid.NewGuid().ToString("N");
-        var uri = new Uri($"{BaseEndpoint}&ConnectionId={connectionId}");
+        var secMsGec = GenerateSecMsGec();
+        var uri = new Uri($"{BaseEndpoint}&ConnectionId={connectionId}&Sec-MS-GEC={secMsGec}&Sec-MS-GEC-Version={SecMsGecVersion}");
 
         using var ws = _webSocketFactory();
         await ws.ConnectAsync(uri, cancellationToken);
@@ -188,6 +203,11 @@ public sealed class EdgeNeuralTtsService : ITtsService
             _ws.Options.SetRequestHeader("User-Agent", UserAgent);
             _ws.Options.SetRequestHeader("Pragma", "no-cache");
             _ws.Options.SetRequestHeader("Cache-Control", "no-cache");
+            _ws.Options.SetRequestHeader("Origin", "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold");
+            _ws.Options.SetRequestHeader("Accept-Encoding", "gzip, deflate, br, zstd");
+            _ws.Options.SetRequestHeader("Accept-Language", "en-US,en;q=0.9");
+            var muid = Guid.NewGuid().ToString("N").ToUpperInvariant();
+            _ws.Options.SetRequestHeader("Cookie", $"muid={muid};");
         }
 
         public WebSocketState State => _ws.State;
