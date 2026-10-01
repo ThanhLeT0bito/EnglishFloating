@@ -905,6 +905,111 @@ public class SettingsWorkflowTests
         });
     }
 
+    [TestMethod]
+    public void DisplayPage_UpdatesTtsVoiceAndSpeed_WhenChanged()
+    {
+        RunOnSta(() =>
+        {
+            var page = new DisplayPage();
+            var initial = AppSettings.Default with
+            {
+                TtsVoice = "en-US-JennyNeural",
+                TtsSpeed = 1.0
+            };
+            page.LoadSettings(initial);
+
+            var voiceCombo = (ComboBox)page.FindName("VoiceAccentComboBox");
+            var speedSlider = (Slider)page.FindName("SpeedSlider");
+            var speedLabel = (TextBlock)page.FindName("SpeedValueLabel");
+
+            Assert.IsNotNull(voiceCombo);
+            Assert.IsNotNull(speedSlider);
+            Assert.IsNotNull(speedLabel);
+
+            voiceCombo.SelectedValue = "en-AU-NatashaNeural";
+            speedSlider.Value = 1.15;
+
+            Assert.AreEqual("1.15x", speedLabel.Text);
+            Assert.AreEqual("en-AU-NatashaNeural", page.TtsVoice);
+            Assert.AreEqual(1.15, page.TtsSpeed, 0.001);
+
+            var updated = page.ApplySettings(initial);
+            Assert.AreEqual("en-AU-NatashaNeural", updated.TtsVoice);
+            Assert.AreEqual(1.15, updated.TtsSpeed, 0.001);
+        });
+    }
+
+    [TestMethod]
+    public void DisplayPage_ClearAudioCache_CallsClearCacheAndRefreshesLabel()
+    {
+        RunOnSta(() =>
+        {
+            var fakeCache = new FakeAudioCacheManager();
+            var page = new DisplayPage(fakeCache);
+            page.LoadSettings(AppSettings.Default);
+
+            var cacheLabel = (TextBlock)page.FindName("CacheSizeLabel");
+            var clearButton = (Button)page.FindName("ClearAudioCacheButton");
+
+            Assert.IsNotNull(cacheLabel);
+            Assert.IsNotNull(clearButton);
+            Assert.AreEqual("Cache size: 1.0 MB / 20 MB", cacheLabel.Text);
+
+            clearButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+
+            Assert.IsTrue(fakeCache.ClearCacheCalled);
+            Assert.AreEqual("Cache size: 0.0 MB / 20 MB", cacheLabel.Text);
+        });
+    }
+
+    [TestMethod]
+    public void SettingsWindow_SaveTtsPreferences_SavesVoiceAndSpeed()
+    {
+        RunOnSta(() =>
+        {
+            AppSettings? saved = null;
+            var initial = AppSettings.Default with
+            {
+                TtsVoice = "en-US-JennyNeural",
+                TtsSpeed = 1.0
+            };
+            var window = new SettingsWindow(initial, s => saved = s);
+            var voiceCombo = Named<ComboBox>(window, "VoiceAccentComboBox");
+            var speedSlider = Named<Slider>(window, "SpeedSlider");
+
+            voiceCombo.SelectedValue = "en-AU-WilliamNeural";
+            speedSlider.Value = 1.10;
+
+            InvokeClick(window, "SaveButton_Click");
+
+            Assert.IsNotNull(saved);
+            Assert.AreEqual("en-AU-WilliamNeural", saved.TtsVoice);
+            Assert.AreEqual(1.10, saved.TtsSpeed, 0.001);
+        });
+    }
+
+    private sealed class FakeAudioCacheManager : IAudioCacheManager
+    {
+        public bool ClearCacheCalled { get; private set; }
+        public long TotalCacheSizeBytes { get; set; } = 1024 * 1024;
+
+        public void ClearCache()
+        {
+            ClearCacheCalled = true;
+            TotalCacheSizeBytes = 0;
+        }
+
+        public long GetTotalCacheSizeBytes() => TotalCacheSizeBytes;
+        public string GetCacheFilePath(string text, string voice, double speed) => string.Empty;
+        public bool TryGetCachedAudio(string text, string voice, double speed, out string filePath)
+        {
+            filePath = string.Empty;
+            return false;
+        }
+        public Task SaveAudioAsync(string text, string voice, double speed, System.IO.Stream audioStream, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public void PruneToLimit(long maxSizeBytes) { }
+    }
+
 
     private static SettingsWindow CreateWindowWithTwoSentences()
     {

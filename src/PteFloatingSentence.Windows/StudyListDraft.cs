@@ -72,6 +72,13 @@ public sealed class StudyListDraft
             LaunchAtWindowsSignIn = launchAtWindowsSignIn
         };
 
+    public void SetTtsPreferences(string voice, double speed) =>
+        _settings = _settings with
+        {
+            TtsVoice = voice,
+            TtsSpeed = speed
+        };
+
     public void UpdateFlashcardSettings(AppSettings settings)
     {
         _settings = _settings with
@@ -95,7 +102,10 @@ public sealed class StudyListDraft
             ShowVocabularyCards = settings.ShowVocabularyCards,
             ShowFloatingFlashcard = settings.ShowFloatingFlashcard,
             ActiveFlashcardDeckKey = settings.ActiveFlashcardDeckKey,
-            LaunchAtWindowsSignIn = settings.LaunchAtWindowsSignIn
+            LaunchAtWindowsSignIn = settings.LaunchAtWindowsSignIn,
+            TtsVoice = settings.TtsVoice,
+            TtsSpeed = settings.TtsSpeed,
+            TtsMaxCacheSizeBytes = settings.TtsMaxCacheSizeBytes
         };
     }
 

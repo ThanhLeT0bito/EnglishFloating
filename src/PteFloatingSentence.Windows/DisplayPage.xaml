@@ -155,6 +155,40 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Background" Value="#FF1E293B" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{StaticResource InputBorderBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FF334155" />
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#FF3B82F6" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FF0F172A" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <StackPanel Margin="0,4,0,0">
@@ -231,13 +265,67 @@
             </StackPanel>
         </Border>
 
-        <!-- Upcoming / Preview Settings Card -->
-        <Border Padding="18,16" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="10" Opacity="0.6">
+        <!-- Speech Audio (TTS) Card -->
+        <Border Padding="18,16" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="10">
             <StackPanel>
-                <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Audio &amp; Pronunciation (Coming soon)" />
-                <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,4,0,12" Text="Future options for automated text-to-speech pronunciation and speed controls." TextWrapping="Wrap" />
-                <CheckBox Content="Pronounce new sentences automatically" IsEnabled="False" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8" />
-                <CheckBox Content="Highlight words with audio playback" IsEnabled="False" Foreground="{StaticResource TextMutedBrush}" />
+                <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Speech Audio (TTS)" />
+                <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,4,0,16" Text="Configure speech voice, playback speed, and offline audio cache." TextWrapping="Wrap" />
+
+                <!-- Voice / Accent Section -->
+                <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="#FF38BDF8" Text="Voice &amp; Accent" Margin="0,0,0,6" />
+                <ComboBox x:Name="VoiceAccentComboBox"
+                          Width="320"
+                          HorizontalAlignment="Left"
+                          SelectedValuePath="VoiceId"
+                          DisplayMemberPath="DisplayName"
+                          Margin="0,0,0,16"
+                          SelectionChanged="VoiceAccentComboBox_SelectionChanged" />
+
+                <!-- Playback Speed Section -->
+                <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="#FF38BDF8" Text="Playback Speed" Margin="0,0,0,6" />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                    <Slider x:Name="SpeedSlider"
+                            Minimum="0.8"
+                            Maximum="1.2"
+                            Value="1.0"
+                            TickFrequency="0.05"
+                            IsSnapToTickEnabled="True"
+                            SmallChange="0.05"
+                            LargeChange="0.1"
+                            Width="220"
+                            VerticalAlignment="Center"
+                            ValueChanged="SpeedSlider_ValueChanged" />
+                    <TextBlock x:Name="SpeedValueLabel"
+                               Text="1.00x"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               VerticalAlignment="Center"
+                               Margin="12,0,0,0" />
+                </StackPanel>
+
+                <!-- Audio Cache Section -->
+                <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="#FF38BDF8" Text="Audio Cache" Margin="0,0,0,6" />
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,16">
+                    <TextBlock x:Name="CacheSizeLabel"
+                               Text="Cache size: 0.0 MB / 20 MB"
+                               FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,16,0" />
+                    <Button x:Name="ClearAudioCacheButton"
+                            Content="Clear Cache"
+                            Style="{StaticResource SecondaryButton}"
+                            Click="ClearAudioCacheButton_Click" />
+                </StackPanel>
+
+                <!-- Explanatory note -->
+                <Border Background="#1A334155" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12,10">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE946;" Foreground="{StaticResource AccentBrush}" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Text="Generated speech audio is cached locally for instant offline replay." TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Border>
     </StackPanel>

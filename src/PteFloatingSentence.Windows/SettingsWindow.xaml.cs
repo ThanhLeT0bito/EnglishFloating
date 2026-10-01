@@ -117,16 +117,11 @@ public partial class SettingsWindow : Window
         SetupPageControl.Initialize(_draft, ShowResult, () => RefreshUi());
         SetupPageControl.SentencePhraser = sentencePhraser;
         SetupPageControl.StartPracticeRequested += _setupPageStartPracticeHandler;
-        DisplayPageControl.LoadPreferences(
-            _draft.Settings.ShowSentenceOverlay,
-            _draft.Settings.ShowVocabularyCards,
-            _draft.Settings.ShowFloatingFlashcard,
-            _draft.Settings.ActiveFlashcardDeckKey,
-            FlashcardDeckProjection.GetDeckSummaries(_draft.Settings),
-            _draft.Settings.LaunchAtWindowsSignIn);
+        DisplayPageControl.LoadSettings(_draft.Settings);
         DisplayPageControl.DisplayPreferencesChanged += OnDisplayPreferencesChanged;
         DisplayPageControl.FullDisplayPreferencesChanged += OnFullDisplayPreferencesChanged;
         DisplayPageControl.LaunchAtWindowsSignInChanged += OnLaunchAtWindowsSignInChanged;
+        DisplayPageControl.TtsPreferencesChanged += OnTtsPreferencesChanged;
         GeminiPageControl.LoadState(_apiKeyConfigured);
         GeminiPageControl.ClearKeyRequested += OnClearKeyRequested;
         FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged, _explainer);
@@ -166,6 +161,9 @@ public partial class SettingsWindow : Window
             DisplayPageControl.ActiveFlashcardDeckKey,
             enabled);
 
+    private void OnTtsPreferencesChanged(string voice, double speed) =>
+        _draft.SetTtsPreferences(voice, speed);
+
     private void OnClearKeyRequested()
     {
         _apiKeyCleared = true;
@@ -185,6 +183,7 @@ public partial class SettingsWindow : Window
             DisplayPageControl.DisplayPreferencesChanged -= OnDisplayPreferencesChanged;
             DisplayPageControl.FullDisplayPreferencesChanged -= OnFullDisplayPreferencesChanged;
             DisplayPageControl.LaunchAtWindowsSignInChanged -= OnLaunchAtWindowsSignInChanged;
+            DisplayPageControl.TtsPreferencesChanged -= OnTtsPreferencesChanged;
         }
         if (GeminiPageControl is not null)
         {
@@ -290,12 +289,17 @@ public partial class SettingsWindow : Window
 
         _draft.SetApiKeyConfigured(_apiKeyConfigured);
         if (DisplayPageControl is not null)
+        {
             _draft.SetDisplayPreferences(
                 DisplayPageControl.ShowSentenceOverlay,
                 DisplayPageControl.ShowVocabularyCards,
                 DisplayPageControl.ShowFloatingFlashcard,
                 DisplayPageControl.ActiveFlashcardDeckKey,
                 DisplayPageControl.LaunchAtWindowsSignIn);
+            _draft.SetTtsPreferences(
+                DisplayPageControl.TtsVoice,
+                DisplayPageControl.TtsSpeed);
+        }
         var result = _draft.Save();
         ShowResult(result);
         if (result.IsValid)
@@ -327,13 +331,7 @@ public partial class SettingsWindow : Window
         try
         {
             SetupPageControl.RefreshFromDraft(_draft);
-            DisplayPageControl?.LoadPreferences(
-                _draft.Settings.ShowSentenceOverlay,
-                _draft.Settings.ShowVocabularyCards,
-                _draft.Settings.ShowFloatingFlashcard,
-                _draft.Settings.ActiveFlashcardDeckKey,
-                FlashcardDeckProjection.GetDeckSummaries(_draft.Settings),
-                _draft.Settings.LaunchAtWindowsSignIn);
+            DisplayPageControl?.LoadSettings(_draft.Settings);
             ReviewPageControl?.LoadData(new ReviewViewModel(_draft.Settings));
             GeminiPageControl?.LoadState(_apiKeyConfigured);
             FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged, _explainer);
