@@ -4,6 +4,23 @@ namespace PteFloatingSentence.Core.Tests;
 public sealed class SettingsUpdateMergerTests
 {
     [TestMethod]
+    public void DefaultSettings_UsesTextHintsForExistingSettings()
+    {
+        Assert.AreEqual(PracticeMode.TextHints, AppSettings.Default.PracticeMode);
+    }
+
+    [TestMethod]
+    public void MergeEditableFields_RetainsSubmittedPracticeMode()
+    {
+        var latest = AppSettings.Default;
+        var submitted = latest with { PracticeMode = PracticeMode.ListenAndWrite };
+
+        var merged = SettingsUpdateMerger.MergeEditableFields(latest, submitted);
+
+        Assert.AreEqual(PracticeMode.ListenAndWrite, merged.PracticeMode);
+    }
+
+    [TestMethod]
     public void DefaultSettings_HasExpectedTtsDefaults()
     {
         var defaultSettings = AppSettings.Default;

@@ -7,6 +7,78 @@ namespace PteFloatingSentence.Windows.Tests;
 public class ReviewPracticeSessionTests
 {
     [TestMethod]
+    public void SubmitDictation_WrongSentence_PreservesPositionAndDoesNotComplete()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "You must wear a hard hat.");
+        var list = new StudyList(Guid.NewGuid(), "Test List", 10, 0, [sentence]);
+        var callbackCount = 0;
+        var session = new ReviewPracticeSession(list, seed: 42, onSentenceCompleted: (_, _) => callbackCount++);
+
+        var result = session.SubmitDictation("You must wear hard hat");
+
+        Assert.IsFalse(result.IsCorrect);
+        Assert.IsFalse(result.IsComplete);
+        Assert.AreEqual("Try again.", result.Error);
+        Assert.AreEqual(0, session.CurrentHiddenPosition);
+        Assert.IsFalse(session.IsComplete);
+        Assert.IsFalse(session.IsAllSentencesCompleted);
+        Assert.AreEqual(0, callbackCount);
+    }
+
+    [TestMethod]
+    public void SubmitDictation_CorrectSentence_CompletesLastSentenceOnce()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "You must wear a hard hat.");
+        var list = new StudyList(Guid.NewGuid(), "Test List", 10, 0, [sentence]);
+        var callbacks = new List<(Guid Id, bool Completed)>();
+        var session = new ReviewPracticeSession(list, seed: 42,
+            onSentenceCompleted: (id, completed) => callbacks.Add((id, completed)));
+
+        var result = session.SubmitDictation("you  must wear a hard hat");
+        session.SubmitDictation("you must wear a hard hat");
+
+        Assert.IsTrue(result.IsCorrect);
+        Assert.IsTrue(result.IsComplete);
+        Assert.IsNull(result.Error);
+        Assert.AreEqual(0, session.CurrentHiddenPosition);
+        Assert.IsTrue(session.IsComplete);
+        Assert.IsTrue(session.IsAllSentencesCompleted);
+        CollectionAssert.AreEqual(new[] { (sentence.Id, true) }, callbacks);
+    }
+
+    [TestMethod]
+    public void SubmitDictation_CorrectSentence_WithAnotherRemaining_DoesNotFinishList()
+    {
+        var first = new StudySentence(Guid.NewGuid(), "First sentence here.");
+        var second = new StudySentence(Guid.NewGuid(), "Second sentence here.");
+        var list = new StudyList(Guid.NewGuid(), "Test List", 10, 0, [first, second]);
+        var session = new ReviewPracticeSession(list);
+
+        session.SubmitDictation("First sentence here");
+
+        Assert.IsTrue(session.IsComplete);
+        Assert.IsFalse(session.IsAllSentencesCompleted);
+    }
+
+    [TestMethod]
+    public void SubmitDictation_OneWordSentence_CompletesItOnce()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "Hello.");
+        var list = new StudyList(Guid.NewGuid(), "Test List", 10, 0, [sentence]);
+        var callbackCount = 0;
+        var session = new ReviewPracticeSession(list, onSentenceCompleted: (_, _) => callbackCount++);
+
+        var result = session.SubmitDictation("hello");
+
+        Assert.IsTrue(result.IsCorrect);
+        Assert.IsTrue(result.IsComplete);
+        Assert.IsTrue(session.IsAllSentencesCompleted);
+        Assert.AreEqual(1, callbackCount);
+        Assert.IsFalse(session.SubmitDictation("hello").IsCorrect);
+        Assert.AreEqual(1, callbackCount);
+    }
+
+    [TestMethod]
     public void Session_SelectsFirstIncompleteSentence()
     {
         var s1 = new StudySentence(Guid.NewGuid(), "Sentence one.", IsCompleted: true);

@@ -493,6 +493,21 @@ public class SettingsWorkflowTests
     }
 
     [TestMethod]
+    public void StudyListDraft_SetPracticeMode_PersistsOnSaveAndRefreshesFromApp()
+    {
+        AppSettings? saved = null;
+        var draft = new StudyListDraft(AppSettings.Default, settings => saved = settings);
+
+        draft.SetPracticeMode(PracticeMode.ListenAndWrite);
+        Assert.AreEqual(PracticeMode.ListenAndWrite, draft.Settings.PracticeMode);
+        Assert.IsTrue(draft.Save().IsValid);
+        Assert.AreEqual(PracticeMode.ListenAndWrite, saved?.PracticeMode);
+
+        draft.UpdateSettingsFromApp(AppSettings.Default);
+        Assert.AreEqual(PracticeMode.TextHints, draft.Settings.PracticeMode);
+    }
+
+    [TestMethod]
     public void SettingsWindow_SaveDisplayPreferences_SavesUncheckedValues()
     {
         RunOnSta(() =>

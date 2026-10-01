@@ -21,6 +21,18 @@ public class JsonSettingsStoreTests
     }
 
     [TestMethod]
+    public async Task LoadAsync_LegacySettings_DefaultsPracticeModeToTextHints()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        await File.WriteAllTextAsync(path, "{\"Version\":2,\"Sentence\":\"Legacy\"}");
+
+        var loaded = await store.LoadAsync();
+
+        Assert.AreEqual(PracticeMode.TextHints, loaded.PracticeMode);
+    }
+
+    [TestMethod]
     public async Task LoadAsync_LegacyTtsCacheLimit_IgnoresUnknownFieldAndRetainsVoiceAndSpeed()
     {
         var path = CreateSettingsPath();

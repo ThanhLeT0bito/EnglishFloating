@@ -5,6 +5,29 @@ namespace PteFloatingSentence.Core.Tests;
 [TestClass]
 public class ReviewPracticeTests
 {
+    [DataTestMethod]
+    [DataRow("Don't stop at the station.", "don't   stop at the station", true)]
+    [DataRow("Wait for me!", "  WAIT for me...  ", true)]
+    [DataRow("“Don't stop,” she said.", "don't stop she said", true)]
+    [DataRow("Don't stop.", "Dont stop", false)]
+    [DataRow("You must wear a hard hat.", "You must wear hard hat", false)]
+    [DataRow("You must wear a hard hat.", "You must wear a hard hat today", false)]
+    [DataRow("You must wear a hard hat.", "You wear must a hard hat", false)]
+    [DataRow("You must wear a hard hat.", "You must wear a hard cat", false)]
+    [DataRow("You must wear a hard hat.", "", false)]
+    [DataRow("You must wear a hard hat.", "   ", false)]
+    [DataRow("", "", false)]
+    public void IsCorrectDictation_GradesCompleteNormalizedSentence(string expected, string answer, bool isCorrect)
+    {
+        Assert.AreEqual(isCorrect, ReviewPracticeRules.IsCorrectDictation(expected, answer));
+    }
+
+    [TestMethod]
+    public void IsCorrectDictation_NullAnswer_IsIncorrect()
+    {
+        Assert.IsFalse(ReviewPracticeRules.IsCorrectDictation("Listen carefully.", null));
+    }
+
     [TestMethod]
     public void CreateProjection_PreservesOriginalTextAndTokenCount()
     {

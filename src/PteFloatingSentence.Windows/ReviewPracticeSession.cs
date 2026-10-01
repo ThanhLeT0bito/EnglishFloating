@@ -68,13 +68,7 @@ public sealed class ReviewPracticeSession
         {
             if (result.IsComplete)
             {
-                IsComplete = true;
-                _completedSentenceIds.Add(CurrentReview.SentenceId);
-                if (List.Sentences.Count > 0 && _completedSentenceIds.Count >= List.Sentences.Count)
-                {
-                    IsAllSentencesCompleted = true;
-                }
-                _onSentenceCompleted?.Invoke(CurrentReview.SentenceId, true);
+                CompleteCurrentSentence();
             }
             else
             {
@@ -83,6 +77,27 @@ public sealed class ReviewPracticeSession
         }
 
         return result;
+    }
+
+    public ReviewAnswerResult SubmitDictation(string answer)
+    {
+        if (List.Sentences.Count == 0 || _completedSentenceIds.Contains(CurrentReview.SentenceId))
+            return new ReviewAnswerResult(false, IsComplete, CurrentHiddenPosition, "Try again.");
+
+        if (!ReviewPracticeRules.IsCorrectDictation(CurrentReview.OriginalText, answer))
+            return new ReviewAnswerResult(false, false, CurrentHiddenPosition, "Try again.");
+
+        CompleteCurrentSentence();
+        return new ReviewAnswerResult(true, true, CurrentHiddenPosition, null);
+    }
+
+    private void CompleteCurrentSentence()
+    {
+        IsComplete = true;
+        _completedSentenceIds.Add(CurrentReview.SentenceId);
+        if (_completedSentenceIds.Count >= List.Sentences.Count)
+            IsAllSentencesCompleted = true;
+        _onSentenceCompleted?.Invoke(CurrentReview.SentenceId, true);
     }
 
     public void MoveNextSentence()

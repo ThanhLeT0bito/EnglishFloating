@@ -79,6 +79,9 @@ public sealed class StudyListDraft
             TtsSpeed = speed
         };
 
+    public void SetPracticeMode(PracticeMode mode) =>
+        _settings = _settings with { PracticeMode = mode };
+
     public void UpdateFlashcardSettings(AppSettings settings)
     {
         _settings = _settings with
@@ -104,7 +107,8 @@ public sealed class StudyListDraft
             ActiveFlashcardDeckKey = settings.ActiveFlashcardDeckKey,
             LaunchAtWindowsSignIn = settings.LaunchAtWindowsSignIn,
             TtsVoice = settings.TtsVoice,
-            TtsSpeed = settings.TtsSpeed
+            TtsSpeed = settings.TtsSpeed,
+            PracticeMode = settings.PracticeMode
         };
     }
 

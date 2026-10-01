@@ -27,6 +27,28 @@ public static class ReviewPracticeRules
         '.', ',', '!', '?', ';', ':', '"', '\'', '(', ')', '[', ']', '{', '}', '-', '—'
     ];
 
+    public static bool IsCorrectDictation(string expected, string? answer)
+    {
+        static string Normalize(string? text) => string.Join(" ",
+            (text ?? string.Empty)
+                .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+                .Select(TrimOuterPunctuation)
+                .Where(word => word.Length > 0));
+
+        var normalizedExpected = Normalize(expected);
+        return normalizedExpected.Length > 0
+            && string.Equals(normalizedExpected, Normalize(answer), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string TrimOuterPunctuation(string word)
+    {
+        var start = 0;
+        var end = word.Length - 1;
+        while (start <= end && char.IsPunctuation(word[start])) start++;
+        while (end >= start && char.IsPunctuation(word[end])) end--;
+        return word[start..(end + 1)];
+    }
+
     public static ReviewSentence CreateProjection(StudySentence sentence, int? seed = null)
     {
         ArgumentNullException.ThrowIfNull(sentence);
