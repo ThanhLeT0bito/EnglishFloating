@@ -61,7 +61,7 @@ await act.Should().ThrowAsync<TimeoutException>();
 ~~~
 
 - [ ] **Step 2: Run red tests.** Run dotnet test tests/PteFloatingSentence.Windows.Tests -c Release --filter "FullyQualifiedName~EdgeNeuralTtsServiceTests|FullyQualifiedName~AudioCacheManagerTests" and dotnet test tests/PteFloatingSentence.Core.Tests -c Release --filter "FullyQualifiedName~SettingsUpdateMergerTests". Expect the new timeout-constructor and removed-property assertions to fail.
-- [ ] **Step 3: Implement the bounded call.** Move the current SynthesizeSpeechAsync body to a private SynthesizeCoreAsync that receives the effective token. Wrap it as below; keep all WebSocket operations on the effective token, including connect and receive. Do not translate explicit caller cancellation.
+- [ ] **Step 3: Implement the bounded call.** Move the current SynthesizeSpeechAsync body to a private SynthesizeCoreAsync that receives the effective token. Wrap it as below; keep all WebSocket operations on the effective token, including connect, receive, and graceful close (replace the current CancellationToken.None close argument). Do not translate explicit caller cancellation.
 
 ~~~csharp
 private readonly TimeSpan _timeout;
@@ -254,7 +254,7 @@ panel.FindName("DictationInput").Should().BeOfType<TextBox>();
   </Border>
 </StackPanel>
 ~~~
-- [ ] **Step 4: Implement PracticePanel.xaml.cs.** Render from ReviewPracticeSession.CurrentReview; TextHints submits via session.Submit; ListenAndWrite submits via session.SubmitDictation. Submit on Enter and Check button. Correct completion stops audio and calls MoveNextSentence unless all sentences complete. A mode change, list change, navigation, restart, or unload stops audio and clears input. The speaker calls audio.ToggleAsync with the session's current sentence text and saved TtsVoice/TtsSpeed. Use the same generic feedback/error copy in both layouts.
+- [ ] **Step 4: Implement PracticePanel.xaml.cs.** Render from ReviewPracticeSession.CurrentReview; TextHints submits via session.Submit (preserve Enter and Space submission), ListenAndWrite submits via session.SubmitDictation (Enter or Check button). Correct completion stops audio and calls MoveNextSentence unless all sentences complete. A mode change, list change, navigation, restart, or unload stops audio and clears input. The speaker calls audio.ToggleAsync with the session's current sentence text and saved TtsVoice/TtsSpeed. Use the same generic feedback/error copy in both layouts.
 
 ~~~csharp
 private async void PracticeAudioButton_Click(object sender, RoutedEventArgs e)
@@ -297,7 +297,7 @@ private void SubmitDictation()
 
 - [ ] **Step 1: Write failing host tests.** Assert FloatingWindow practice contains PracticePanel and uses selected list (including a list different from active). Assert Settings Practice contains the same panel type, defaults to TextHints, saves mode selection, and matches floating auto-advance. Assert both display the speaker in both modes. Assert changing list/mode stops audio and does not leak prior sentence text.
 - [ ] **Step 2: Run red tests.** Run dotnet test tests/PteFloatingSentence.Windows.Tests -c Release --filter "FullyQualifiedName~SettingsWorkflowTests|FullyQualifiedName~PracticeWorkflowTests|FullyQualifiedName~FloatingAudioWorkflowTests". Expect newly added assertions to fail.
-- [ ] **Step 3: Replace the duplicated practice projection in FloatingWindow.** Keep outer floating chrome and navigation; embed PracticePanel in PracticeContainer. Route outer Previous/Next buttons to panel navigation and preserve PracticeModeChanged/SentenceCompleted events. Remove old floating practice textbox handlers and projection code after the tests exercise the shared panel.
+- [ ] **Step 3: Replace the duplicated practice projection in FloatingWindow.** Keep outer floating chrome and navigation; embed PracticePanel in PracticeContainer with Compact=true, which hides the panel's internal Previous/Next buttons. Route outer Previous/Next buttons to panel navigation and preserve PracticeModeChanged/SentenceCompleted events. Remove old floating practice textbox handlers and projection code after the tests exercise the shared panel.
 
 ~~~xml
 <StackPanel x:Name="PracticeContainer" Visibility="Collapsed">
