@@ -16,6 +16,23 @@ public sealed class SentenceValidatorTests
         Assert.AreEqual("Enter a sentence.", result.Error);
     }
 
+    [DataTestMethod]
+    [DataRow("!!!")]
+    [DataRow("... ?!")]
+    [DataRow("---")]
+    public void Validate_PunctuationOnly_ReturnsInvalid(string text)
+    {
+        var result = SentenceValidator.Validate(text);
+        Assert.IsFalse(result.IsValid);
+        Assert.AreEqual("Enter a sentence.", result.Error);
+    }
+
+    [TestMethod]
+    public void Validate_PunctuationAroundWords_ReturnsValid()
+    {
+        Assert.IsTrue(SentenceValidator.Validate("\"Hello, world!\"").IsValid);
+    }
+
     [TestMethod]
     public void Validate_TwentyWords_ReturnsValid()
     {

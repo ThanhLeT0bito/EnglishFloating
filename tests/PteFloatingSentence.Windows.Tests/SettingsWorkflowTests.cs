@@ -136,6 +136,24 @@ public class SettingsWorkflowTests
     }
 
     [TestMethod]
+    public void StudyListDraft_AddAndUpdateSentence_RejectPunctuationOnly()
+    {
+        var draft = new StudyListDraft(AppSettings.Default, _ => { });
+        var originalCount = draft.SelectedList.Sentences.Count;
+        var add = draft.AddSentence("!!!");
+        Assert.IsFalse(add.IsValid);
+        Assert.AreEqual("Enter a sentence.", add.Error);
+        Assert.AreEqual(originalCount, draft.SelectedList.Sentences.Count);
+
+        var original = draft.SelectedList.Sentences[0];
+        draft.SelectSentence(original.Id);
+        var update = draft.UpdateSelectedSentence("... ?!");
+        Assert.IsFalse(update.IsValid);
+        Assert.AreEqual("Enter a sentence.", update.Error);
+        Assert.AreEqual(original.Text, draft.SelectedList.Sentences[0].Text);
+    }
+
+    [TestMethod]
     public void StudyListDraft_SelectSentence_OnlyChangesSelectedListsCurrentIndex()
     {
         var first = new StudyList(Guid.NewGuid(), "First", 10, 0,
