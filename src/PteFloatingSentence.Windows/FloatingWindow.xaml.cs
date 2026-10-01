@@ -168,10 +168,12 @@ public partial class FloatingWindow : Window
         {
             if (_practiceSession is not null)
             {
+                var practiceList = settings.StudyLists.FirstOrDefault(l => l.Id == _practiceSession.List.Id) ?? activeList;
+                var practiceContentChanged = _practiceSession.RefreshList(practiceList);
                 _hasMultipleSentences = _practiceSession.List.Sentences.Count > 1;
                 PreviousButton.IsEnabled = NextButton.IsEnabled = _hasMultipleSentences;
                 UpdateNavigationVisibility(isPointerOver: IsMouseOver);
-                if (practicePreferencesChanged) FloatingPracticePanel.Load(_practiceSession, settings, _audioPlayback);
+                if (practicePreferencesChanged || practiceContentChanged) FloatingPracticePanel.Load(_practiceSession, settings, _audioPlayback);
             }
             SentenceBox.Visibility = Visibility.Collapsed;
             NormalSentenceContainer.Visibility = Visibility.Collapsed;
@@ -557,7 +559,7 @@ public partial class FloatingWindow : Window
 
         _practiceSession = new ReviewPracticeSession(targetList, onSentenceCompleted: (sentenceId, completed) =>
         {
-            SentenceCompleted?.Invoke(this, (targetList.Id, sentenceId, completed));
+            SentenceCompleted?.Invoke(this, (_practiceSession!.List.Id, sentenceId, completed));
         });
 
         if (_practiceSession.IsAllSentencesCompleted && targetList.Sentences.Count > 0)

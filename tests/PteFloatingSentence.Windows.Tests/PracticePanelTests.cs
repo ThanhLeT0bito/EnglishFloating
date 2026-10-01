@@ -10,6 +10,31 @@ namespace PteFloatingSentence.Windows.Tests;
 [DoNotParallelize]
 public class PracticePanelTests
 {
+    [DataTestMethod]
+    [DataRow("mode")]
+    [DataRow("reload")]
+    [DataRow("unload")]
+    public void QueuedAudioNotification_AfterResetCannotRestoreOldFeedback(string action) => RunOnSta(() =>
+    {
+        var panel = new PracticePanel();
+        var audio = new FakeAudio();
+        panel.Load(Session(), new AppSettings(), audio);
+        var worker = new Thread(() => audio.Publish(new(false, false, "old error")));
+        worker.Start();
+        worker.Join();
+        if (action == "mode") panel.UpdateMode(PracticeMode.ListenAndWrite);
+        else if (action == "reload") panel.Load(Session(), new AppSettings(), audio);
+        else panel.RaiseEvent(new RoutedEventArgs(FrameworkElement.UnloadedEvent));
+        // A queued callback reads the source's current state; poison that read without a new event.
+        audio.SetStateWithoutNotification(new(false, false, "stale error"));
+        var frame = new System.Windows.Threading.DispatcherFrame();
+        panel.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background,
+            (Action)(() => frame.Continue = false));
+        System.Windows.Threading.Dispatcher.PushFrame(frame);
+        Assert.AreEqual(Visibility.Collapsed, Named<TextBlock>(panel, "PracticeFeedbackLabel").Visibility);
+        Assert.AreEqual("Play audio", Named<Button>(panel, "PracticeAudioButton").ToolTip);
+    });
+
     [TestMethod]
     public void HintSpaceAndDictationEnter_SubmitAndAdvance_InCompactLayout() => RunOnSta(() =>
     {
@@ -140,6 +165,7 @@ public class PracticePanelTests
         public Task ToggleAsync(string text, string voice, double speed) { Request = (text, voice, speed); return Task.CompletedTask; }
         public void Stop() { Stops++; Publish(new(false, false, null)); }
         public void Publish(AudioPlaybackState state) { State = state; StateChanged?.Invoke(state); }
+        public void SetStateWithoutNotification(AudioPlaybackState state) => State = state;
         public void Dispose() { }
     }
 }

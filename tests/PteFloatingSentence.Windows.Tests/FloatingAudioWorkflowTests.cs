@@ -15,6 +15,110 @@ namespace PteFloatingSentence.Windows.Tests;
 public class FloatingAudioWorkflowTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RemovingPracticeContent_SelectsSafeSentenceAndUpdatesCompletionList(bool removeList)
+    {
+        RunOnSta(() =>
+        {
+            var settings = CreateTwoSentenceSettings() with { PracticeMode = PracticeMode.ListenAndWrite };
+            var original = settings.StudyLists[0];
+            var alternate = original with { Id = Guid.NewGuid() };
+            settings = settings with { StudyLists = [original, alternate] };
+            var player = new FakeAudioPlayer();
+            var cache = new FakeAudioCacheManager();
+            cache.CachedFiles["cached.mp3"] = "audio";
+            var window = new FloatingWindow(player, new FakeTtsService(), cache);
+            window.ApplySettings(settings);
+            window.StartPractice(alternate.Id);
+            var panel = (PracticePanel)window.FindName("FloatingPracticePanel");
+            panel.MoveNextSentence();
+            ((Button)panel.FindName("PracticeAudioButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var edited = alternate with { Sentences = [alternate.Sentences[0]] };
+            window.ApplySettings(settings with { StudyLists = removeList ? [original] : [original, edited] });
+            player.IsPlaying.Should().BeFalse();
+            Guid? completedList = null;
+            window.SentenceCompleted += (_, value) => completedList = value.ListId;
+            ((TextBox)panel.FindName("DictationInput")).Text = removeList ? original.Sentences[1].Text : original.Sentences[0].Text;
+            ((Button)panel.FindName("PracticeCheckButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            completedList.Should().Be(removeList ? original.Id : alternate.Id);
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void UnrelatedPracticeSettings_PreservePartialEntryAndAudio()
+    {
+        RunOnSta(() =>
+        {
+            var settings = CreateTwoSentenceSettings() with { PracticeMode = PracticeMode.ListenAndWrite };
+            var player = new FakeAudioPlayer();
+            var cache = new FakeAudioCacheManager();
+            cache.CachedFiles["cached.mp3"] = "audio";
+            var window = new FloatingWindow(player, new FakeTtsService(), cache);
+            window.ApplySettings(settings);
+            window.StartPractice();
+            var panel = (PracticePanel)window.FindName("FloatingPracticePanel");
+            var input = (TextBox)panel.FindName("DictationInput");
+            input.Text = "partial answer";
+            ((Button)panel.FindName("PracticeAudioButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            window.ApplySettings(settings with { FontSize = settings.FontSize + 1 });
+            input.Text.Should().Be("partial answer");
+            player.IsPlaying.Should().BeTrue();
+            window.Close();
+        });
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void EditingPracticedSentence_RefreshesAnswerAndStopsAudio(bool alternateList, bool pending)
+    {
+        RunOnSta(() =>
+        {
+            var player = new FakeAudioPlayer();
+            var tts = new FakeTtsService { Pending = pending };
+            var cache = new FakeAudioCacheManager();
+            if (!pending) cache.CachedFiles["cached.mp3"] = "audio";
+            var settings = CreateTwoSentenceSettings() with { PracticeMode = PracticeMode.ListenAndWrite };
+            var practiceList = settings.StudyLists[0];
+            if (alternateList)
+            {
+                practiceList = practiceList with { Id = Guid.NewGuid() };
+                settings = settings with { StudyLists = [settings.StudyLists[0], practiceList] };
+            }
+            var window = new FloatingWindow(player, tts, cache);
+            window.ApplySettings(settings);
+            window.StartPractice(practiceList.Id);
+            var panel = (PracticePanel)window.FindName("FloatingPracticePanel");
+            var input = (TextBox)panel.FindName("DictationInput");
+            input.Text = practiceList.Sentences[0].Text;
+            ((Button)panel.FindName("PracticeCheckButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            ((Button)panel.FindName("PracticeAudioButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var edited = practiceList with { Sentences = [practiceList.Sentences[0], practiceList.Sentences[1] with { Text = "Updated practice answer." }] };
+            window.ApplySettings(settings with { StudyLists = settings.StudyLists.Select(l => l.Id == edited.Id ? edited : l).ToArray() });
+            if (pending)
+            {
+                tts.LastToken.IsCancellationRequested.Should().BeTrue();
+                tts.CompletePending();
+                DispatcherHelper.DoEvents();
+                player.PlayCallCount.Should().Be(0);
+            }
+            player.IsPlaying.Should().BeFalse();
+            ((TextBlock)panel.FindName("PracticeProgressLabel")).Text.Should().Be("Sentence 2 of 2");
+            input.Text = practiceList.Sentences[1].Text;
+            ((Button)panel.FindName("PracticeCheckButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            ((TextBlock)panel.FindName("PracticeFeedbackLabel")).Text.Should().Be("Try again.");
+            input.Text = "Updated practice answer.";
+            ((Button)panel.FindName("PracticeCheckButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            ((TextBlock)panel.FindName("PracticeCompletionLabel")).Text.Should().Be("All sentences in this list completed!");
+            window.Close();
+        });
+    }
+
+    [Theory]
     [InlineData(PracticeMode.TextHints)]
     [InlineData(PracticeMode.ListenAndWrite)]
     public void PracticeSpeaker_UsesSharedPlayback_AndModeListExitStopIt(PracticeMode mode)

@@ -8,7 +8,7 @@ public sealed class ReviewPracticeSession
     private readonly int? _fixedSeed;
     private readonly HashSet<Guid> _completedSentenceIds;
 
-    public StudyList List { get; }
+    public StudyList List { get; private set; }
     public int SentenceIndex { get; private set; }
     public ReviewSentence CurrentReview { get; private set; } = default!;
     public int CurrentHiddenPosition { get; private set; }
@@ -54,6 +54,25 @@ public sealed class ReviewPracticeSession
         }
 
         LoadCurrentSentence();
+    }
+
+    public bool RefreshList(StudyList list)
+    {
+        ArgumentNullException.ThrowIfNull(list);
+        var changed = List.Id != list.Id || !List.Sentences.Select(s => (s.Id, s.Text))
+            .SequenceEqual(list.Sentences.Select(s => (s.Id, s.Text)));
+        var selectedId = CurrentReview.SentenceId;
+        if (List.Id != list.Id) _completedSentenceIds.Clear();
+        var previousIds = List.Id == list.Id ? List.Sentences.Select(s => s.Id).ToHashSet() : [];
+        _completedSentenceIds.IntersectWith(list.Sentences.Select(s => s.Id));
+        _completedSentenceIds.UnionWith(list.Sentences.Where(s => s.IsCompleted && !previousIds.Contains(s.Id)).Select(s => s.Id));
+        List = list;
+        if (!changed) return false;
+        var selectedIndex = list.Sentences.ToList().FindIndex(s => s.Id == selectedId);
+        SentenceIndex = selectedIndex >= 0 ? selectedIndex : Math.Clamp(SentenceIndex, 0, Math.Max(0, list.Sentences.Count - 1));
+        IsAllSentencesCompleted = _completedSentenceIds.Count == list.Sentences.Count;
+        LoadCurrentSentence();
+        return true;
     }
 
     public ReviewAnswerResult Submit(string answer)
