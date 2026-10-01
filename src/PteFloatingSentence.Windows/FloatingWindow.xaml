@@ -205,7 +205,10 @@
                                         ToolTip="Play audio (TTS)"
                                         Click="PracticeAudioButton_Click" />
                             </StackPanel>
-                            <Button x:Name="PracticeExitButton" Grid.Column="1" Style="{StaticResource CardActionButtonStyle}" Content="✕ Exit" Click="PracticeExitButton_Click" Margin="8,0,0,0" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button x:Name="PracticeSkipButton" Style="{StaticResource CardActionButtonStyle}" Content="Skip" ToolTip="Skip word (Tab)" Click="PracticeSkipButton_Click" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <Button x:Name="PracticeExitButton" Style="{StaticResource CardActionButtonStyle}" Content="✕ Exit" Click="PracticeExitButton_Click" VerticalAlignment="Center" />
+                            </StackPanel>
                         </Grid>
 
                         <WrapPanel x:Name="PracticeProjectionPanel" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,4" />

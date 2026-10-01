@@ -14,6 +14,7 @@ using TextBox = System.Windows.Controls.TextBox;
 using TextBlock = System.Windows.Controls.TextBlock;
 using MessageBox = System.Windows.MessageBox;
 using Color = System.Windows.Media.Color;
+using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
 
 namespace PteFloatingSentence.Windows;
@@ -42,10 +43,15 @@ public partial class FlashcardsPage : UserControl, IDisposable
     private DialogMode _dialogMode = DialogMode.None;
     private Guid? _editingCardId;
     private bool _disposed;
+    private readonly ISentenceAudioPlayback _audio;
 
-    public FlashcardsPage()
+    public FlashcardsPage() : this(new SentenceAudioPlayback(new WpfAudioPlayer(), new EdgeNeuralTtsService(), new AudioCacheManager())) { }
+
+    public FlashcardsPage(ISentenceAudioPlayback audio)
     {
+        _audio = audio ?? throw new ArgumentNullException(nameof(audio));
         InitializeComponent();
+        _audio.StateChanged += Audio_StateChanged;
         // Note: we do NOT hook Unloaded here because WPF fires Unloaded when
         // a parent's Visibility turns Collapsed (e.g. switching settings tabs),
         // which would incorrectly mark this control as disposed while it is still alive.
@@ -54,8 +60,12 @@ public partial class FlashcardsPage : UserControl, IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
         _disposed = true;
         CancelAiGeneration();
+        _audio.Stop();
+        _audio.StateChanged -= Audio_StateChanged;
+        _audio.Dispose();
     }
 
     private void CancelAiGeneration()
@@ -84,6 +94,7 @@ public partial class FlashcardsPage : UserControl, IDisposable
     public FrameworkElement ManagementView => DeckManagementView;
     public Button ButtonAgain => StudyAgainButton;
     public Button ButtonRemembered => StudyRememberedButton;
+    public Button ButtonStudyAudio => StudyAudioButton;
     public string CurrentStudyPhrase => StudyFrontPhraseText.Text;
     public TextBox InputPhrase => CardPhraseInput;
     public TextBox InputPronunciation => CardPronunciationInput;
@@ -439,6 +450,8 @@ public partial class FlashcardsPage : UserControl, IDisposable
     public void ExitInPageStudy()
     {
         _isStudying = false;
+        _audio.Stop();
+        SetStudyAudioButtonIdle();
         InPageStudyView.Visibility = Visibility.Collapsed;
         DeckManagementView.Visibility = Visibility.Visible;
         UpdateDeckContentView();
@@ -446,6 +459,9 @@ public partial class FlashcardsPage : UserControl, IDisposable
 
     private void UpdateStudyCardDisplay()
     {
+        _audio.Stop();
+        SetStudyAudioButtonIdle();
+
         if (_studyCards.Count == 0 || _studyIndex < 0 || _studyIndex >= _studyCards.Count)
         {
             ExitInPageStudy();
@@ -453,6 +469,10 @@ public partial class FlashcardsPage : UserControl, IDisposable
         }
 
         var card = _studyCards[_studyIndex];
+        if (StudyAudioButton is not null)
+        {
+            StudyAudioButton.IsEnabled = !string.IsNullOrWhiteSpace(card.Phrase);
+        }
         StudyFrontPhraseText.Text = card.Phrase;
         StudyFrontPronunciationText.Text = card.PronunciationIpa ?? string.Empty;
         StudyFrontPronunciationText.Visibility = string.IsNullOrWhiteSpace(card.PronunciationIpa) ? Visibility.Collapsed : Visibility.Visible;
@@ -628,6 +648,10 @@ public partial class FlashcardsPage : UserControl, IDisposable
                     StudyNext();
                     e.Handled = true;
                     break;
+                case Key.A:
+                    _ = ToggleStudyAudioPlaybackAsync();
+                    e.Handled = true;
+                    break;
                 case Key.D:
                     MarkCurrentStudyCardDone();
                     e.Handled = true;
@@ -662,6 +686,65 @@ public partial class FlashcardsPage : UserControl, IDisposable
                     break;
             }
         }
+    }
+
+    private async void StudyAudioButton_Click(object sender, RoutedEventArgs e)
+    {
+        await ToggleStudyAudioPlaybackAsync();
+    }
+
+    public async Task ToggleStudyAudioPlaybackAsync()
+    {
+        if (!_isStudying || _studyCards.Count == 0 || _studyIndex < 0 || _studyIndex >= _studyCards.Count)
+            return;
+
+        var card = _studyCards[_studyIndex];
+        if (string.IsNullOrWhiteSpace(card.Phrase))
+            return;
+
+        var voice = string.IsNullOrWhiteSpace(_settings.TtsVoice) ? EdgeNeuralTtsService.DefaultVoice : _settings.TtsVoice;
+        var speed = _settings.TtsSpeed is >= 0.8 and <= 1.2 ? _settings.TtsSpeed : 1.0;
+        await _audio.ToggleAsync(card.Phrase, voice, speed);
+    }
+
+    private void Audio_StateChanged(AudioPlaybackState state)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.InvokeAsync(() => Audio_StateChanged(state));
+            return;
+        }
+
+        if (state.IsLoading || state.IsPlaying)
+        {
+            SetStudyAudioButtonActive(state.IsLoading);
+        }
+        else
+        {
+            SetStudyAudioButtonIdle();
+            if (state.Error is not null && StudyAudioButton is not null)
+            {
+                StudyAudioButton.ToolTip = state.Error;
+            }
+        }
+    }
+
+    private void SetStudyAudioButtonIdle()
+    {
+        if (StudyAudioIcon is null || StudyAudioText is null || StudyAudioButton is null) return;
+        StudyAudioIcon.Text = "\uE767";
+        StudyAudioText.Text = "Listen";
+        StudyAudioButton.Foreground = (Brush?)FindResource("TextSecondaryBrush") ?? Brushes.White;
+        StudyAudioButton.ToolTip = "Listen pronunciation (A)";
+    }
+
+    private void SetStudyAudioButtonActive(bool isLoading)
+    {
+        if (StudyAudioIcon is null || StudyAudioText is null || StudyAudioButton is null) return;
+        StudyAudioIcon.Text = "\uE768";
+        StudyAudioText.Text = isLoading ? "Loading..." : "Stop";
+        StudyAudioButton.Foreground = (Brush?)FindResource("AccentBrush") ?? Brushes.LightSkyBlue;
+        StudyAudioButton.ToolTip = isLoading ? "Loading audio..." : "Stop audio (A)";
     }
 
     #endregion

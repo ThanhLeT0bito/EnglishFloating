@@ -125,6 +125,7 @@ public partial class SettingsWindow : Window
         GeminiPageControl.LoadState(_apiKeyConfigured);
         GeminiPageControl.ClearKeyRequested += OnClearKeyRequested;
         FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged, _explainer);
+        ReviewPracticePageControl.PracticeModeChanged += OnPracticeModeChanged;
         ReviewPracticePageControl?.Initialize(_draft.Settings, (listId, sentenceId, completed) =>
         {
             _draft.MarkSentenceCompleted(listId, sentenceId, completed);
@@ -137,6 +138,8 @@ public partial class SettingsWindow : Window
         RenderSelectedPage();
         RefreshUi();
     }
+
+    private void OnPracticeModeChanged(PracticeMode mode) => _draft.SetPracticeMode(mode);
 
     private void OnFlashcardsSettingsChanged(AppSettings newSettings)
     {
@@ -189,6 +192,7 @@ public partial class SettingsWindow : Window
         {
             GeminiPageControl.ClearKeyRequested -= OnClearKeyRequested;
         }
+        ReviewPracticePageControl.PracticeModeChanged -= OnPracticeModeChanged;
         ReviewPracticePageControl?.Dispose();
         FlashcardsPageControl?.Dispose();
     }

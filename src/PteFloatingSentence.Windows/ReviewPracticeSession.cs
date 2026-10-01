@@ -14,12 +14,14 @@ public sealed class ReviewPracticeSession
     public int CurrentHiddenPosition { get; private set; }
     public bool IsComplete { get; private set; }
     public bool IsAllSentencesCompleted { get; private set; }
+    public PracticeMode Mode { get; private set; }
 
-    public ReviewPracticeSession(StudyList list, int? seed = null, Action<Guid, bool>? onSentenceCompleted = null)
+    public ReviewPracticeSession(StudyList list, int? seed = null, Action<Guid, bool>? onSentenceCompleted = null, PracticeMode mode = PracticeMode.TextHints)
     {
         List = list ?? throw new ArgumentNullException(nameof(list));
         _fixedSeed = seed;
         _onSentenceCompleted = onSentenceCompleted;
+        Mode = mode;
         _completedSentenceIds = new HashSet<Guid>(list.Sentences.Where(s => s.IsCompleted).Select(s => s.Id));
 
         if (list.Sentences.Count == 0)
@@ -143,6 +145,33 @@ public sealed class ReviewPracticeSession
         LoadCurrentSentence();
     }
 
+    public void SetMode(PracticeMode mode)
+    {
+        if (Mode == mode) return;
+        Mode = mode;
+        LoadCurrentSentence();
+    }
+
+    public ReviewAnswerResult SkipCurrentWord()
+    {
+        if (IsComplete || CurrentReview.HiddenTokenIndexes.Count == 0)
+        {
+            return new ReviewAnswerResult(false, IsComplete, CurrentHiddenPosition, null);
+        }
+
+        var isLast = CurrentHiddenPosition >= CurrentReview.HiddenTokenIndexes.Count - 1;
+        if (isLast)
+        {
+            CompleteCurrentSentence();
+            return new ReviewAnswerResult(true, true, CurrentHiddenPosition, null);
+        }
+        else
+        {
+            CurrentHiddenPosition++;
+            return new ReviewAnswerResult(true, false, CurrentHiddenPosition, null);
+        }
+    }
+
     private void LoadCurrentSentence()
     {
         if (List.Sentences.Count == 0)
@@ -154,7 +183,7 @@ public sealed class ReviewPracticeSession
         }
 
         var sentence = List.Sentences[SentenceIndex];
-        CurrentReview = ReviewPracticeRules.CreateProjection(sentence, _fixedSeed);
+        CurrentReview = ReviewPracticeRules.CreateProjection(sentence, _fixedSeed, Mode);
         CurrentHiddenPosition = 0;
         IsComplete = _completedSentenceIds.Contains(sentence.Id);
     }

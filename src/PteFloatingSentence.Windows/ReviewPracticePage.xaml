@@ -240,7 +240,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Header: Study List Selector, Progress, and Audio Playback -->
+        <!-- Header: Study List Selector, Practice Mode Selector, Progress, and Audio Playback -->
         <Grid Grid.Row="0" Margin="0,0,0,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -248,7 +248,13 @@
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="Study list:" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{StaticResource TextMutedBrush}" FontWeight="SemiBold" />
-                <ComboBox x:Name="StudyListSelector" Width="220" SelectionChanged="StudyListSelector_SelectionChanged" />
+                <ComboBox x:Name="StudyListSelector" Width="200" SelectionChanged="StudyListSelector_SelectionChanged" Margin="0,0,16,0" />
+
+                <TextBlock Text="Mode:" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{StaticResource TextMutedBrush}" FontWeight="SemiBold" />
+                <ComboBox x:Name="PracticeModeSelector" Width="170" SelectionChanged="PracticeModeSelector_SelectionChanged">
+                    <ComboBoxItem Content="Text hints" Tag="TextHints" />
+                    <ComboBoxItem Content="Listen &amp; write" Tag="ListenAndWrite" />
+                </ComboBox>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock x:Name="ProgressLabel" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" Foreground="#FF38BDF8" Text="Sentence 1 of 1" />
@@ -283,7 +289,7 @@
                 <TextBlock x:Name="RevealedAnswerLabel" Foreground="#FF38BDF8" FontSize="13" Visibility="Collapsed" />
             </StackPanel>
 
-            <!-- Controls: Check answer, Show answer, Navigation -->
+            <!-- Controls: Check answer, Skip word, Show answer, Navigation -->
             <Grid Grid.Row="2" Margin="0,0,0,16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -292,6 +298,7 @@
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
                     <Button x:Name="CheckAnswerButton" Content="Check answer" Padding="14,8" Background="{StaticResource AccentBrush}" Foreground="White" BorderThickness="0" Cursor="Hand" FontWeight="SemiBold" Margin="0,0,8,0" Click="CheckAnswerButton_Click" />
+                    <Button x:Name="SkipWordButton" Content="Skip word" Style="{StaticResource SecondaryButtonStyle}" Click="SkipWordButton_Click" />
                     <Button x:Name="ShowAnswerButton" Content="Show answer" Style="{StaticResource SecondaryButtonStyle}" Click="ShowAnswerButton_Click" />
                 </StackPanel>
 

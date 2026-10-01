@@ -26,7 +26,10 @@ public partial class ReviewPracticePage : UserControl, IDisposable
     private ReviewPracticeSession? _session;
     private readonly ISentenceAudioPlayback _audio;
     private int? _seed;
+    private bool _initializing;
     private bool _isDisposed;
+
+    public event Action<PracticeMode>? PracticeModeChanged;
 
     private readonly KeyEventHandler _keyDownHandler;
     private readonly RoutedEventHandler _gotFocusHandler;
@@ -59,7 +62,10 @@ public partial class ReviewPracticePage : UserControl, IDisposable
         _onSentenceCompleted = onSentenceCompleted;
         _seed = seed;
 
+        _initializing = true;
+        PracticeModeSelector.SelectedIndex = settings.PracticeMode == PracticeMode.ListenAndWrite ? 1 : 0;
         PopulateListSelector();
+        _initializing = false;
     }
 
     public void LoadList(StudyList list)
@@ -70,10 +76,11 @@ public partial class ReviewPracticePage : UserControl, IDisposable
         _audio.Stop();
         SetAudioButtonIdle();
 
+        var mode = _settings?.PracticeMode ?? PracticeMode.TextHints;
         _session = new ReviewPracticeSession(list, _seed, (sentenceId, completed) =>
         {
             _onSentenceCompleted?.Invoke(list.Id, sentenceId, completed);
-        });
+        }, mode);
 
         RenderSession();
     }
@@ -124,6 +131,19 @@ public partial class ReviewPracticePage : UserControl, IDisposable
                 LoadList(list);
             }
         }
+    }
+
+    private void PracticeModeSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_initializing || _settings is null) return;
+        var mode = PracticeModeSelector.SelectedIndex == 1 ? PracticeMode.ListenAndWrite : PracticeMode.TextHints;
+        _settings = _settings with { PracticeMode = mode };
+        if (_session is not null && _session.Mode != mode)
+        {
+            _session.SetMode(mode);
+            RenderSession();
+        }
+        PracticeModeChanged?.Invoke(mode);
     }
 
     private void RenderSession()
@@ -267,6 +287,13 @@ public partial class ReviewPracticePage : UserControl, IDisposable
 
     private void OnSentencePanelKeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Tab && e.OriginalSource is TextBox)
+        {
+            e.Handled = true;
+            SkipWordButton_Click(this, new RoutedEventArgs());
+            return;
+        }
+
         if (e.Key == Key.Enter && e.OriginalSource is TextBox box)
         {
             e.Handled = true;
@@ -305,6 +332,41 @@ public partial class ReviewPracticePage : UserControl, IDisposable
         }
     }
 
+    private void SkipWordButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_session is null || _session.IsComplete) return;
+
+        var currentPos = _session.CurrentHiddenPosition;
+        if (currentPos >= _session.CurrentReview.HiddenTokenIndexes.Count) return;
+
+        var tokenIdx = _session.CurrentReview.HiddenTokenIndexes[currentPos];
+        var expected = _session.CurrentReview.Tokens[tokenIdx].SourceText;
+
+        foreach (var child in SentenceProjectionPanel.Children)
+        {
+            if (child is TextBox box && box.Tag is int pos && pos == currentPos)
+            {
+                box.Text = expected;
+                box.IsEnabled = false;
+                box.Foreground = new SolidColorBrush(Color.FromRgb(245, 158, 11)); // Amber
+                break;
+            }
+        }
+
+        InlineErrorLabel.Visibility = Visibility.Collapsed;
+        RevealedAnswerLabel.Visibility = Visibility.Collapsed;
+
+        var result = _session.SkipCurrentWord();
+        if (result.IsComplete)
+        {
+            ShowCompletionBanner();
+        }
+        else
+        {
+            FocusActiveHiddenBox();
+        }
+    }
+
     private void SubmitBoxAnswer(TextBox box)
     {
         if (_session is null || _session.IsComplete) return;
@@ -334,8 +396,12 @@ public partial class ReviewPracticePage : UserControl, IDisposable
         }
         else
         {
+            var tokenIdx = _session.CurrentReview.HiddenTokenIndexes[(int)box.Tag];
+            var expected = _session.CurrentReview.Tokens[tokenIdx].SourceText.Trim().Trim(TrimPunctuationChars);
             InlineErrorLabel.Text = result.Error ?? "Try again.";
             InlineErrorLabel.Visibility = Visibility.Visible;
+            RevealedAnswerLabel.Text = $"Answer: {expected}";
+            RevealedAnswerLabel.Visibility = Visibility.Visible;
             box.Focus();
             box.SelectAll();
         }
@@ -449,6 +515,8 @@ public partial class ReviewPracticePage : UserControl, IDisposable
 
         Unloaded -= OnPageUnloaded;
         IsVisibleChanged -= OnVisibilityChanged;
+        StudyListSelector.SelectionChanged -= StudyListSelector_SelectionChanged;
+        PracticeModeSelector.SelectionChanged -= PracticeModeSelector_SelectionChanged;
         SentenceProjectionPanel.RemoveHandler(UIElement.KeyDownEvent, _keyDownHandler);
         SentenceProjectionPanel.RemoveHandler(UIElement.GotFocusEvent, _gotFocusHandler);
         SentenceProjectionPanel.RemoveHandler(UIElement.LostFocusEvent, _lostFocusHandler);

@@ -257,4 +257,16 @@ public class ReviewPracticeTests
         var checkApos = ReviewPracticeRules.CheckAnswer(reviewApos, 0, "don't");
         Assert.IsTrue(checkApos.IsCorrect);
     }
+
+    [TestMethod]
+    public void CreateProjection_ListenAndWrite_HidesAllTokens()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "Every single word is hidden here.");
+        var review = ReviewPracticeRules.CreateProjection(sentence, mode: PracticeMode.ListenAndWrite);
+
+        Assert.AreEqual(6, review.Tokens.Count);
+        Assert.AreEqual(6, review.HiddenTokenIndexes.Count);
+        Assert.IsTrue(review.Tokens.All(t => t.IsHidden));
+        Assert.IsTrue(review.Tokens.All(t => t.DisplayText == "_"));
+    }
 }

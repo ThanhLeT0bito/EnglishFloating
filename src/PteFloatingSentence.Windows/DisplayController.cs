@@ -76,7 +76,8 @@ public sealed class DisplayController : IDisposable
                 EnsureFlashcardWindow();
                 var currentIndex = _flashcardWindow!.CurrentIndex;
                 var targetIndex = Math.Clamp(currentIndex, 0, deckCards.Count - 1);
-                _flashcardWindow!.SetDeck(deckName, deckCards, targetIndex);
+                _flashcardWindow!.SetAudioSettings(settings.TtsVoice, settings.TtsSpeed);
+                _flashcardWindow.SetDeck(deckName, deckCards, targetIndex);
                 _flashcardWindow.Show();
                 flashcardVisible = true;
             }

@@ -184,6 +184,10 @@ public partial class FloatingWindow : Window
             {
                 var practiceList = settings.StudyLists.FirstOrDefault(l => l.Id == _practiceSession.List.Id) ?? activeList;
                 _practiceSession.RefreshList(practiceList);
+                if (_practiceSession.Mode != settings.PracticeMode)
+                {
+                    _practiceSession.SetMode(settings.PracticeMode);
+                }
                 _hasMultipleSentences = _practiceSession.List.Sentences.Count > 1;
                 PreviousButton.IsEnabled = NextButton.IsEnabled = _hasMultipleSentences;
                 UpdateNavigationVisibility(isPointerOver: IsMouseOver);
@@ -543,6 +547,8 @@ public partial class FloatingWindow : Window
             IsWithinButtonTree(e.OriginalSource, NextButton) ||
             (AudioButton is not null && IsWithinButtonTree(e.OriginalSource, AudioButton)) ||
             (PracticeAudioButton is not null && IsWithinButtonTree(e.OriginalSource, PracticeAudioButton)) ||
+            (PracticeSkipButton is not null && IsWithinButtonTree(e.OriginalSource, PracticeSkipButton)) ||
+            (PracticeExitButton is not null && IsWithinButtonTree(e.OriginalSource, PracticeExitButton)) ||
             IsWithinElementTree(e.OriginalSource, SentenceBox) ||
             IsWithinElementTree(e.OriginalSource, PracticeProjectionPanel) ||
             IsWithinElementTree(e.OriginalSource, VocabularyPanel))
@@ -576,7 +582,7 @@ public partial class FloatingWindow : Window
         _practiceSession = new ReviewPracticeSession(targetList, onSentenceCompleted: (sentenceId, completed) =>
         {
             SentenceCompleted?.Invoke(this, (_practiceSession!.List.Id, sentenceId, completed));
-        });
+        }, mode: _settings.PracticeMode);
 
         if (_practiceSession.IsAllSentencesCompleted && targetList.Sentences.Count > 0)
         {
@@ -841,13 +847,57 @@ public partial class FloatingWindow : Window
         }
         else
         {
+            var tokenIndex = _practiceSession.CurrentReview.HiddenTokenIndexes[hiddenPos];
+            var correctWord = _practiceSession.CurrentReview.Tokens[tokenIndex].SourceText;
             textBox.Foreground = new SolidColorBrush(Color.FromRgb(0xEF, 0x44, 0x44));
-            PracticeFeedbackLabel.Text = result.Error ?? "Try again.";
+            PracticeFeedbackLabel.Text = $"Try again. Answer: {correctWord}";
+            PracticeFeedbackLabel.Foreground = new SolidColorBrush(Color.FromRgb(0xFC, 0xA5, 0xA5));
             PracticeFeedbackLabel.Visibility = Visibility.Visible;
             textBox.SelectAll();
         }
 
         return result;
+    }
+
+    public void SkipCurrentPracticeWord()
+    {
+        if (_practiceSession is null || _practiceSession.IsComplete) return;
+
+        var currentPos = _practiceSession.CurrentHiddenPosition;
+        if (currentPos >= _practiceSession.CurrentReview.HiddenTokenIndexes.Count) return;
+
+        var tokenIndex = _practiceSession.CurrentReview.HiddenTokenIndexes[currentPos];
+        var correctWord = _practiceSession.CurrentReview.Tokens[tokenIndex].SourceText;
+
+        var targetBox = PracticeProjectionPanel.Children
+            .OfType<TextBox>()
+            .FirstOrDefault(tb => tb.Tag is int p && p == currentPos);
+
+        if (targetBox is not null)
+        {
+            targetBox.Text = correctWord;
+            targetBox.Foreground = new SolidColorBrush(Color.FromRgb(0xF5, 0x9E, 0x0B));
+            targetBox.Background = Brushes.Transparent;
+            targetBox.BorderThickness = new Thickness(0);
+            targetBox.IsReadOnly = true;
+            targetBox.Focusable = false;
+        }
+
+        PracticeFeedbackLabel.Visibility = Visibility.Collapsed;
+        var result = _practiceSession.SkipCurrentWord();
+        if (result.IsComplete)
+        {
+            OnPracticeSentenceCompleted();
+        }
+        else
+        {
+            FocusHiddenTextBox(_practiceSession.CurrentHiddenPosition);
+        }
+    }
+
+    private void PracticeSkipButton_Click(object sender, RoutedEventArgs e)
+    {
+        SkipCurrentPracticeWord();
     }
 
     private void OnPracticeSentenceCompleted()
@@ -883,6 +933,13 @@ public partial class FloatingWindow : Window
 
     private void PracticeProjectionPanel_KeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Tab && e.OriginalSource is TextBox)
+        {
+            e.Handled = true;
+            SkipCurrentPracticeWord();
+            return;
+        }
+
         if ((e.Key == Key.Enter || e.Key == Key.Space) && e.OriginalSource is TextBox textBox && textBox.Tag is int hiddenPos)
         {
             e.Handled = true;

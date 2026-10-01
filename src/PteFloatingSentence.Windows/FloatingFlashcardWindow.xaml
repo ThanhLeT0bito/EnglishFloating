@@ -140,6 +140,13 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="AudioButton"
+                            Style="{StaticResource IconButton}"
+                            ToolTip="Listen pronunciation (A)"
+                            Click="AudioButton_Click"
+                            Margin="0,0,4,0">
+                        <TextBlock x:Name="AudioButtonIcon" Text="&#xE767;" FontFamily="Segoe MDL2 Assets" FontSize="13" />
+                    </Button>
                     <Button x:Name="MarkDoneButton"
                             Style="{StaticResource ModernMarkDoneButtonStyle}"
                             ToolTip="Mark as done / don't repeat (D)"

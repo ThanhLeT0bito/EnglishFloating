@@ -61,6 +61,27 @@ public class PracticeWorkflowTests
         page.Dispose();
     });
 
+    [TestMethod]
+    public void ReviewPracticeSession_SkipCurrentWord_AdvancesAndCompletes()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "Alpha beta gamma.");
+        var list = new StudyList(Guid.NewGuid(), "Test", 10, 0, [sentence]);
+        var session = new ReviewPracticeSession(list, seed: 10, mode: PracticeMode.ListenAndWrite);
+
+        Assert.AreEqual(0, session.CurrentHiddenPosition);
+        var skip1 = session.SkipCurrentWord();
+        Assert.IsFalse(skip1.IsComplete);
+        Assert.AreEqual(1, session.CurrentHiddenPosition);
+
+        var skip2 = session.SkipCurrentWord();
+        Assert.IsFalse(skip2.IsComplete);
+        Assert.AreEqual(2, session.CurrentHiddenPosition);
+
+        var skip3 = session.SkipCurrentWord();
+        Assert.IsTrue(skip3.IsComplete);
+        Assert.IsTrue(session.IsComplete);
+    }
+
     private static T Named<T>(FrameworkElement owner, string name) where T : class
     {
         var value = owner.FindName(name) as T;

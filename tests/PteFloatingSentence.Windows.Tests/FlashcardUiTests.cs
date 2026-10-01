@@ -681,6 +681,79 @@ public class FlashcardUiTests
         public void Dispose() { }
     }
 
+    [TestMethod]
+    public void FloatingFlashcardWindow_AudioButton_TogglesAudio_AndStopsOnNavigation()
+    {
+        RunOnSta(() =>
+        {
+            var audio = new FakeAudioPlayback();
+            var window = new FloatingFlashcardWindow(audio);
+            var card1 = new FlashcardItem("test:1", "deck:1", "First phrase", "first phrase", "/fɜːrst/", "Meaning 1", "Example 1", [], FlashcardLearningState.New, 0, 0, null, null, true, Guid.NewGuid());
+            var card2 = new FlashcardItem("test:2", "deck:1", "Second phrase", "second phrase", "/ˈsɛkənd/", "Meaning 2", "Example 2", [], FlashcardLearningState.New, 0, 0, null, null, true, Guid.NewGuid());
+            window.SetDeck("Test Deck", [card1, card2]);
+
+            window.ButtonAudio.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+            Assert.AreEqual("First phrase", audio.LastPlayedText);
+
+            var stops = audio.StopCount;
+            window.NavigateNext();
+            Assert.IsTrue(audio.StopCount > stops);
+
+            window.Close();
+            Assert.IsTrue(audio.Disposed);
+        });
+    }
+
+    [TestMethod]
+    public void FlashcardsPage_StudyAudioButton_TogglesAudio_AndStopsOnNavigation()
+    {
+        RunOnSta(() =>
+        {
+            var audio = new FakeAudioPlayback();
+            var page = new FlashcardsPage(audio);
+            var customDeckId = Guid.NewGuid();
+            var card1 = new CustomVocabularyCard(Guid.NewGuid(), "Ephemeral", "ephemeral", "/ɪˈfɛmərəl/", "Lasting a short time", "Example 1");
+            var card2 = new CustomVocabularyCard(Guid.NewGuid(), "Resilience", "resilience", "/rɪˈzɪliəns/", "Capacity to recover", "Example 2");
+            var deck = new CustomFlashcardDeck(customDeckId, "Vocab", [card1, card2]);
+            var settings = AppSettings.Default with { CustomFlashcardDecks = [deck] };
+
+            page.LoadSettings(settings);
+            page.SelectDeck(FlashcardRules.CustomDeckKey(customDeckId));
+            page.StartInPageStudy();
+
+            page.ButtonStudyAudio.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+            Assert.AreEqual("Ephemeral", audio.LastPlayedText);
+
+            var stops = audio.StopCount;
+            page.StudyNext();
+            Assert.IsTrue(audio.StopCount > stops);
+
+            page.Dispose();
+            Assert.IsTrue(audio.Disposed);
+        });
+    }
+
+    private sealed class FakeAudioPlayback : ISentenceAudioPlayback
+    {
+        private Action<AudioPlaybackState>? _changed;
+        public int StopCount { get; private set; }
+        public string? LastPlayedText { get; private set; }
+        public bool Disposed { get; private set; }
+        public AudioPlaybackState State => new(false, false, null);
+        public event Action<AudioPlaybackState>? StateChanged
+        {
+            add => _changed += value;
+            remove => _changed -= value;
+        }
+        public Task ToggleAsync(string text, string voice, double speed)
+        {
+            LastPlayedText = text;
+            return Task.CompletedTask;
+        }
+        public void Stop() => StopCount++;
+        public void Dispose() => Disposed = true;
+    }
+
     private static void RunOnSta(Action action)
     {
         Exception? exception = null;

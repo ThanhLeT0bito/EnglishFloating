@@ -2,25 +2,35 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using PteFloatingSentence.Core;
+using PteFloatingSentence.Windows.Infrastructure;
+using Brush = System.Windows.Media.Brush;
+using Brushes = System.Windows.Media.Brushes;
 
 namespace PteFloatingSentence.Windows;
 
 public partial class FloatingFlashcardWindow : Window
 {
+    private readonly ISentenceAudioPlayback _audio;
     private IReadOnlyList<FlashcardItem> _cards = [];
     private int _currentIndex;
     private bool _isShowingBack;
     private int _cycleCount;
     private string _deckName = string.Empty;
+    private string _voice = EdgeNeuralTtsService.DefaultVoice;
+    private double _speed = 1.0;
 
     public event EventHandler? SettingsRequested;
     public event EventHandler? CloseRequested;
     public event EventHandler<(string CardKey, FlashcardRating Rating)>? CardRated;
     public event EventHandler<string>? CardMarkedDoneRequested;
 
-    public FloatingFlashcardWindow()
+    public FloatingFlashcardWindow() : this(new SentenceAudioPlayback(new WpfAudioPlayer(), new EdgeNeuralTtsService(), new AudioCacheManager())) { }
+
+    public FloatingFlashcardWindow(ISentenceAudioPlayback audio)
     {
+        _audio = audio ?? throw new ArgumentNullException(nameof(audio));
         InitializeComponent();
+        _audio.StateChanged += Audio_StateChanged;
     }
 
     public int CurrentIndex => _currentIndex;
@@ -35,6 +45,13 @@ public partial class FloatingFlashcardWindow : Window
     public System.Windows.Controls.Button ButtonHard => HardButton;
     public System.Windows.Controls.Button ButtonRemembered => RememberedButton;
     public System.Windows.Controls.Button ButtonMarkDone => MarkDoneButton;
+    public System.Windows.Controls.Button ButtonAudio => AudioButton;
+
+    public void SetAudioSettings(string? voice, double speed)
+    {
+        _voice = string.IsNullOrWhiteSpace(voice) ? EdgeNeuralTtsService.DefaultVoice : voice;
+        _speed = speed is >= 0.8 and <= 1.2 ? speed : 1.0;
+    }
 
     public void SetDeck(string deckName, IReadOnlyList<FlashcardItem> cards, int initialIndex = 0)
     {
@@ -101,6 +118,8 @@ public partial class FloatingFlashcardWindow : Window
     private void UpdateCardDisplay()
     {
         DeckNameText.Text = _deckName;
+        _audio.Stop();
+        SetAudioButtonIdle();
 
         if (_cards.Count == 0)
         {
@@ -108,11 +127,13 @@ public partial class FloatingFlashcardWindow : Window
             FrontPronunciationText.Text = string.Empty;
             ProgressText.Text = "0 / 0";
             StateBadge.Visibility = Visibility.Collapsed;
+            AudioButton.IsEnabled = false;
             UpdateFaceVisibility();
             return;
         }
 
         var card = _cards[_currentIndex];
+        AudioButton.IsEnabled = !string.IsNullOrWhiteSpace(card.Phrase);
         FrontPhraseText.Text = card.Phrase;
         FrontPronunciationText.Text = card.PronunciationIpa ?? string.Empty;
         FrontPronunciationText.Visibility = string.IsNullOrWhiteSpace(card.PronunciationIpa) ? Visibility.Collapsed : Visibility.Visible;
@@ -229,8 +250,63 @@ public partial class FloatingFlashcardWindow : Window
     private void SettingsButton_Click(object sender, RoutedEventArgs e) =>
         SettingsRequested?.Invoke(this, EventArgs.Empty);
 
-    private void CloseButton_Click(object sender, RoutedEventArgs e) =>
+    private void AudioButton_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        _ = ToggleAudioPlaybackAsync();
+    }
+
+    public async Task ToggleAudioPlaybackAsync()
+    {
+        if (CurrentCard is null || string.IsNullOrWhiteSpace(CurrentCard.Phrase))
+            return;
+
+        await _audio.ToggleAsync(CurrentCard.Phrase, _voice, _speed);
+    }
+
+    private void Audio_StateChanged(AudioPlaybackState state)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.InvokeAsync(() => Audio_StateChanged(state));
+            return;
+        }
+
+        if (state.IsLoading || state.IsPlaying)
+        {
+            SetAudioButtonActive(state.IsLoading);
+        }
+        else
+        {
+            SetAudioButtonIdle();
+            if (state.Error is not null && AudioButton is not null)
+            {
+                AudioButton.ToolTip = state.Error;
+            }
+        }
+    }
+
+    private void SetAudioButtonIdle()
+    {
+        if (AudioButtonIcon is null || AudioButton is null) return;
+        AudioButtonIcon.Text = "\uE767";
+        AudioButton.Foreground = (Brush?)FindResource("TextMutedBrush") ?? Brushes.Gray;
+        AudioButton.ToolTip = "Listen pronunciation (A)";
+    }
+
+    private void SetAudioButtonActive(bool isLoading)
+    {
+        if (AudioButtonIcon is null || AudioButton is null) return;
+        AudioButtonIcon.Text = "\uE768";
+        AudioButton.Foreground = (Brush?)FindResource("AccentBrush") ?? Brushes.LightSkyBlue;
+        AudioButton.ToolTip = isLoading ? "Loading audio..." : "Stop audio (A)";
+    }
+
+    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        _audio.Stop();
         CloseRequested?.Invoke(this, EventArgs.Empty);
+    }
 
     private void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
@@ -246,6 +322,10 @@ public partial class FloatingFlashcardWindow : Window
                 break;
             case Key.Right:
                 NavigateNext();
+                e.Handled = true;
+                break;
+            case Key.A:
+                _ = ToggleAudioPlaybackAsync();
                 e.Handled = true;
                 break;
             case Key.D:
@@ -289,5 +369,13 @@ public partial class FloatingFlashcardWindow : Window
         _currentIndex = 0;
         _isShowingBack = false;
         UpdateCardDisplay();
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _audio.Stop();
+        _audio.StateChanged -= Audio_StateChanged;
+        _audio.Dispose();
+        base.OnClosed(e);
     }
 }

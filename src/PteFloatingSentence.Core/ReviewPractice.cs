@@ -45,7 +45,7 @@ public static class ReviewPracticeRules
         return word[start..(end + 1)];
     }
 
-    public static ReviewSentence CreateProjection(StudySentence sentence, int? seed = null)
+    public static ReviewSentence CreateProjection(StudySentence sentence, int? seed = null, PracticeMode mode = PracticeMode.TextHints)
     {
         ArgumentNullException.ThrowIfNull(sentence);
 
@@ -59,8 +59,17 @@ public static class ReviewPracticeRules
                 Array.Empty<int>());
         }
 
-        var resolvedSeed = seed ?? BitConverter.ToInt32(sentence.Id.ToByteArray(), 0);
-        var hiddenIndexes = SelectHiddenIndexes(rawWords, resolvedSeed);
+        IReadOnlyList<int> hiddenIndexes;
+        if (mode == PracticeMode.ListenAndWrite)
+        {
+            hiddenIndexes = Enumerable.Range(0, rawWords.Length).ToList();
+        }
+        else
+        {
+            var resolvedSeed = seed ?? BitConverter.ToInt32(sentence.Id.ToByteArray(), 0);
+            hiddenIndexes = SelectHiddenIndexes(rawWords, resolvedSeed);
+        }
+
         var hiddenSet = new HashSet<int>(hiddenIndexes);
 
         var tokens = new List<ReviewToken>(rawWords.Length);
