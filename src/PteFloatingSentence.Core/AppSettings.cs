@@ -21,6 +21,5 @@ public sealed record AppSettings
     public bool LaunchAtWindowsSignIn { get; init; } = true;
     public string TtsVoice { get; init; } = "en-US-JennyNeural";
     public double TtsSpeed { get; init; } = 1.0;
-    public long TtsMaxCacheSizeBytes { get; init; } = 20 * 1024 * 1024;
     public static AppSettings Default => StudyListRules.CreateDefault("Right-click this sentence to open Settings.");
 }

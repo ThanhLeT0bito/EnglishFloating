@@ -33,7 +33,6 @@ public partial class DisplayPage : UserControl
     private string? _activeDeckKey;
     private IReadOnlyList<FlashcardDeckSummary> _availableDecks = [];
     private string _activeVoice = "en-US-JennyNeural";
-    private long _maxCacheSizeBytes = Infrastructure.AudioCacheManager.DefaultMaxCacheSizeBytes;
 
     public bool ShowSentenceOverlay => ShowSentenceOverlayInput.IsChecked == true;
     public bool ShowVocabularyCards => ShowVocabularyCardsInput.IsChecked == true;
@@ -99,8 +98,7 @@ public partial class DisplayPage : UserControl
             FlashcardDeckProjection.GetDeckSummaries(settings),
             settings.LaunchAtWindowsSignIn,
             settings.TtsVoice,
-            settings.TtsSpeed,
-            settings.TtsMaxCacheSizeBytes);
+            settings.TtsSpeed);
     }
 
     public AppSettings ApplySettings(AppSettings settings)
@@ -126,8 +124,7 @@ public partial class DisplayPage : UserControl
         IReadOnlyList<FlashcardDeckSummary>? availableDecks = null,
         bool launchAtWindowsSignIn = true,
         string? ttsVoice = null,
-        double? ttsSpeed = null,
-        long? ttsMaxCacheSizeBytes = null)
+        double? ttsSpeed = null)
     {
         _isRendering = true;
         try
@@ -153,11 +150,6 @@ public partial class DisplayPage : UserControl
                 {
                     SpeedValueLabel.Text = $"{ttsSpeed.Value.ToString("0.00", CultureInfo.InvariantCulture)}x";
                 }
-            }
-
-            if (ttsMaxCacheSizeBytes.HasValue)
-            {
-                _maxCacheSizeBytes = ttsMaxCacheSizeBytes.Value;
             }
 
             UpdateCacheSizeDisplay();
@@ -237,8 +229,7 @@ public partial class DisplayPage : UserControl
 
         var totalBytes = _audioCacheManager.GetTotalCacheSizeBytes();
         var currentMb = totalBytes / (1024.0 * 1024.0);
-        var maxBytes = _maxCacheSizeBytes > 0 ? _maxCacheSizeBytes : Infrastructure.AudioCacheManager.DefaultMaxCacheSizeBytes;
-        var maxMb = maxBytes / (1024.0 * 1024.0);
+        var maxMb = Infrastructure.AudioCacheManager.DefaultMaxCacheSizeBytes / (1024.0 * 1024.0);
 
         CacheSizeLabel.Text = $"Cache size: {currentMb.ToString("0.0", CultureInfo.InvariantCulture)} MB / {maxMb.ToString("0.#", CultureInfo.InvariantCulture)} MB";
     }

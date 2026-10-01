@@ -21,6 +21,22 @@ public class JsonSettingsStoreTests
     }
 
     [TestMethod]
+    public async Task LoadAsync_LegacyTtsCacheLimit_IgnoresUnknownFieldAndRetainsVoiceAndSpeed()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        await File.WriteAllTextAsync(path, """
+            {"Version":2,"Sentence":"Legacy sentence.","TtsVoice":"en-AU-NatashaNeural","TtsSpeed":1.1,"TtsMaxCacheSizeBytes":52428800}
+            """);
+
+        var loaded = await store.LoadAsync();
+
+        Assert.AreEqual("en-AU-NatashaNeural", loaded.TtsVoice);
+        Assert.AreEqual(1.1, loaded.TtsSpeed);
+        Assert.IsNull(typeof(AppSettings).GetProperty("TtsMaxCacheSizeBytes"));
+    }
+
+    [TestMethod]
     public async Task LoadAsync_ReturnsNormalizedVersion2Settings_AfterSaveAsync()
     {
         var path = CreateSettingsPath();

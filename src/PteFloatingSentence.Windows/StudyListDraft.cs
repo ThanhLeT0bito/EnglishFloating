@@ -104,8 +104,7 @@ public sealed class StudyListDraft
             ActiveFlashcardDeckKey = settings.ActiveFlashcardDeckKey,
             LaunchAtWindowsSignIn = settings.LaunchAtWindowsSignIn,
             TtsVoice = settings.TtsVoice,
-            TtsSpeed = settings.TtsSpeed,
-            TtsMaxCacheSizeBytes = settings.TtsMaxCacheSizeBytes
+            TtsSpeed = settings.TtsSpeed
         };
     }
 

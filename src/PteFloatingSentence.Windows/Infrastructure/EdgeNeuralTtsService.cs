@@ -28,15 +28,17 @@ public sealed class EdgeNeuralTtsService : ITtsService
     private const string BaseEndpoint = "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=" + TrustedClientToken;
 
     private readonly Func<IWebSocketClient> _webSocketFactory;
+    private readonly TimeSpan _timeout;
 
     public EdgeNeuralTtsService()
         : this(() => new DefaultWebSocketClient())
     {
     }
 
-    internal EdgeNeuralTtsService(Func<IWebSocketClient> webSocketFactory)
+    internal EdgeNeuralTtsService(Func<IWebSocketClient> webSocketFactory, TimeSpan? timeout = null)
     {
         _webSocketFactory = webSocketFactory ?? throw new ArgumentNullException(nameof(webSocketFactory));
+        _timeout = timeout ?? TimeSpan.FromSeconds(20);
     }
 
     public static string FormatRate(double speed)
@@ -80,6 +82,24 @@ public sealed class EdgeNeuralTtsService : ITtsService
         string voice,
         double speed,
         CancellationToken cancellationToken = default)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        linked.CancelAfter(_timeout);
+        try
+        {
+            return await SynthesizeCoreAsync(text, voice, speed, linked.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException("Audio request timed out. Click to retry.");
+        }
+    }
+
+    private async Task<Stream> SynthesizeCoreAsync(
+        string text,
+        string voice,
+        double speed,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -162,6 +182,8 @@ public sealed class EdgeNeuralTtsService : ITtsService
                 }
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (!turnEnded)
             {
                 throw new InvalidOperationException("TTS connection closed unexpectedly before synthesis finished.");
@@ -176,7 +198,7 @@ public sealed class EdgeNeuralTtsService : ITtsService
             {
                 try
                 {
-                    await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Completed", CancellationToken.None);
+                    await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Completed", cancellationToken);
                 }
                 catch
                 {
@@ -184,6 +206,7 @@ public sealed class EdgeNeuralTtsService : ITtsService
                 }
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             outputStream.Position = 0;
             return outputStream;
         }

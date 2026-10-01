@@ -107,6 +107,34 @@ public class EdgeNeuralTtsServiceTests
         await FluentActions.Awaiting(act).Should().ThrowAsync<OperationCanceledException>();
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task SynthesizeSpeechAsync_WhenConnectOrReceiveStalls_ThrowsTimeoutExceptionAndDisposesSocket(bool blockConnect)
+    {
+        var socket = new BlockingWebSocketClient(blockConnect);
+        var service = new EdgeNeuralTtsService(() => socket, TimeSpan.FromMilliseconds(20));
+
+        var act = () => service.SynthesizeSpeechAsync("Test", "en-US-JennyNeural", 1.0);
+
+        await FluentActions.Awaiting(act).Should().ThrowAsync<TimeoutException>()
+            .WithMessage("Audio request timed out. Click to retry.");
+        socket.IsDisposed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SynthesizeSpeechAsync_WhenCallerCancelsFirst_PreservesOperationCanceledException()
+    {
+        var socket = new BlockingWebSocketClient(blockConnect: false);
+        var service = new EdgeNeuralTtsService(() => socket, TimeSpan.FromSeconds(5));
+        using var caller = new CancellationTokenSource(TimeSpan.FromMilliseconds(20));
+
+        var act = () => service.SynthesizeSpeechAsync("Test", "en-US-JennyNeural", 1.0, caller.Token);
+
+        await FluentActions.Awaiting(act).Should().ThrowAsync<OperationCanceledException>();
+        socket.IsDisposed.Should().BeTrue();
+    }
+
     [Fact]
     public async Task SynthesizeSpeechAsync_ReceivesAudioChunksAndTurnEnd_ReturnsCombinedMemoryStream()
     {
@@ -189,6 +217,29 @@ public class EdgeNeuralTtsServiceTests
         stream.Should().NotBeNull();
         stream.Length.Should().BeGreaterThan(100);
         stream.Position.Should().Be(0);
+    }
+
+    private sealed class BlockingWebSocketClient(bool blockConnect) : IWebSocketClient
+    {
+        public bool IsDisposed { get; private set; }
+        public WebSocketState State => WebSocketState.Open;
+
+        public async Task ConnectAsync(Uri uri, CancellationToken cancellationToken)
+        {
+            if (blockConnect)
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        }
+
+        public Task SendAsync(ArraySegment<byte> buffer, WebSocketMessageType messageType, bool endOfMessage, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public async Task<WebSocketReceiveResult> ReceiveAsync(ArraySegment<byte> buffer, CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            throw new InvalidOperationException("Unreachable after cancellation.");
+        }
+
+        public Task CloseAsync(WebSocketCloseStatus closeStatus, string? statusDescription, CancellationToken cancellationToken) => Task.CompletedTask;
+        public void Dispose() => IsDisposed = true;
     }
 
     private sealed class FakeWebSocketClient : IWebSocketClient
