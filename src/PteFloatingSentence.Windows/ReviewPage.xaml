@@ -1,11 +1,11 @@
-﻿<UserControl x:Class="PteFloatingSentence.Windows.ReviewPage"
+<UserControl x:Class="PteFloatingSentence.Windows.ReviewPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Foreground="#FFE2E8F0">
     <UserControl.Resources>
         <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#FF111827" />
         <SolidColorBrush x:Key="CardSubtleBrush" Color="#FF161F30" />
-        <SolidColorBrush x:Key="PanelBorderBrush" Color="#FF263449" />
+        <SolidColorBrush x:Key="PanelBorderBrush" Color="#FF334155" />
         <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFF8FAFC" />
         <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FFE2E8F0" />
         <SolidColorBrush x:Key="TextMutedBrush" Color="#FF94A3B8" />

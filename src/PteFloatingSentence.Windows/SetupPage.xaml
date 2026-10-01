@@ -5,7 +5,7 @@
     <UserControl.Resources>
         <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#FF111827" />
         <SolidColorBrush x:Key="CardSubtleBrush" Color="#FF161F30" />
-        <SolidColorBrush x:Key="PanelBorderBrush" Color="#FF263449" />
+        <SolidColorBrush x:Key="PanelBorderBrush" Color="#FF334155" />
         <SolidColorBrush x:Key="InputBorderBrush" Color="#FF475569" />
         <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFF8FAFC" />
         <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FFE2E8F0" />
@@ -14,129 +14,276 @@
         <SolidColorBrush x:Key="AccentHoverBrush" Color="#FF1D4ED8" />
 
         <Style TargetType="Button">
-            <Setter Property="Padding" Value="14,9" />
+            <Setter Property="Padding" Value="12,7" />
             <Setter Property="Margin" Value="0,0,8,0" />
             <Setter Property="Background" Value="{StaticResource AccentBrush}" />
             <Setter Property="Foreground" Value="White" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.9" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.75" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.4" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
+
         <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Background" Value="#FF263449" />
-            <Setter Property="Foreground" Value="#FFD8E2F0" />
+            <Setter Property="Background" Value="#FF1E293B" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
         </Style>
+
+        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#FF059669" />
+            <Setter Property="BorderBrush" Value="#FF10B981" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#FFFFFFFF" />
+        </Style>
+
         <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Background" Value="#FF7F1D2D" />
+            <Setter Property="BorderBrush" Value="#4DEF4444" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#FFFCA5A5" />
         </Style>
+
+        <Style x:Key="AiButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#1A8B5CF6" />
+            <Setter Property="BorderBrush" Value="#4D8B5CF6" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#FFA78BFA" />
+        </Style>
+
         <Style TargetType="TextBox">
             <Setter Property="Padding" Value="8,6" />
             <Setter Property="Background" Value="#FF1E293B" />
             <Setter Property="Foreground" Value="#FFF8FAFC" />
             <Setter Property="BorderBrush" Value="{StaticResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CaretBrush" Value="#FFF8FAFC" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="BorderBrush" Value="#FF64748B" />
+                            </Trigger>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="Border" Property="BorderBrush" Value="#FF3B82F6" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
+
         <Style TargetType="ListBox">
-            <Setter Property="Background" Value="#FF0F172A" />
+            <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="#FFE2E8F0" />
             <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
         </Style>
+
         <Style TargetType="ListBoxItem">
             <Setter Property="Padding" Value="10,8" />
-            <Setter Property="Margin" Value="0,2" />
-            <Setter Property="Background" Value="Transparent" />
-            <Style.Triggers>
-                <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#FF1D4ED8" />
-                </Trigger>
-            </Style.Triggers>
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="Background" Value="{StaticResource CardSubtleBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="CardBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}"
+                                Margin="{TemplateBinding Margin}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CardBorder" Property="Background" Value="#FF1E293B" />
+                                <Setter TargetName="CardBorder" Property="BorderBrush" Value="#FF475569" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="CardBorder" Property="Background" Value="#FF1E293B" />
+                                <Setter TargetName="CardBorder" Property="BorderBrush" Value="#FF3B82F6" />
+                                <Setter TargetName="CardBorder" Property="BorderThickness" Value="1.5" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </UserControl.Resources>
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="240" />
-            <ColumnDefinition Width="16" />
+            <ColumnDefinition Width="260" />
+            <ColumnDefinition Width="14" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
         <!-- Study Lists Sidebar -->
-        <Border Grid.Column="0" Padding="14" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="10">
-            <DockPanel>
-                <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
-                    <Button x:Name="NewListButton" Margin="0" HorizontalAlignment="Stretch" Content="＋  New study list" Click="NewListButton_Click" />
+        <Border Grid.Column="0"
+                Padding="12"
+                Background="{StaticResource CardSubtleBrush}"
+                BorderBrush="{StaticResource PanelBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                    <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Study lists" />
+                    <TextBlock FontSize="11" Margin="0,2,0,0" Foreground="{StaticResource TextMutedBrush}" Text="Organize your daily practice" TextWrapping="Wrap" />
                 </StackPanel>
-                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Study lists" />
-                    <TextBlock Margin="0,4,0,0" Foreground="{StaticResource TextMutedBrush}" Text="Organize your daily practice" TextWrapping="Wrap" />
-                </StackPanel>
-                <ListBox x:Name="StudyListList" SelectionChanged="StudyListList_SelectionChanged" />
-            </DockPanel>
+
+                <ListBox x:Name="StudyListList"
+                         Grid.Row="1"
+                         MinHeight="180"
+                         MaxHeight="380"
+                         SelectionChanged="StudyListList_SelectionChanged" />
+
+                <Button x:Name="NewListButton"
+                        Grid.Row="2"
+                        Margin="0,10,0,0"
+                        HorizontalAlignment="Stretch"
+                        Content="＋  New study list"
+                        Click="NewListButton_Click" />
+            </Grid>
         </Border>
 
         <!-- List Editor and Sentences -->
-        <Grid Grid.Column="2">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+        <Border Grid.Column="2"
+                Padding="14"
+                Background="{StaticResource CardSubtleBrush}"
+                BorderBrush="{StaticResource PanelBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-            <!-- List Header Actions -->
-            <Grid Grid.Row="0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock FontSize="17" FontWeight="SemiBold" Text="List editor" />
-                    <TextBlock x:Name="ActiveListLabel" Margin="0,4,0,0" Foreground="{StaticResource TextMutedBrush}" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button x:Name="StartPracticeButton" Margin="0,0,8,0" Background="#FF059669" Content="▶  Start practice" Click="StartPracticeButton_Click" />
-                    <Button x:Name="MakeActiveButton" Content="Make active" Click="MakeActiveButton_Click" />
-                    <Button x:Name="DeleteListButton" Margin="0" Background="#FFB91C1C" Content="Delete list" Click="DeleteListButton_Click" />
-                </StackPanel>
+                <!-- List Header Actions -->
+                <Grid Grid.Row="0" Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="List editor" />
+                        <TextBlock x:Name="ActiveListLabel" FontSize="11" Margin="0,2,0,0" Foreground="{StaticResource TextMutedBrush}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="StartPracticeButton" Style="{StaticResource SuccessButton}" Content="▶  Start practice" Click="StartPracticeButton_Click" />
+                        <Button x:Name="MakeActiveButton" Content="Make active" Click="MakeActiveButton_Click" />
+                        <Button x:Name="DeleteListButton" Style="{StaticResource DangerButton}" Margin="0" Content="Delete list" Click="DeleteListButton_Click" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- List Name and Target -->
+                <Grid Grid.Row="1" Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="130" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Margin="0,0,0,5" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Text="List name" />
+                        <TextBox x:Name="ListNameInput" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Margin="0,0,0,5" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Text="Target sentences" />
+                        <TextBox x:Name="TargetInput" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Sentences Header -->
+                <Grid Grid.Row="2" Margin="0,0,0,6">
+                    <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Sentences (in order)" />
+                </Grid>
+
+                <!-- Sentence List -->
+                <ListBox x:Name="SentenceList"
+                         Grid.Row="3"
+                         MinHeight="140"
+                         MaxHeight="260"
+                         SelectionChanged="SentenceList_SelectionChanged" />
+
+                <!-- Sentence Editor Form -->
+                <Grid Grid.Row="4" Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="140" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="SentenceInput"
+                             MinHeight="68"
+                             MaxHeight="100"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto" />
+                    <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Bottom">
+                        <Button x:Name="AddSentenceButton" Margin="0,0,0,6" HorizontalAlignment="Stretch" Content="Add sentence" Click="AddSentenceButton_Click" />
+                        <Button x:Name="AddWithAiButton" Style="{StaticResource AiButtonStyle}" Margin="0,0,0,6" HorizontalAlignment="Stretch" Content="✨ Add with AI" Click="AddWithAiButton_Click" />
+                        <Button x:Name="UpdateSentenceButton" Style="{StaticResource SecondaryButton}" Margin="0,0,0,6" HorizontalAlignment="Stretch" Content="Update selected" Click="UpdateSentenceButton_Click" />
+                        <Button x:Name="DeleteSentenceButton" Style="{StaticResource DangerButton}" Margin="0" HorizontalAlignment="Stretch" Content="Delete selected" Click="DeleteSentenceButton_Click" />
+                    </StackPanel>
+                </Grid>
             </Grid>
-
-            <!-- List Name and Target -->
-            <Grid Grid.Row="1" Margin="0,14,0,14">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="16" />
-                    <ColumnDefinition Width="140" />
-                </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock Margin="0,0,0,5" Foreground="#FFCBD5E1" Text="List name" />
-                    <TextBox x:Name="ListNameInput" />
-                </StackPanel>
-                <StackPanel Grid.Column="2">
-                    <TextBlock Margin="0,0,0,5" Foreground="#FFCBD5E1" Text="Target" />
-                    <TextBox x:Name="TargetInput" />
-                </StackPanel>
-            </Grid>
-
-            <!-- Sentences Header -->
-            <TextBlock Grid.Row="2" Margin="0,0,0,8" FontSize="14" FontWeight="SemiBold" Text="Sentences (in order)" />
-
-            <!-- Sentence List -->
-            <ListBox x:Name="SentenceList" Grid.Row="3" MinHeight="140" SelectionChanged="SentenceList_SelectionChanged" />
-
-            <!-- Sentence Editor Form -->
-            <Grid Grid.Row="4" Margin="0,14,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBox x:Name="SentenceInput" MinHeight="70" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
-                <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                    <Button x:Name="AddSentenceButton" Margin="0,0,0,8" Content="Add sentence" Click="AddSentenceButton_Click" />
-                    <Button x:Name="AddWithAiButton" Margin="0,0,0,8" Content="Add with AI" Click="AddWithAiButton_Click" />
-                    <Button x:Name="UpdateSentenceButton" Margin="0,0,0,8" Style="{StaticResource SecondaryButton}" Content="Update selected" Click="UpdateSentenceButton_Click" />
-                    <Button x:Name="DeleteSentenceButton" Margin="0" Style="{StaticResource DangerButton}" Content="Delete selected" Click="DeleteSentenceButton_Click" />
-                </StackPanel>
-            </Grid>
-        </Grid>
+        </Border>
     </Grid>
 </UserControl>
