@@ -66,6 +66,84 @@ public class FloatingAudioWorkflowTests
         });
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ChangingListOrCurrentTextWithSameSentenceId_StopsPlayingAudio(bool changeList)
+    {
+        RunOnSta(() =>
+        {
+            var player = new FakeAudioPlayer();
+            var cache = new FakeAudioCacheManager();
+            cache.CachedFiles["cached.mp3"] = "First sentence to study.";
+            var settings = CreateTwoSentenceSettings();
+            var window = new FloatingWindow(player, new FakeTtsService(), cache);
+            window.ApplySettings(settings);
+
+            var audioButton = (Button)window.FindName("AudioButton");
+            audioButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            player.IsPlaying.Should().BeTrue();
+
+            window.ApplySettings(ChangeListOrText(settings, changeList));
+
+            player.IsPlaying.Should().BeFalse();
+            player.StopCallCount.Should().Be(1);
+            audioButton.Content.Should().Be("\uE767");
+            window.Close();
+        });
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ChangingListOrCurrentTextWithSameSentenceId_CancelsLoadingAudio(bool changeList)
+    {
+        RunOnSta(() =>
+        {
+            var player = new FakeAudioPlayer();
+            var tts = new FakeTtsService { Pending = true };
+            var settings = CreateTwoSentenceSettings();
+            var window = new FloatingWindow(player, tts, new FakeAudioCacheManager());
+            window.ApplySettings(settings);
+
+            var audioButton = (Button)window.FindName("AudioButton");
+            audioButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            tts.SynthesizeCallCount.Should().Be(1);
+            audioButton.ToolTip.Should().Be("Loading audio...");
+
+            window.ApplySettings(ChangeListOrText(settings, changeList));
+
+            tts.LastToken.IsCancellationRequested.Should().BeTrue();
+            audioButton.Content.Should().Be("\uE767");
+            player.PlayCallCount.Should().Be(0);
+            tts.CompletePending();
+            DispatcherHelper.DoEvents();
+            player.PlayCallCount.Should().Be(0);
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void UnrelatedSettingsUpdate_KeepsCurrentAudioPlaying()
+    {
+        RunOnSta(() =>
+        {
+            var player = new FakeAudioPlayer();
+            var cache = new FakeAudioCacheManager();
+            cache.CachedFiles["cached.mp3"] = "First sentence to study.";
+            var settings = CreateTwoSentenceSettings();
+            var window = new FloatingWindow(player, new FakeTtsService(), cache);
+            window.ApplySettings(settings);
+            ((Button)window.FindName("AudioButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+            window.ApplySettings(settings with { FontSize = settings.FontSize + 1 });
+
+            player.IsPlaying.Should().BeTrue();
+            player.StopCallCount.Should().Be(0);
+            window.Close();
+        });
+    }
+
     [Fact]
     public void StartingPracticeMode_StopsActiveAudioPlayback()
     {
@@ -346,6 +424,24 @@ public class FloatingAudioWorkflowTests
         };
     }
 
+    private static AppSettings ChangeListOrText(AppSettings settings, bool changeList)
+    {
+        var originalList = settings.StudyLists.Single();
+        if (changeList)
+        {
+            var secondList = originalList with { Id = Guid.NewGuid(), Name = "Second list" };
+            return settings with
+            {
+                ActiveListId = secondList.Id,
+                StudyLists = [secondList]
+            };
+        }
+
+        var editedSentence = originalList.Sentences[0] with { Text = "Edited sentence text." };
+        var editedList = originalList with { Sentences = [editedSentence, originalList.Sentences[1]] };
+        return settings with { StudyLists = [editedList] };
+    }
+
     private static void RunOnSta(Action action)
     {
         Exception? exception = null;
@@ -416,14 +512,25 @@ public class FloatingAudioWorkflowTests
     private sealed class FakeTtsService : ITtsService
     {
         public int SynthesizeCallCount { get; private set; }
+        public bool Pending { get; set; }
+        public CancellationToken LastToken { get; private set; }
+        private TaskCompletionSource<Stream>? _completion;
 
         public Task<Stream> SynthesizeSpeechAsync(string text, string voice, double speed, CancellationToken cancellationToken = default)
         {
             SynthesizeCallCount++;
+            LastToken = cancellationToken;
             cancellationToken.ThrowIfCancellationRequested();
+            if (Pending)
+            {
+                _completion = new TaskCompletionSource<Stream>(TaskCreationOptions.RunContinuationsAsynchronously);
+                return _completion.Task;
+            }
             var memory = new MemoryStream(Encoding.UTF8.GetBytes("fake audio bytes"));
             return Task.FromResult<Stream>(memory);
         }
+
+        public void CompletePending() => _completion!.SetResult(new MemoryStream(Encoding.UTF8.GetBytes("late audio")));
     }
 
     private sealed class FakeAudioCacheManager : IAudioCacheManager

@@ -19,6 +19,7 @@ namespace PteFloatingSentence.Windows;
 public partial class FloatingWindow : Window
 {
     private bool _hasMultipleSentences;
+    private Guid _currentListId;
     private Guid _currentSentenceId;
     private string? _currentSentenceText;
     private ReviewPracticeSession? _practiceSession;
@@ -147,12 +148,16 @@ public partial class FloatingWindow : Window
 
         StudySentence? currentSentence = sentenceCount == 0 ? null : activeList.Sentences[activeList.CurrentSentenceIndex];
         var newSentenceId = currentSentence?.Id ?? Guid.Empty;
-        if (_currentSentenceId != newSentenceId)
+        var newSentenceText = currentSentence?.Text;
+        if (_currentListId != activeList.Id ||
+            _currentSentenceId != newSentenceId ||
+            !string.Equals(_currentSentenceText, newSentenceText, StringComparison.Ordinal))
         {
             StopAndResetAudio();
         }
+        _currentListId = activeList.Id;
         _currentSentenceId = newSentenceId;
-        _currentSentenceText = currentSentence?.Text;
+        _currentSentenceText = newSentenceText;
         _currentVocabulary = currentSentence?.Vocabulary;
 
         var text = currentSentence is null
