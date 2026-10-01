@@ -109,6 +109,22 @@ public class FloatingAudioWorkflowTests
     }
 
     [Fact]
+    public void ReassigningSameAudioPlayer_DoesNotDisposeItBeforeWindowCloses()
+    {
+        RunOnSta(() =>
+        {
+            var player = new FakeAudioPlayer();
+            var window = new FloatingWindow(player, new FakeTtsService(), new FakeAudioCacheManager());
+
+            window.AudioPlayer = player;
+
+            player.DisposeCallCount.Should().Be(0);
+            window.Close();
+            player.DisposeCallCount.Should().Be(1);
+        });
+    }
+
+    [Fact]
     public void AudioButtonClick_PlaysCachedAudioImmediately_WhenCacheHits()
     {
         RunOnSta(() =>

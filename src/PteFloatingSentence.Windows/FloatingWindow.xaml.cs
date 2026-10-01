@@ -31,8 +31,7 @@ public partial class FloatingWindow : Window
     private IAudioPlayer _audioPlayer;
     private ITtsService _ttsService;
     private IAudioCacheManager _audioCacheManager;
-    private CancellationTokenSource? _audioCts;
-    private bool _isLoadingAudio;
+    private ISentenceAudioPlayback _audioPlayback;
 
     private const string AudioGlyphIdle = "\uE767";
     private const string AudioGlyphActive = "\uE768";
@@ -53,19 +52,32 @@ public partial class FloatingWindow : Window
     public IAudioPlayer AudioPlayer
     {
         get => _audioPlayer;
-        set => _audioPlayer = value ?? new WpfAudioPlayer();
+        set
+        {
+            if (ReferenceEquals(_audioPlayer, value)) return;
+            _audioPlayer = value ?? new WpfAudioPlayer();
+            RecreateAudioPlayback(playerReplaced: true);
+        }
     }
 
     public ITtsService TtsService
     {
         get => _ttsService;
-        set => _ttsService = value ?? new EdgeNeuralTtsService();
+        set
+        {
+            _ttsService = value ?? new EdgeNeuralTtsService();
+            RecreateAudioPlayback();
+        }
     }
 
     public IAudioCacheManager AudioCacheManager
     {
         get => _audioCacheManager;
-        set => _audioCacheManager = value ?? new AudioCacheManager();
+        set
+        {
+            _audioCacheManager = value ?? new AudioCacheManager();
+            RecreateAudioPlayback();
+        }
     }
 
     public FloatingWindow() : this(null, null, null)
@@ -80,6 +92,7 @@ public partial class FloatingWindow : Window
         _audioPlayer = audioPlayer ?? new WpfAudioPlayer();
         _ttsService = ttsService ?? new EdgeNeuralTtsService();
         _audioCacheManager = audioCacheManager ?? new AudioCacheManager();
+        _audioPlayback = CreateAudioPlayback();
 
         InitializeComponent();
         _practiceKeyDownHandler = PracticeProjectionPanel_KeyDown;
@@ -995,8 +1008,8 @@ public partial class FloatingWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         IsVisibleChanged -= FloatingWindow_IsVisibleChanged;
-        StopAndResetAudio();
-        _audioPlayer.Dispose();
+        _audioPlayback.StateChanged -= AudioPlayback_StateChanged;
+        _audioPlayback.Dispose();
         DetachPracticeEventHandlers();
         ClearSentenceDocumentInlines();
         base.OnClosed(e);
@@ -1095,147 +1108,57 @@ public partial class FloatingWindow : Window
 
     private async Task ToggleAudioPlaybackAsync()
     {
-        if (_isLoadingAudio || _audioPlayer.IsPlaying)
-        {
-            StopAndResetAudio();
-            return;
-        }
-
         if (string.IsNullOrWhiteSpace(_currentSentenceText))
         {
             return;
         }
 
-        var sentenceText = _currentSentenceText;
         var voice = string.IsNullOrWhiteSpace(_settings.TtsVoice) ? EdgeNeuralTtsService.DefaultVoice : _settings.TtsVoice;
         var speed = _settings.TtsSpeed is >= 0.8 and <= 1.2 ? _settings.TtsSpeed : 1.0;
-
-        StopAndResetAudio();
-
-        var cts = new CancellationTokenSource();
-        _audioCts = cts;
-        var token = cts.Token;
-
-        _isLoadingAudio = true;
-        SetAudioButtonActive(isLoading: true);
-
-        string filePath;
-        if (!_audioCacheManager.TryGetCachedAudio(sentenceText, voice, speed, out filePath))
-        {
-            try
-            {
-                using var audioStream = await _ttsService.SynthesizeSpeechAsync(sentenceText, voice, speed, token);
-                token.ThrowIfCancellationRequested();
-                await _audioCacheManager.SaveAudioAsync(sentenceText, voice, speed, audioStream, token);
-                filePath = _audioCacheManager.GetCacheFilePath(sentenceText, voice, speed);
-            }
-            catch (OperationCanceledException)
-            {
-                if (ReferenceEquals(_audioCts, cts))
-                {
-                    StopAndResetAudio();
-                }
-                return;
-            }
-            catch (Exception ex)
-            {
-                if (ReferenceEquals(_audioCts, cts))
-                {
-                    StopAndResetAudio();
-                    if (AudioButton is not null)
-                    {
-                        AudioButton.ToolTip = $"Audio error: {ex.Message}";
-                    }
-                }
-                return;
-            }
-        }
-
-        if (token.IsCancellationRequested || !ReferenceEquals(_audioCts, cts))
-        {
-            if (ReferenceEquals(_audioCts, cts))
-            {
-                StopAndResetAudio();
-            }
-            return;
-        }
-
-        _isLoadingAudio = false;
-        SetAudioButtonActive(isLoading: false);
-
-        try
-        {
-            await _audioPlayer.PlayFileAsync(
-                filePath,
-                onEnded: () =>
-                {
-                    Dispatcher.InvokeAsync(() =>
-                    {
-                        if (ReferenceEquals(_audioCts, cts))
-                        {
-                            StopAndResetAudio();
-                        }
-                    });
-                },
-                onError: (ex) =>
-                {
-                    Dispatcher.InvokeAsync(() =>
-                    {
-                        if (ReferenceEquals(_audioCts, cts))
-                        {
-                            StopAndResetAudio();
-                            if (AudioButton is not null)
-                            {
-                                AudioButton.ToolTip = $"Playback error: {ex.Message}";
-                            }
-                        }
-                    });
-                });
-        }
-        catch (Exception ex)
-        {
-            if (ReferenceEquals(_audioCts, cts))
-            {
-                StopAndResetAudio();
-                if (AudioButton is not null)
-                {
-                    AudioButton.ToolTip = $"Playback error: {ex.Message}";
-                }
-            }
-        }
+        await _audioPlayback.ToggleAsync(_currentSentenceText, voice, speed);
     }
 
     public void StopAndResetAudio()
     {
-        if (_audioCts is not null)
-        {
-            try
-            {
-                _audioCts.Cancel();
-                _audioCts.Dispose();
-            }
-            catch
-            {
-                // Best effort cleanup
-            }
-            _audioCts = null;
-        }
+        _audioPlayback.Stop();
+    }
 
-        _isLoadingAudio = false;
+    private ISentenceAudioPlayback CreateAudioPlayback()
+    {
+        var playback = new SentenceAudioPlayback(_audioPlayer, _ttsService, _audioCacheManager);
+        playback.StateChanged += AudioPlayback_StateChanged;
+        return playback;
+    }
 
-        if (_audioPlayer is not null && _audioPlayer.IsPlaying)
-        {
-            try
-            {
-                _audioPlayer.Stop();
-            }
-            catch
-            {
-                // Best effort cleanup
-            }
-        }
-
+    private void RecreateAudioPlayback(bool playerReplaced = false)
+    {
+        var previous = _audioPlayback;
+        previous.StateChanged -= AudioPlayback_StateChanged;
+        if (playerReplaced)
+            previous.Dispose();
+        else
+            previous.Stop();
+        _audioPlayback = CreateAudioPlayback();
         SetAudioButtonIdle();
+    }
+
+    private void AudioPlayback_StateChanged(AudioPlaybackState state)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.InvokeAsync(() => AudioPlayback_StateChanged(state));
+            return;
+        }
+
+        state = _audioPlayback.State;
+        if (state.IsLoading || state.IsPlaying)
+            SetAudioButtonActive(state.IsLoading);
+        else
+        {
+            SetAudioButtonIdle();
+            if (state.Error is not null && AudioButton is not null)
+                AudioButton.ToolTip = state.Error;
+        }
     }
 
     private void SetAudioButtonIdle()
