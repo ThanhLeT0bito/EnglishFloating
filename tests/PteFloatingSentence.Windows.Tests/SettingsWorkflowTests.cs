@@ -798,7 +798,7 @@ public class SettingsWorkflowTests
             var practiceControl = Named<ReviewPracticePage>(window, "ReviewPracticePageControl");
             Assert.IsNotNull(practiceControl);
 
-            var progressLabel = (TextBlock)((PracticePanel)practiceControl.FindName("SettingsPracticePanel")).FindName("PracticeProgressLabel");
+            var progressLabel = (TextBlock)practiceControl.FindName("ProgressLabel");
             Assert.AreEqual("Sentence 1 of 1", progressLabel.Text);
         });
     }

@@ -100,7 +100,7 @@ public partial class SettingsWindow : Window
             SettingsPageId.Flashcards => ("Flashcards", "Study sentence vocabulary and custom decks"),
             SettingsPageId.Display => ("Display", "Configure floating sentence and flashcard overlay preferences"),
             SettingsPageId.Review => ("Review", "Track vocabulary mastery and study progress"),
-            SettingsPageId.ReviewPractice => ("Practice", "Practice with Text hints or Listen & write"),
+            SettingsPageId.ReviewPractice => ("Practice", "Practice sentences with masked hidden words"),
             SettingsPageId.Gemini => ("Gemini", "Configure Gemini API key for vocabulary explanations"),
             _ => ("Settings", string.Empty)
         };
@@ -125,7 +125,6 @@ public partial class SettingsWindow : Window
         GeminiPageControl.LoadState(_apiKeyConfigured);
         GeminiPageControl.ClearKeyRequested += OnClearKeyRequested;
         FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged, _explainer);
-        ReviewPracticePageControl.PracticeModeChanged += OnPracticeModeChanged;
         ReviewPracticePageControl?.Initialize(_draft.Settings, (listId, sentenceId, completed) =>
         {
             _draft.MarkSentenceCompleted(listId, sentenceId, completed);
@@ -138,8 +137,6 @@ public partial class SettingsWindow : Window
         RenderSelectedPage();
         RefreshUi();
     }
-
-    private void OnPracticeModeChanged(PracticeMode mode) => _draft.SetPracticeMode(mode);
 
     private void OnFlashcardsSettingsChanged(AppSettings newSettings)
     {
@@ -192,7 +189,6 @@ public partial class SettingsWindow : Window
         {
             GeminiPageControl.ClearKeyRequested -= OnClearKeyRequested;
         }
-        ReviewPracticePageControl.PracticeModeChanged -= OnPracticeModeChanged;
         ReviewPracticePageControl?.Dispose();
         FlashcardsPageControl?.Dispose();
     }

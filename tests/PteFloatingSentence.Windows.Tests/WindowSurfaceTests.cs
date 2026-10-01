@@ -7,13 +7,6 @@ namespace PteFloatingSentence.Windows.Tests;
 [DoNotParallelize]
 public class WindowSurfaceTests
 {
-    private static void SubmitPanelAnswer(FloatingWindow window)
-    {
-        var panel = (PracticePanel)window.FindName("FloatingPracticePanel");
-        ((System.Windows.Controls.Button)panel.FindName("PracticeCheckButton")).RaiseEvent(
-            new System.Windows.RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
-    }
-
     [TestMethod]
     public void FloatingSentence_SuppressesTouchEditorFocusButKeepsMouseSelectionHandler()
     {
@@ -917,13 +910,13 @@ public class WindowSurfaceTests
                 page.Initialize(settings, seed: 7);
 
                 var selector = (System.Windows.Controls.ComboBox)page.FindName("StudyListSelector");
-                var progressLabel = (System.Windows.Controls.TextBlock)((PracticePanel)page.FindName("SettingsPracticePanel")).FindName("PracticeProgressLabel");
-                var projectionPanel = (System.Windows.Controls.WrapPanel)((PracticePanel)page.FindName("SettingsPracticePanel")).FindName("PracticeProjectionPanel");
-                var checkBtn = (System.Windows.Controls.Button)((PracticePanel)page.FindName("SettingsPracticePanel")).FindName("PracticeCheckButton");
+                var progressLabel = (System.Windows.Controls.TextBlock)page.FindName("ProgressLabel");
+                var projectionPanel = (System.Windows.Controls.WrapPanel)page.FindName("SentenceProjectionPanel");
+                var checkBtn = (System.Windows.Controls.Button)page.FindName("CheckAnswerButton");
                 var showBtn = (System.Windows.Controls.Button)page.FindName("ShowAnswerButton");
-                var prevBtn = (System.Windows.Controls.Button)((PracticePanel)page.FindName("SettingsPracticePanel")).FindName("PracticePreviousButton");
-                var nextBtn = (System.Windows.Controls.Button)((PracticePanel)page.FindName("SettingsPracticePanel")).FindName("PracticeNextButton");
-                var completionPanel = (System.Windows.Controls.Border)((PracticePanel)page.FindName("SettingsPracticePanel")).FindName("PracticeCompletionPanel");
+                var prevBtn = (System.Windows.Controls.Button)page.FindName("PreviousSentenceButton");
+                var nextBtn = (System.Windows.Controls.Button)page.FindName("NextSentenceButton");
+                var completionPanel = (System.Windows.Controls.Border)page.FindName("CompletionPanel");
 
                 Assert.IsNotNull(selector);
                 Assert.AreEqual(1, selector.Items.Count);
@@ -932,7 +925,7 @@ public class WindowSurfaceTests
                 Assert.IsNotNull(progressLabel);
                 Assert.IsNotNull(projectionPanel);
                 Assert.IsNotNull(checkBtn);
-                Assert.IsNull(showBtn);
+                Assert.IsNotNull(showBtn);
                 Assert.IsNotNull(prevBtn);
                 Assert.IsNotNull(nextBtn);
                 Assert.IsNotNull(completionPanel);
@@ -964,7 +957,7 @@ public class WindowSurfaceTests
     }
 
     [TestMethod]
-    public void ReviewPracticePage_AllCompleteState_StartsFreshPass()
+    public void ReviewPracticePage_AllCompleteState_ShowsCompletionPanel()
     {
         Exception? threadEx = null;
         var thread = new Thread(() =>
@@ -982,12 +975,12 @@ public class WindowSurfaceTests
 
                 page.Initialize(settings, seed: 7);
 
-                var completionPanel = (System.Windows.Controls.Border)((PracticePanel)page.FindName("SettingsPracticePanel")).FindName("PracticeCompletionPanel");
-                var restartBtn = (System.Windows.Controls.Button)((PracticePanel)page.FindName("SettingsPracticePanel")).FindName("PracticeRestartButton");
+                var completionPanel = (System.Windows.Controls.Border)page.FindName("CompletionPanel");
+                var restartBtn = (System.Windows.Controls.Button)page.FindName("RestartListButton");
 
                 Assert.IsNotNull(completionPanel);
                 Assert.IsNotNull(restartBtn);
-                Assert.AreEqual(System.Windows.Visibility.Collapsed, completionPanel.Visibility);
+                Assert.AreEqual(System.Windows.Visibility.Visible, completionPanel.Visibility);
 
                 page.Dispose();
             }
@@ -1080,10 +1073,10 @@ public class WindowSurfaceTests
 
                 Assert.IsTrue(window.IsPracticeMode);
 
-                var completionPanel = (System.Windows.Controls.Border)((PracticePanel)window.FindName("FloatingPracticePanel")).FindName("PracticeCompletionPanel");
+                var completionPanel = (System.Windows.Controls.Border)window.FindName("PracticeCompletionPanel");
                 Assert.AreEqual(System.Windows.Visibility.Collapsed, completionPanel.Visibility);
 
-                var projectionPanel = (System.Windows.Controls.WrapPanel)((PracticePanel)window.FindName("FloatingPracticePanel")).FindName("PracticeProjectionPanel");
+                var projectionPanel = (System.Windows.Controls.WrapPanel)window.FindName("PracticeProjectionPanel");
                 var boxes = projectionPanel.Children.OfType<System.Windows.Controls.TextBox>().ToList();
                 Assert.IsTrue(boxes.Count >= 2);
 
@@ -1091,10 +1084,10 @@ public class WindowSurfaceTests
                 Assert.IsFalse(boxes[0].IsReadOnly);
                 Assert.IsTrue(boxes[0].Focusable);
 
-                // Other hidden boxes must start empty rather than show completed text
+                // Other hidden boxes must have "_" placeholder rather than completed text
                 for (var i = 1; i < boxes.Count; i++)
                 {
-                    Assert.AreEqual(string.Empty, boxes[i].Text);
+                    Assert.AreEqual("_", boxes[i].Text);
                     Assert.IsFalse(boxes[i].IsReadOnly);
                 }
             }
@@ -1192,7 +1185,7 @@ public class WindowSurfaceTests
                 window.ApplySettings(settings);
                 window.StartPractice();
 
-                var projectionPanel = (System.Windows.Controls.WrapPanel)((PracticePanel)window.FindName("FloatingPracticePanel")).FindName("PracticeProjectionPanel");
+                var projectionPanel = (System.Windows.Controls.WrapPanel)window.FindName("PracticeProjectionPanel");
                 var projection = ReviewPracticeRules.CreateProjection(sentence);
 
                 Assert.AreEqual(projection.Tokens.Count, projectionPanel.Children.Count);
@@ -1211,11 +1204,15 @@ public class WindowSurfaceTests
                 Assert.AreEqual(string.Empty, boxes[0].Text);
                 for (var b = 1; b < boxes.Count; b++)
                 {
-                    Assert.AreEqual(string.Empty, boxes[b].Text);
+                    Assert.AreEqual("_", boxes[b].Text);
                 }
 
-                Assert.IsTrue(boxes[0].IsEnabled);
-                Assert.IsTrue(boxes.Skip(1).All(b => !b.IsEnabled));
+                // Verify inputs have no box border and transparent background
+                foreach (var box in boxes)
+                {
+                    Assert.AreEqual(new System.Windows.Thickness(0), box.BorderThickness);
+                    Assert.AreEqual(System.Windows.Media.Brushes.Transparent, box.Background);
+                }
             }
             catch (Exception ex)
             {
@@ -1252,8 +1249,8 @@ public class WindowSurfaceTests
                 window.ApplySettings(settings);
                 window.StartPractice();
 
-                var projectionPanel = (System.Windows.Controls.WrapPanel)((PracticePanel)window.FindName("FloatingPracticePanel")).FindName("PracticeProjectionPanel");
-                var feedbackLabel = (System.Windows.Controls.TextBlock)((PracticePanel)window.FindName("FloatingPracticePanel")).FindName("PracticeFeedbackLabel");
+                var projectionPanel = (System.Windows.Controls.WrapPanel)window.FindName("PracticeProjectionPanel");
+                var feedbackLabel = (System.Windows.Controls.TextBlock)window.FindName("PracticeFeedbackLabel");
                 var projection = ReviewPracticeRules.CreateProjection(sentence);
 
                 var boxes = projectionPanel.Children.OfType<System.Windows.Controls.TextBox>().ToList();
@@ -1270,12 +1267,12 @@ public class WindowSurfaceTests
                     0,
                     System.Windows.Input.Key.Space)
                 {
-                    RoutedEvent = System.Windows.UIElement.PreviewKeyDownEvent
+                    RoutedEvent = System.Windows.UIElement.KeyDownEvent
                 };
                 firstTextBox.RaiseEvent(keyEventArgs);
 
                 Assert.IsTrue(keyEventArgs.Handled);
-                Assert.IsFalse(projectionPanel.Children.Contains(firstTextBox));
+                Assert.IsTrue(firstTextBox.IsReadOnly);
                 Assert.AreEqual(expectedWord, firstTextBox.Text);
                 Assert.AreEqual(System.Windows.Visibility.Collapsed, feedbackLabel.Visibility);
             }
@@ -1314,8 +1311,8 @@ public class WindowSurfaceTests
                 window.ApplySettings(settings);
                 window.StartPractice();
 
-                var projectionPanel = (System.Windows.Controls.WrapPanel)((PracticePanel)window.FindName("FloatingPracticePanel")).FindName("PracticeProjectionPanel");
-                var feedbackLabel = (System.Windows.Controls.TextBlock)((PracticePanel)window.FindName("FloatingPracticePanel")).FindName("PracticeFeedbackLabel");
+                var projectionPanel = (System.Windows.Controls.WrapPanel)window.FindName("PracticeProjectionPanel");
+                var feedbackLabel = (System.Windows.Controls.TextBlock)window.FindName("PracticeFeedbackLabel");
                 var projection = ReviewPracticeRules.CreateProjection(sentence);
 
                 var firstTextBox = projectionPanel.Children.OfType<System.Windows.Controls.TextBox>().First();
@@ -1324,17 +1321,21 @@ public class WindowSurfaceTests
 
                 // Test wrong answer
                 firstTextBox.Text = "incorrectword";
-                SubmitPanelAnswer(window);
+                var wrongResult = window.SubmitPracticeAnswer(firstTextBox, firstTextBox.Text);
 
+                Assert.IsNotNull(wrongResult);
+                Assert.IsFalse(wrongResult.IsCorrect);
                 Assert.AreEqual(System.Windows.Visibility.Visible, feedbackLabel.Visibility);
                 Assert.IsTrue(feedbackLabel.Text.Contains("Try again"));
 
                 // Test correct answer
                 firstTextBox.Text = expectedWord;
-                SubmitPanelAnswer(window);
+                var correctResult = window.SubmitPracticeAnswer(firstTextBox, firstTextBox.Text);
 
+                Assert.IsNotNull(correctResult);
+                Assert.IsTrue(correctResult.IsCorrect);
                 Assert.AreEqual(System.Windows.Visibility.Collapsed, feedbackLabel.Visibility);
-                Assert.IsFalse(projectionPanel.Children.Contains(firstTextBox));
+                Assert.IsTrue(firstTextBox.IsReadOnly);
                 Assert.AreEqual(expectedWord, firstTextBox.Text);
             }
             catch (Exception ex)
@@ -1386,8 +1387,8 @@ public class WindowSurfaceTests
                 window.StartPractice();
 
                 var projection = ReviewPracticeRules.CreateProjection(s1);
-                var projectionPanel = (System.Windows.Controls.WrapPanel)((PracticePanel)window.FindName("FloatingPracticePanel")).FindName("PracticeProjectionPanel");
-                var progressLabel = (System.Windows.Controls.TextBlock)((PracticePanel)window.FindName("FloatingPracticePanel")).FindName("PracticeProgressLabel");
+                var projectionPanel = (System.Windows.Controls.WrapPanel)window.FindName("PracticeProjectionPanel");
+                var progressLabel = (System.Windows.Controls.TextBlock)window.FindName("PracticeProgressLabel");
 
                 Assert.IsTrue(progressLabel.Text.Contains("Sentence 1 of 2"));
 
@@ -1400,7 +1401,7 @@ public class WindowSurfaceTests
                     var boxes = projectionPanel.Children.OfType<System.Windows.Controls.TextBox>().ToList();
                     var activeBox = boxes.First(b => b.Tag is int p && p == h);
                     activeBox.Text = expectedWord;
-                    SubmitPanelAnswer(window);
+                    window.SubmitPracticeAnswer(activeBox, expectedWord);
                 }
 
                 Assert.AreEqual(list.Id, reportedListId);
@@ -1446,7 +1447,7 @@ public class WindowSurfaceTests
                 window.ApplySettings(settings);
                 window.StartPractice();
 
-                var progressLabel = (System.Windows.Controls.TextBlock)((PracticePanel)window.FindName("FloatingPracticePanel")).FindName("PracticeProgressLabel");
+                var progressLabel = (System.Windows.Controls.TextBlock)window.FindName("PracticeProgressLabel");
                 var nextButton = (System.Windows.Controls.Button)window.FindName("NextButton");
                 var prevButton = (System.Windows.Controls.Button)window.FindName("PreviousButton");
 
@@ -1496,9 +1497,9 @@ public class WindowSurfaceTests
                 window.StartPractice();
 
                 var projection = ReviewPracticeRules.CreateProjection(s1);
-                var projectionPanel = (System.Windows.Controls.WrapPanel)((PracticePanel)window.FindName("FloatingPracticePanel")).FindName("PracticeProjectionPanel");
-                var completionPanel = (System.Windows.FrameworkElement)((PracticePanel)window.FindName("FloatingPracticePanel")).FindName("PracticeCompletionPanel");
-                var restartButton = (System.Windows.Controls.Button)((PracticePanel)window.FindName("FloatingPracticePanel")).FindName("PracticeRestartButton");
+                var projectionPanel = (System.Windows.Controls.WrapPanel)window.FindName("PracticeProjectionPanel");
+                var completionPanel = (System.Windows.FrameworkElement)window.FindName("PracticeCompletionPanel");
+                var restartButton = (System.Windows.Controls.Button)window.FindName("PracticeRestartButton");
 
                 Assert.AreEqual(System.Windows.Visibility.Collapsed, completionPanel.Visibility);
 
@@ -1511,7 +1512,7 @@ public class WindowSurfaceTests
                     var boxes = projectionPanel.Children.OfType<System.Windows.Controls.TextBox>().ToList();
                     var activeBox = boxes.First(b => b.Tag is int p && p == h);
                     activeBox.Text = expectedWord;
-                    SubmitPanelAnswer(window);
+                    window.SubmitPracticeAnswer(activeBox, expectedWord);
                 }
 
                 // Completion banner should now be visible
