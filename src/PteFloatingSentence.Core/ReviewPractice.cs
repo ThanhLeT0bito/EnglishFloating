@@ -111,9 +111,9 @@ public static class ReviewPracticeRules
 
     private static IReadOnlyList<int> SelectHiddenIndexes(string[] words, int seed)
     {
-        if (words.Length <= 1)
+        if (words.Length == 1)
         {
-            return Array.Empty<int>();
+            return words[0].Any(char.IsLetterOrDigit) ? [0] : Array.Empty<int>();
         }
 
         // Identify candidate tokens that contain at least one letter or digit

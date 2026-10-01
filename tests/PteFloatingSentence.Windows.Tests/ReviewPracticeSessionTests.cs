@@ -68,6 +68,12 @@ public class ReviewPracticeSessionTests
         var callbackCount = 0;
         var session = new ReviewPracticeSession(list, onSentenceCompleted: (_, _) => callbackCount++);
 
+        Assert.IsFalse(session.IsComplete);
+        var wrong = session.SubmitDictation("goodbye");
+        Assert.IsFalse(wrong.IsCorrect);
+        Assert.IsFalse(session.IsComplete);
+        Assert.AreEqual(0, callbackCount);
+
         var result = session.SubmitDictation("hello");
 
         Assert.IsTrue(result.IsCorrect);
@@ -75,6 +81,43 @@ public class ReviewPracticeSessionTests
         Assert.IsTrue(session.IsAllSentencesCompleted);
         Assert.AreEqual(1, callbackCount);
         Assert.IsFalse(session.SubmitDictation("hello").IsCorrect);
+        Assert.AreEqual(1, callbackCount);
+    }
+
+    [TestMethod]
+    public void Submit_AfterCorrectDictation_DoesNotCompleteAgain()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "Alpha beta gamma.");
+        var list = new StudyList(Guid.NewGuid(), "Test List", 10, 0, [sentence]);
+        var callbackCount = 0;
+        var session = new ReviewPracticeSession(list, seed: 10, onSentenceCompleted: (_, _) => callbackCount++);
+        session.SubmitDictation(sentence.Text);
+
+        var hiddenWord = session.CurrentReview.Tokens[session.CurrentReview.HiddenTokenIndexes[0]].SourceText;
+        var result = session.Submit(hiddenWord);
+
+        Assert.IsFalse(result.IsCorrect);
+        Assert.IsTrue(session.IsComplete);
+        Assert.AreEqual(1, callbackCount);
+    }
+
+    [TestMethod]
+    public void Submit_AfterNavigatingBackToCompletedSentence_DoesNotCompleteAgain()
+    {
+        var first = new StudySentence(Guid.NewGuid(), "Alpha beta gamma.");
+        var second = new StudySentence(Guid.NewGuid(), "One two three.");
+        var list = new StudyList(Guid.NewGuid(), "Test List", 10, 0, [first, second]);
+        var callbackCount = 0;
+        var session = new ReviewPracticeSession(list, seed: 10, onSentenceCompleted: (_, _) => callbackCount++);
+        session.SubmitDictation(first.Text);
+
+        session.MoveNextSentence();
+        session.MovePreviousSentence();
+        var hiddenWord = session.CurrentReview.Tokens[session.CurrentReview.HiddenTokenIndexes[0]].SourceText;
+        var result = session.Submit(hiddenWord);
+
+        Assert.IsTrue(session.IsComplete);
+        Assert.IsFalse(result.IsCorrect);
         Assert.AreEqual(1, callbackCount);
     }
 

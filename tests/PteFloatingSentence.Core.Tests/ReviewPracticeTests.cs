@@ -86,13 +86,13 @@ public class ReviewPracticeTests
     }
 
     [TestMethod]
-    public void CreateProjection_OneWordSentence_HidesZeroWords()
+    public void CreateProjection_OneWordSentence_HidesTheOnlyWord()
     {
         var sentence = new StudySentence(Guid.NewGuid(), "Hello.");
         var review = ReviewPracticeRules.CreateProjection(sentence);
 
-        Assert.AreEqual(0, review.HiddenTokenIndexes.Count);
-        Assert.AreEqual("Hello.", review.DisplayText);
+        CollectionAssert.AreEqual(new[] { 0 }, review.HiddenTokenIndexes.ToArray());
+        Assert.AreEqual("_", review.DisplayText);
     }
 
     [TestMethod]

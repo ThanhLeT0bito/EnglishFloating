@@ -58,9 +58,9 @@ public sealed class ReviewPracticeSession
 
     public ReviewAnswerResult Submit(string answer)
     {
-        if (List.Sentences.Count == 0 || CurrentReview.HiddenTokenIndexes.Count == 0)
+        if (IsComplete || CurrentReview.HiddenTokenIndexes.Count == 0)
         {
-            return new ReviewAnswerResult(true, true, 0, null);
+            return new ReviewAnswerResult(false, IsComplete, CurrentHiddenPosition, "Try again.");
         }
 
         var result = ReviewPracticeRules.CheckAnswer(CurrentReview, CurrentHiddenPosition, answer);
@@ -81,7 +81,7 @@ public sealed class ReviewPracticeSession
 
     public ReviewAnswerResult SubmitDictation(string answer)
     {
-        if (List.Sentences.Count == 0 || _completedSentenceIds.Contains(CurrentReview.SentenceId))
+        if (IsComplete)
             return new ReviewAnswerResult(false, IsComplete, CurrentHiddenPosition, "Try again.");
 
         if (!ReviewPracticeRules.IsCorrectDictation(CurrentReview.OriginalText, answer))
@@ -94,7 +94,8 @@ public sealed class ReviewPracticeSession
     private void CompleteCurrentSentence()
     {
         IsComplete = true;
-        _completedSentenceIds.Add(CurrentReview.SentenceId);
+        if (!_completedSentenceIds.Add(CurrentReview.SentenceId))
+            return;
         if (_completedSentenceIds.Count >= List.Sentences.Count)
             IsAllSentencesCompleted = true;
         _onSentenceCompleted?.Invoke(CurrentReview.SentenceId, true);
@@ -136,7 +137,7 @@ public sealed class ReviewPracticeSession
         var sentence = List.Sentences[SentenceIndex];
         CurrentReview = ReviewPracticeRules.CreateProjection(sentence, _fixedSeed);
         CurrentHiddenPosition = 0;
-        IsComplete = IsAllSentencesCompleted || CurrentReview.HiddenTokenIndexes.Count == 0;
+        IsComplete = _completedSentenceIds.Contains(sentence.Id);
     }
 
 }
