@@ -43,6 +43,45 @@ public sealed class GeminiSentencePhraserTests
         StringAssert.Contains(error.Message, "key");
     }
 
+    [TestMethod]
+    public async Task SuggestAsync_Transient503OnFirstModel_FallsBackToNextModelAndSucceeds()
+    {
+        var attempts = 0;
+        var handler = new MultiResponseHandler(req =>
+        {
+            attempts++;
+            if (attempts == 1)
+            {
+                return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+                {
+                    Content = new StringContent("{\"error\":{\"code\":503,\"message\":\"High demand\"}}")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(new
+                {
+                    candidates = new[] { new { content = new { parts = new[] { new { text = "{\"groups\":[\"Fallback succeeded.\"]}" } } } } }
+                }))
+            };
+        });
+
+        using var client = new HttpClient(handler);
+        using var service = new GeminiSentencePhraser(() => "test-key", client);
+
+        var groups = await service.SuggestAsync("Fallback succeeded.");
+
+        Assert.AreEqual(2, attempts);
+        CollectionAssert.AreEqual(new[] { "Fallback succeeded." }, groups.ToArray());
+    }
+
+    private sealed class MultiResponseHandler(Func<HttpRequestMessage, HttpResponseMessage> handler) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(handler(request));
+    }
+
     private static HttpClient ClientFor(string proposal) => new(new ResponseHandler(proposal));
 
     private sealed class ResponseHandler(string proposal) : HttpMessageHandler

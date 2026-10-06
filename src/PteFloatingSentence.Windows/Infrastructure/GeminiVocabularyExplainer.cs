@@ -8,7 +8,7 @@ namespace PteFloatingSentence.Windows.Infrastructure;
 
 public sealed class GeminiVocabularyExplainer : IVocabularyExplainer, IDisposable
 {
-    private static readonly string[] DefaultCandidateModels = ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"];
+    private static readonly string[] DefaultCandidateModels = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
     private const int MaxResponseBytes = 64 * 1024; // 64 KB
     private readonly Func<string?> _apiKeyProvider;
     private readonly HttpClient _httpClient;

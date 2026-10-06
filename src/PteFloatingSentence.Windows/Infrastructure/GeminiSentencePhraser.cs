@@ -12,7 +12,7 @@ public sealed class GeminiSentencePhraser : ISentencePhraser, IDisposable
     private readonly Func<string?> _keyProvider;
     private readonly HttpClient _client;
     private readonly bool _ownsClient;
-    private static readonly string[] Models = ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"];
+    private static readonly string[] Models = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
 
     public GeminiSentencePhraser(Func<string?> keyProvider, HttpClient? client = null)
     {
@@ -48,6 +48,7 @@ public sealed class GeminiSentencePhraser : ISentencePhraser, IDisposable
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        HttpStatusCode? lastTransientStatus = null;
         try
         {
             foreach (var model in Models)
@@ -58,8 +59,14 @@ public sealed class GeminiSentencePhraser : ISentencePhraser, IDisposable
                 };
                 request.Headers.Add("x-goog-api-key", key);
                 using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-                if (response.StatusCode == HttpStatusCode.NotFound)
+                if (response.StatusCode is HttpStatusCode.NotFound
+                    or HttpStatusCode.ServiceUnavailable
+                    or HttpStatusCode.TooManyRequests
+                    or HttpStatusCode.InternalServerError)
+                {
+                    lastTransientStatus = response.StatusCode;
                     continue;
+                }
                 if (!response.IsSuccessStatusCode)
                     throw new InvalidOperationException($"Gemini could not analyze this sentence (HTTP {(int)response.StatusCode}). Try again later.");
 
@@ -75,6 +82,8 @@ public sealed class GeminiSentencePhraser : ISentencePhraser, IDisposable
                 }
                 return ParseResponse(Encoding.UTF8.GetString(body.ToArray()));
             }
+            if (lastTransientStatus is not null)
+                throw new InvalidOperationException($"Gemini could not analyze this sentence (HTTP {(int)lastTransientStatus.Value}). Try again later.");
             throw new InvalidOperationException("No supported Gemini model is available. Try again later.");
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
