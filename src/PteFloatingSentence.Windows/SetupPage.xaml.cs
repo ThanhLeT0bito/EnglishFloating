@@ -118,7 +118,10 @@ public partial class SetupPage : UserControl
                 };
                 StudyListList.Items.Add(item);
                 if (list.Id == draft.SelectedListId)
+                {
                     StudyListList.SelectedItem = item;
+                    StudyListList.ScrollIntoView(item);
+                }
             }
 
             var selected = draft.SelectedList;
@@ -136,7 +139,10 @@ public partial class SetupPage : UserControl
                 var item = new ListBoxItem { Tag = sentence.Id, Content = $"{index + 1}. {sentence.Text}" };
                 SentenceList.Items.Add(item);
                 if (sentence.Id == draft.SelectedSentenceId)
+                {
                     SentenceList.SelectedItem = item;
+                    SentenceList.ScrollIntoView(item);
+                }
             }
 
             SentenceInput.Text = draft.SelectedSentenceId is Guid selectedSentenceId

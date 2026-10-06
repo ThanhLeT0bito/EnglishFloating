@@ -198,6 +198,7 @@
                 <ListBox x:Name="StudyListList"
                          Grid.Row="1"
                          MinHeight="100"
+                         MaxHeight="360"
                          SelectionChanged="StudyListList_SelectionChanged" />
 
                 <Button x:Name="NewListButton"
@@ -221,7 +222,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
@@ -261,11 +262,11 @@
                     <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Sentences (in order)" />
                 </Grid>
 
-                <!-- Row 3: Sentence List (Fills the space seamlessly down to the add box) -->
+                <!-- Row 3: Sentence List (Constrained with internal scroll to keep Add box visible) -->
                 <ListBox x:Name="SentenceList"
                          Grid.Row="3"
                          MinHeight="120"
-                         VerticalAlignment="Stretch"
+                         MaxHeight="220"
                          SelectionChanged="SentenceList_SelectionChanged" />
 
                 <!-- Row 4: Compact Sentence Editor & Add Form -->
