@@ -10,7 +10,7 @@ public partial class SentencePhrasingReviewWindow : Window
     private readonly string _original;
     private readonly ISentencePhraser _phraser;
     private readonly CancellationTokenSource _cancellation = new();
-    private bool _started;
+    private bool _isLoading;
     private bool _loaded;
     private bool _closed;
 
@@ -28,14 +28,16 @@ public partial class SentencePhrasingReviewWindow : Window
 
     public async Task LoadProposalAsync()
     {
-        if (_started || _closed) return;
-        _started = true;
+        if (_isLoading || _loaded || _closed) return;
+        _isLoading = true;
+        RetryButton.Visibility = Visibility.Collapsed;
         StatusText.Text = "Checking spelling and finding natural reading groups…";
         try
         {
             var groups = await _phraser.SuggestAsync(_original, _cancellation.Token);
             if (_closed) return;
             _loaded = true;
+            RetryButton.Visibility = Visibility.Collapsed;
             GroupsInput.IsEnabled = true;
             GroupsInput.Text = string.Join("\n", groups);
             RefreshPreview();
@@ -44,9 +46,18 @@ public partial class SentencePhrasingReviewWindow : Window
         catch (Exception error)
         {
             if (!_closed)
-                StatusText.Text = error is InvalidOperationException ? error.Message : "Could not analyze this sentence. Cancel and try again.";
+            {
+                RetryButton.Visibility = Visibility.Visible;
+                StatusText.Text = error is InvalidOperationException ? error.Message : "Could not analyze this sentence. Click Retry or Cancel.";
+            }
+        }
+        finally
+        {
+            _isLoading = false;
         }
     }
+
+    private async void Retry_Click(object sender, RoutedEventArgs e) => await LoadProposalAsync();
 
     private void GroupsInput_TextChanged(object sender, TextChangedEventArgs e)
     {

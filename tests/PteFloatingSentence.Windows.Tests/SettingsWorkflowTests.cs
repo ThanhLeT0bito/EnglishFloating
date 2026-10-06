@@ -77,6 +77,49 @@ public class SettingsWorkflowTests
         });
     }
 
+    [TestMethod]
+    public void SentencePhrasingReview_ErrorShowsRetryButton_AndRetrySucceeds()
+    {
+        RunOnSta(() =>
+        {
+            var attempts = 0;
+            var phraser = new FlakySentencePhraser(() =>
+            {
+                attempts++;
+                if (attempts == 1)
+                    throw new InvalidOperationException("Gemini could not analyze this sentence (HTTP 503). Try again later.");
+                return ["I go", "after work."];
+            });
+
+            var window = new SentencePhrasingReviewWindow("I go after werk.", phraser);
+            try
+            {
+                window.LoadProposalAsync().GetAwaiter().GetResult();
+                var retryButton = (System.Windows.Controls.Button)window.FindName("RetryButton");
+                Assert.IsNotNull(retryButton);
+                Assert.AreEqual(System.Windows.Visibility.Visible, retryButton.Visibility);
+                Assert.IsNull(window.ConfirmedGroups);
+
+                // Clicking retry
+                window.LoadProposalAsync().GetAwaiter().GetResult();
+                Assert.AreEqual(System.Windows.Visibility.Collapsed, retryButton.Visibility);
+                var input = (System.Windows.Controls.TextBox)window.FindName("GroupsInput");
+                Assert.IsTrue(input.IsEnabled);
+                Assert.AreEqual("I go\nafter work.", input.Text);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    private sealed class FlakySentencePhraser(Func<IReadOnlyList<string>> func) : ISentencePhraser
+    {
+        public Task<IReadOnlyList<string>> SuggestAsync(string sentence, CancellationToken cancellationToken = default) =>
+            Task.FromResult(func());
+    }
+
     private sealed class FakeSentencePhraser : ISentencePhraser
     {
         public Task<IReadOnlyList<string>> SuggestAsync(string sentence, CancellationToken cancellationToken = default) =>
