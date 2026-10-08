@@ -15,3 +15,53 @@ public enum WritingExplanationLanguage
 
 /// <summary>A translation topic. Built-in keys are stable slugs; custom keys start with <see cref="WritingTopics.CustomKeyPrefix"/>.</summary>
 public sealed record WritingTopic(string Key, string Name);
+
+public enum WritingIssueType
+{
+    Grammar = 0,
+    Vocabulary = 1,
+    Spelling = 2,
+    WordOrder = 3,
+    MissingMeaning = 4,
+    ExtraMeaning = 5,
+    Punctuation = 6
+}
+
+public enum WritingVerdict
+{
+    NeedsWork = 0,
+    Almost = 1,
+    Correct = 2
+}
+
+/// <summary>Tip tiers in reveal order, from mild to strong help.</summary>
+public enum WritingTipTier
+{
+    Vocabulary = 0,
+    Grammar = 1,
+    Starter = 2
+}
+
+public sealed record WritingVocabularyHint(string Vietnamese, string English, string PartOfSpeech);
+
+public sealed record WritingTips(IReadOnlyList<WritingVocabularyHint> Vocabulary, string Grammar, string Starter)
+{
+    public static WritingTips Empty { get; } = new([], string.Empty, string.Empty);
+}
+
+/// <summary>A generated exercise. <see cref="ReferenceEnglish"/> stays hidden from the learner until checking.</summary>
+public sealed record WritingPrompt(string Vietnamese, string ReferenceEnglish, string Topic, WritingLevel Level, WritingTips Tips);
+
+/// <summary>One problem in the learner's answer. <see cref="Original"/> is copied from the answer and is empty for missing meaning.</summary>
+public sealed record WritingIssue(WritingIssueType Type, string Original, string Suggestion, string Explanation);
+
+public sealed record WritingFeedback(
+    int Score,
+    WritingVerdict Verdict,
+    string CorrectedSentence,
+    string? NaturalAlternative,
+    string Summary,
+    IReadOnlyList<WritingIssue> Issues);
+
+/// <summary>A highlighted span of the learner's answer that belongs to <c>Issues[IssueIndex]</c>.</summary>
+public readonly record struct WritingHighlight(int Start, int Length, int IssueIndex);
