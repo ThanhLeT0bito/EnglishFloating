@@ -11,6 +11,7 @@ Build writing skill through translation practice. The learner picks one or more 
 3. Level: Easy / Medium / Hard (segmented buttons). **Explain in:** English (default) / Tiếng Việt chooses the language of feedback explanations.
 4. **Generate sentence** shows a Vietnamese sentence with its topic and level. The English reference stays hidden.
 5. The learner types a translation. **Check** (or Ctrl+Enter) sends it for feedback. **Skip** generates a new sentence without checking.
+   - **💡 Tip** (Ctrl+H) on the prompt card reveals help one tier per click, from mild to strong: (1) key words, which are up to 5 Vietnamese words or phrases from the sentence with their English equivalent and part of speech; (2) a grammar hint about the tense or structure to use, in the chosen explanation language; (3) a sentence starter of at most 3 English words. The button shows progress such as `Tip 1/3`. A muted line under the answer box reads "Stuck? Press 💡 Tip". Tips are generated together with the sentence (no extra AI call) and are never revealed automatically. Using tips does not change the score; the result shows "Used N tips".
 6. Result panel:
    - Score 0–100 and a verdict (Correct / Almost / Needs work).
    - The learner's answer with each wrong span highlighted and color-coded by issue type; hovering a span shows the fix.
@@ -29,6 +30,8 @@ Level   ( Easy ) [ Medium ] ( Hard )                      [ Generate sentence ]
 
 ┌ Translate into English ─────────────────────────── Traffic · Medium ┐
 │ Sáng nay đường bị kẹt xe nên tôi đến công ty muộn gần nửa tiếng.     │
+│                                                       [ 💡 Tip 1/3 ] │
+│ Key words  kẹt xe → traffic jam (n.) · đến công ty → get to the office │
 └─────────────────────────────────────────────────────────────────────┘
 [ This morning the road was traffic jam so I came to company late...  ]
 [ Check (Ctrl+Enter) ]  [ Skip ]
@@ -66,17 +69,25 @@ Reuse the protected Gemini key, the candidate model list and fallback on 404/429
 Generate request: topic names, level rules, and the last 20 Vietnamese sentences of this session (to avoid repeats). Response:
 
 ~~~json
-{ "vietnamese": "…", "english": "…", "topic": "Traffic & transport" }
+{
+  "vietnamese": "…",
+  "english": "…",
+  "topic": "Traffic & transport",
+  "tips": {
+    "vocabulary": [ { "vietnamese": "kẹt xe", "english": "traffic jam", "partOfSpeech": "noun" } ],
+    "grammar": "Use the past simple…",
+    "starter": "There was"
+  }
+}
 ~~~
 
-Reject an empty field, a topic not among the requested ones (when topics were selected), or an English reference over 20 words.
+Reject an empty sentence or reference, a Vietnamese sentence over 40 words, an English reference over 20 words, or a topic that cannot be matched to the requested ones (a case-insensitive or contained match is accepted; with one requested topic it is used as the label). Tips are sanitized rather than rejected: at most 5 vocabulary items without empty entries, a vocabulary item that equals the whole reference is dropped, the starter is cut to its first 3 words and dropped when it would reveal the whole reference. Empty tiers are skipped, so a prompt may offer fewer than 3 tips.
 
 Check request: Vietnamese source, hidden reference, level and the learner's translation. The reference is a hint; any translation with the same meaning that is grammatical and natural is correct. Response:
 
 ~~~json
 {
   "score": 0,
-  "verdict": "correct | almost | needs_work",
   "correctedSentence": "minimal edit of the learner's answer",
   "naturalAlternative": "optional",
   "summary": "one short sentence",
@@ -89,7 +100,7 @@ Check request: Vietnamese source, hidden reference, level and the learner's tran
 }
 ~~~
 
-Score is clamped to 0–100. Punctuation and capitalization issues are listed (type `punctuation`) but never lower the score; the prompt says so and the client does not deduct for them. Unknown issue types become Grammar. An issue whose `original` cannot be found in the answer is still listed, just not highlighted. `explanation` and `summary` use the chosen explanation language (English by default, Vietnamese when selected); `correctedSentence`, `naturalAlternative` and `suggestion` are always English.
+Score is clamped to 0–100 and the verdict is computed by the client (>= 90 Correct, >= 60 Almost, otherwise Needs work). Punctuation and capitalization issues are listed (type `punctuation`) but never lower the score: the prompt says so, and when every issue is punctuation the client sets the score to 100. Unknown issue types become Grammar. An issue whose `original` cannot be found in the answer is still listed, just not highlighted. `explanation` and `summary` use the chosen explanation language (English by default, Vietnamese when selected); `correctedSentence`, `naturalAlternative` and `suggestion` are always English.
 
 ## Data
 
@@ -105,10 +116,11 @@ Phase 1 keeps no history on disk. Recent sentences for de-duplication live in me
 ## Components
 
 - Core `WritingTopics` (built-in catalog) and `WritingTopicRules` (add/remove/normalize custom topics and selection).
-- Core `WritingFeedbackRules`: map issues to non-overlapping highlight spans in the learner's answer (case-insensitive, left to right, first unused occurrence), clamp score, map verdict.
+- Core `WritingFeedbackRules`: map issues to non-overlapping highlight spans in the learner's answer (case-insensitive, whole-word when the text starts or ends with a letter or digit, first unused occurrence), clamp score, punctuation-only rule, verdict.
+- Core `WritingTipRules`: sanitize tips and list the available tip tiers in reveal order.
 - Windows `GeminiJsonClient`: shared bounded Gemini request with model fallback, extracted so the new service does not copy the HTTP code a third time. The existing phraser and explainer keep their own code in this feature and migrate later.
 - Windows `IWritingCoach` / `GeminiWritingCoach`: GenerateAsync and CheckAsync with the prompts and parsing above.
-- Windows `WritingSession`: UI-independent state machine (Idle → Generating → Answering → Checking → Reviewed, plus Error). A newer request cancels the older one, a request counter rejects stale results, and recent sentences are kept.
+- Windows `WritingSession`: UI-independent state machine (Idle → Generating → Answering → Checking → Reviewed, with an error message and Retry). A newer request cancels the older one, a request counter rejects stale results, recent sentences are kept, and it tracks how many tip tiers are revealed.
 - Windows `WritingPage` (UserControl): new `SettingsPageId.Writing` nav item. Topic chips, level, prompt card, answer box, result panel. Audio reuses `SentenceAudioPlayback`, and saving reuses `StudyListDraft.AddSentence`.
 
 ## Verification
@@ -124,6 +136,7 @@ Phase 1 keeps no history on disk. Recent sentences for de-duplication live in me
 - Rounds: choose 5 or 10 sentences, generate them in one call, translate all in a list, check all in one call, then a summary with a score per sentence.
 - History saved per attempt (bounded), a "My mistakes" review list built from issues, and stats per topic, level and issue type.
 - Spaced review that regenerates sentences targeting the learner's frequent mistakes.
+- Topic word bank: 15–20 common words per topic, with "Add to flashcards" into the existing decks.
 - Reverse direction (English → Vietnamese), a writing prompt in the floating widget, and PTE tasks (Summarize Written Text, essay) later.
 
 ## Out of scope

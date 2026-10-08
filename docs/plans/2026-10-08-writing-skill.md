@@ -48,19 +48,21 @@
 - [ ] **Step 2: Implement** the models, catalog and rules. Call Normalize from JsonSettingsStore.NormalizeDisplay and the merger. Add draft methods SetWritingLevel, SetWritingExplanationLanguage, ToggleWritingTopic, AddWritingTopic and RemoveWritingTopic, and copy the fields in UpdateSettingsFromApp.
 - [ ] **Step 3: Green.** Run Core and Windows settings tests, then commit `feat(writing): topics, level and settings persistence`.
 
-### Task 2: Feedback highlight mapping
+### Task 2: Feedback highlight mapping and tip rules
 
-**Files:** Core/WritingFeedbackRules.cs, Core/WritingModels.cs
+**Files:** Core/WritingFeedbackRules.cs, Core/WritingTipRules.cs, Core/WritingModels.cs
 
 **Interfaces:**
 - `record WritingIssue(WritingIssueType Type, string Original, string Suggestion, string Explanation)`
 - `record WritingHighlight(int Start, int Length, int IssueIndex)`
 - `WritingFeedbackRules.MapHighlights(string answer, IReadOnlyList<WritingIssue> issues) -> IReadOnlyList<WritingHighlight>` (sorted, non-overlapping)
-- `ClampScore(int)`, `VerdictFor(int score)` (>= 90 correct, >= 60 almost, else needs work)
+- `ClampScore(int)`, `VerdictFor(int score)` (>= 90 correct, >= 60 almost, else needs work), `ParseIssueType(string?)`, `Normalize(WritingFeedback)` (clamp, all-punctuation → 100, verdict from score)
+- `record WritingTips(IReadOnlyList<WritingVocabularyHint> Vocabulary, string Grammar, string Starter)`; `enum WritingTipTier { Vocabulary, Grammar, Starter }`
+- `WritingTipRules.Sanitize(WritingTips?, string referenceEnglish)`, `AvailableTiers(WritingTips)`
 
-- [ ] **Step 1: Failing tests.** Cover a repeated word (two issues hit the first and second occurrence in turn), overlap (the later issue gets no highlight), case-insensitive match, an empty original (missing meaning, no highlight), text not found, and surrounding punctuation.
-- [ ] **Step 2: Implement** a left-to-right search that tracks used ranges.
-- [ ] **Step 3: Green.** Commit `feat(writing): map feedback issues to highlights`.
+- [ ] **Step 1: Failing tests.** Cover a repeated word (two issues hit the first and second occurrence in turn), overlap (the later issue gets no highlight), case-insensitive match, an empty original (missing meaning, no highlight), text not found, surrounding punctuation, and no match inside a longer word. Tip tests: more than 5 vocabulary items, empty items, a starter longer than 3 words, a starter or vocabulary item that reveals the whole reference, and empty tiers skipped.
+- [ ] **Step 2: Implement** a left-to-right search that tracks used ranges, plus the tip sanitizer.
+- [ ] **Step 3: Green.** Commit `feat(writing): feedback highlights and tip rules`.
 
 ### Task 3: Shared Gemini JSON client
 
@@ -80,12 +82,12 @@
 **Files:** Windows/Infrastructure/IWritingCoach.cs, Windows/Infrastructure/GeminiWritingCoach.cs
 
 **Interfaces:**
-- `record WritingRequest(IReadOnlyList<string> TopicNames, WritingLevel Level, IReadOnlyList<string> RecentVietnamese)`
-- `record WritingPrompt(string Vietnamese, string ReferenceEnglish, string Topic, WritingLevel Level)`
+- `record WritingRequest(IReadOnlyList<string> TopicNames, WritingLevel Level, WritingExplanationLanguage Language, IReadOnlyList<string> RecentVietnamese)`
+- `record WritingPrompt(string Vietnamese, string ReferenceEnglish, string Topic, WritingLevel Level, WritingTips Tips)` (Core)
 - `record WritingFeedback(int Score, WritingVerdict Verdict, string CorrectedSentence, string? NaturalAlternative, string Summary, IReadOnlyList<WritingIssue> Issues)`
 - `IWritingCoach.GenerateAsync(WritingRequest, CancellationToken)`, `CheckAsync(WritingPrompt, string translation, WritingExplanationLanguage language, CancellationToken)`
 
-- [ ] **Step 1: Failing tests** with a fake client. The generate request names the selected topics, the level rules and the recent sentences, and with no topics uses the built-in catalog. Reject a missing field, a reference over 20 words and an unexpected topic. The check request includes source, reference, level and answer as data, asks for explanations in the chosen language (English or Vietnamese), and states that punctuation and capitalization are listed without lowering the score. Parse issues, map unknown types to Grammar, clamp the score, and reject a malformed response or an empty corrected sentence. An empty answer is rejected before any HTTP call.
+- [ ] **Step 1: Failing tests** with a fake client. The generate request names the selected topics, the level rules and the recent sentences, and with no topics uses the built-in catalog. Reject a missing field, a reference over 20 words and an unmatched topic. Tips are parsed and sanitized, and the grammar hint is requested in the chosen language. The check request includes source, reference, level and answer as data, asks for explanations in the chosen language (English or Vietnamese), and states that punctuation and capitalization are listed without lowering the score. Parse issues, map unknown types to Grammar, clamp the score, and reject a malformed response or an empty corrected sentence. An empty answer is rejected before any HTTP call.
 - [ ] **Step 2: Implement** prompts and schemas exactly as in the spec. Level rules live in one table shared by both prompts.
 - [ ] **Step 3: Green.** Commit `feat(writing): Gemini sentence generation and translation check`.
 
@@ -95,9 +97,9 @@
 
 **Interfaces:**
 - `WritingSessionState { Idle, Generating, Answering, Checking, Reviewed, Error }`
-- Members: `State`, `Prompt`, `Feedback`, `Answer`, `Error`, `event StateChanged`, `GenerateAsync(topics, level)`, `CheckAsync(answer)`, `Skip()`, `RetryAsync()`, `RecentVietnamese` (last 20)
+- Members: `State`, `Prompt`, `Feedback`, `LastAnswer`, `Error`, `event StateChanged`, `GenerateAsync(topics, level, language)`, `CheckAsync(answer, language)`, `Cancel()`, `RetryAsync()`, `RecentVietnamese` (last 20), `TipsRevealed`, `AvailableTipTiers`, `RevealNextTip()`
 
-- [ ] **Step 1: Failing tests** with a fake coach. A late generate result after Skip is ignored. Check is refused for whitespace and outside Answering. A check error returns to Answering with the answer kept. Retry repeats the last failed operation. RecentVietnamese caps at 20, newest last. Dispose cancels in-flight work.
+- [ ] **Step 1: Failing tests** with a fake coach. A late generate result after Skip is ignored. Check is refused for whitespace and outside Answering. A check error returns to Answering with the answer kept. Retry repeats the last failed operation. RecentVietnamese caps at 20, newest last. RevealNextTip walks the available tiers and resets on a new prompt. Dispose cancels in-flight work.
 - [ ] **Step 2: Implement** with a request counter and a CancellationTokenSource owned per request (same pattern as SentenceAudioPlayback).
 - [ ] **Step 3: Green.** Commit `feat(writing): writing session state machine`.
 
@@ -105,7 +107,7 @@
 
 **Files:** Windows/WritingPage.xaml(.cs), Windows/SettingsPageId.cs, Windows/SettingsWindow.xaml(.cs), Windows/App.xaml.cs
 
-- [ ] **Step 1: Failing UI tests** (STA, fake coach and fake audio). Chips render built-in and custom topics and toggling updates the draft. + Add topic validates and shows errors inline. The level selector and the Explain in (English / Tiếng Việt) selector persist. Generate shows the Vietnamese sentence and the topic/level badge. Ctrl+Enter triggers Check. Highlights render as Runs with tooltips. Issue list, corrected sentence and alternative are shown. Enter after a review triggers Next. An error shows Retry and keeps the text.
+- [ ] **Step 1: Failing UI tests** (STA, fake coach and fake audio). Chips render built-in and custom topics and toggling updates the draft. + Add topic validates and shows errors inline. The level selector and the Explain in (English / Tiếng Việt) selector persist. Generate shows the Vietnamese sentence and the topic/level badge. Ctrl+Enter triggers Check. Highlights render as Runs with tooltips. Issue list, corrected sentence and alternative are shown. Enter after a review triggers Next. An error shows Retry and keeps the text. 💡 Tip and Ctrl+H reveal key words, then the grammar hint, then the starter; the label shows `Tip n/N`; the result shows "Used N tips".
 - [ ] **Step 2: Implement.** Topic chips are ToggleButtons in a WrapPanel and custom chips get a × button. Use the existing card and button styles from the Settings dark theme. Add the nav item "Writing" with the subtitle "Translate Vietnamese sentences into English". App creates GeminiWritingCoach with the shared key provider and passes it into SettingsWindow. Dispose the session and audio when Settings closes.
 - [ ] **Step 3: Green.** Commit `feat(writing): writing practice page`.
 
