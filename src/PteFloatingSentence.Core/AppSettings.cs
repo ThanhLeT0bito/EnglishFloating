@@ -12,6 +12,9 @@ public sealed record AppSettings
     public double Left { get; init; } = 100;
     public double Top { get; init; } = 100;
     public bool GeminiApiKeyConfigured { get; init; } = false;
+    public bool GroqApiKeyConfigured { get; init; } = false;
+    public bool ClaudeApiKeyConfigured { get; init; } = false;
+    public AiProvider AiProvider { get; init; } = AiProvider.Gemini;
     public bool ShowSentenceOverlay { get; init; } = true;
     public bool ShowVocabularyCards { get; init; } = true;
     public IReadOnlyList<CustomFlashcardDeck> CustomFlashcardDecks { get; init; } = [];

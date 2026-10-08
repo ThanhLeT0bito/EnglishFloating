@@ -6,12 +6,17 @@ namespace PteFloatingSentence.Windows.Infrastructure;
 
 public sealed class ProtectedApiKeyStore
 {
-    public ProtectedApiKeyStore(string applicationName = "PteFloatingSentence", string? storeDirectory = null)
+    public const string GeminiFileName = "gemini.dpapi";
+    public const string GroqFileName = "groq.dpapi";
+    public const string ClaudeFileName = "anthropic.dpapi";
+
+    /// <param name="fileName">One encrypted file per provider; the default keeps the original Gemini key file.</param>
+    public ProtectedApiKeyStore(string applicationName = "PteFloatingSentence", string? storeDirectory = null, string fileName = GeminiFileName)
     {
         var dir = storeDirectory ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             applicationName);
-        FilePath = Path.Combine(dir, "gemini.dpapi");
+        FilePath = Path.Combine(dir, fileName);
     }
 
     public string FilePath { get; }

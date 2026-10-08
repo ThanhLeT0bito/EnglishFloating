@@ -5,7 +5,7 @@ using PteFloatingSentence.Windows.Infrastructure;
 namespace PteFloatingSentence.Windows.Tests;
 
 [TestClass]
-public sealed class GeminiWritingCoachTests
+public sealed class AiWritingCoachTests
 {
     private const string ValidExercise = """
         {
@@ -30,11 +30,11 @@ public sealed class GeminiWritingCoachTests
         WritingLevel.Medium,
         WritingTips.Empty);
 
-    private static (GeminiWritingCoach Coach, GeminiTestHandler Handler) CoachReturning(string modelText, Func<string?>? key = null)
+    private static (AiWritingCoach Coach, GeminiTestHandler Handler) CoachReturning(string modelText, Func<string?>? key = null)
     {
         var handler = GeminiTestHandler.Returning(modelText);
         var client = new GeminiJsonClient(key ?? (() => "test-key"), new HttpClient(handler), ["model-a"]);
-        return (new GeminiWritingCoach(client), handler);
+        return (new AiWritingCoach(client), handler);
     }
 
     private static WritingRequest Request(params string[] topics) =>
@@ -124,7 +124,7 @@ public sealed class GeminiWritingCoachTests
 
         var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => coach.GenerateAsync(Request("Health", "Travel")));
 
-        Assert.AreEqual(GeminiWritingCoach.InvalidExerciseMessage, error.Message);
+        Assert.AreEqual(AiWritingCoach.InvalidExerciseMessage, error.Message);
     }
 
     [TestMethod]
@@ -195,7 +195,7 @@ public sealed class GeminiWritingCoachTests
 
         var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => coach.CheckAsync(Prompt, answer, WritingExplanationLanguage.English));
 
-        Assert.AreEqual(GeminiWritingCoach.EmptyAnswerMessage, error.Message);
+        Assert.AreEqual(AiWritingCoach.EmptyAnswerMessage, error.Message);
         Assert.AreEqual(0, handler.RequestBodies.Count);
     }
 
@@ -205,7 +205,7 @@ public sealed class GeminiWritingCoachTests
         var (coach, handler) = CoachReturning("{}");
 
         await Assert.ThrowsExceptionAsync<InvalidOperationException>(() =>
-            coach.CheckAsync(Prompt, new string('a', GeminiWritingCoach.MaxAnswerLength + 1), WritingExplanationLanguage.English));
+            coach.CheckAsync(Prompt, new string('a', AiWritingCoach.MaxAnswerLength + 1), WritingExplanationLanguage.English));
 
         Assert.AreEqual(0, handler.RequestBodies.Count);
     }
@@ -222,7 +222,7 @@ public sealed class GeminiWritingCoachTests
 
         var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => coach.CheckAsync(Prompt, "Fine.", WritingExplanationLanguage.English));
 
-        Assert.AreEqual(GeminiWritingCoach.InvalidCheckMessage, error.Message);
+        Assert.AreEqual(AiWritingCoach.InvalidCheckMessage, error.Message);
     }
 
     [TestMethod]
@@ -242,6 +242,6 @@ public sealed class GeminiWritingCoachTests
     [DataRow(WritingLevel.Hard, "C1")]
     public void LevelRules_DescribeEachLevel(WritingLevel level, string expected)
     {
-        StringAssert.Contains(GeminiWritingCoach.LevelRules(level), expected);
+        StringAssert.Contains(AiWritingCoach.LevelRules(level), expected);
     }
 }

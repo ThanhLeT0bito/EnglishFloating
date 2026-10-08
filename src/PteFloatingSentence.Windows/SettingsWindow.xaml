@@ -398,7 +398,7 @@
                         <TextBlock Text="Writing" FontSize="14" />
                     </ListBoxItem>
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Gemini}">
-                        <TextBlock Text="Gemini" FontSize="14" />
+                        <TextBlock Text="AI" FontSize="14" />
                     </ListBoxItem>
                 </ListBox>
             </DockPanel>

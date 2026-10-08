@@ -21,6 +21,37 @@ public class JsonSettingsStoreTests
     }
 
     [TestMethod]
+    public async Task LoadAsync_LegacySettings_DefaultsToGemini()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        await File.WriteAllTextAsync(path, "{\"Version\":2,\"Sentence\":\"Legacy\",\"GeminiApiKeyConfigured\":true}");
+
+        var loaded = await store.LoadAsync();
+
+        Assert.AreEqual(AiProvider.Gemini, loaded.AiProvider);
+        Assert.IsTrue(loaded.GeminiApiKeyConfigured);
+        Assert.IsFalse(loaded.GroqApiKeyConfigured);
+    }
+
+    [TestMethod]
+    public async Task SaveAsync_RoundTripsAiProviderAndNormalizesUnknownValue()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+
+        await store.SaveAsync(AppSettings.Default with { AiProvider = AiProvider.Groq, GroqApiKeyConfigured = true });
+        var loaded = await store.LoadAsync();
+        await File.WriteAllTextAsync(path, "{\"Version\":2,\"Sentence\":\"Legacy\",\"AiProvider\":7}");
+        var unknown = await store.LoadAsync();
+
+        Assert.AreEqual(AiProvider.Groq, loaded.AiProvider);
+        Assert.IsTrue(loaded.GroqApiKeyConfigured);
+        Assert.AreEqual(AiProvider.Gemini, unknown.AiProvider);
+        Assert.IsFalse(File.ReadAllText(path).Contains("gsk-"));
+    }
+
+    [TestMethod]
     public async Task LoadAsync_LegacySettings_DefaultsWritingPreferences()
     {
         var path = CreateSettingsPath();

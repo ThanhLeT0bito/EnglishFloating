@@ -94,4 +94,17 @@ public class StudyListDraftWritingTests
         Assert.AreEqual("Choose a study list.", unknown.Error);
         Assert.AreEqual(2, draft.Settings.StudyLists[0].Sentences.Count);
     }
+
+    [TestMethod]
+    public void AiProviderAndKeyFlags_AreEditedInDraft()
+    {
+        var draft = new StudyListDraft(AppSettings.Default, _ => { });
+
+        draft.SetAiProvider(AiProvider.Claude);
+        draft.SetProviderKeyConfigured(AiProvider.Claude, true);
+        draft.SetAiProvider((AiProvider)99);
+
+        Assert.AreEqual(AiProvider.Gemini, draft.Settings.AiProvider);
+        Assert.IsTrue(draft.Settings.ClaudeApiKeyConfigured);
+    }
 }

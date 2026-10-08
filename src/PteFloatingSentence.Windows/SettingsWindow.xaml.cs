@@ -11,6 +11,12 @@ public partial class SettingsWindow : Window
 {
     private readonly StudyListDraft _draft;
     private readonly ProtectedApiKeyStore? _apiKeyStore;
+    private readonly ProtectedApiKeyStore? _groqKeyStore;
+    private readonly ProtectedApiKeyStore? _claudeKeyStore;
+    private bool _groqKeyConfigured;
+    private bool _claudeKeyConfigured;
+    private bool _groqKeyCleared;
+    private bool _claudeKeyCleared;
     private readonly IVocabularyExplainer? _explainer;
     private bool _isRendering;
     private bool _apiKeyConfigured;
@@ -103,19 +109,24 @@ public partial class SettingsWindow : Window
             SettingsPageId.Display => ("Display", "Configure floating sentence and flashcard overlay preferences"),
             SettingsPageId.Review => ("Review", "Track vocabulary mastery and study progress"),
             SettingsPageId.ReviewPractice => ("Practice", "Practice sentences with masked hidden words"),
-            SettingsPageId.Gemini => ("Gemini", "Configure Gemini API key for vocabulary explanations"),
+            SettingsPageId.Gemini => ("AI", "Choose the AI provider and manage API keys"),
             SettingsPageId.Writing => ("Writing", "Translate Vietnamese sentences into English and get AI feedback"),
             _ => ("Settings", string.Empty)
         };
     }
 
-    public SettingsWindow(AppSettings initial, Action<AppSettings> save, ProtectedApiKeyStore? apiKeyStore = null, IVocabularyExplainer? explainer = null, ISentencePhraser? sentencePhraser = null, IWritingCoach? writingCoach = null)
+    public SettingsWindow(AppSettings initial, Action<AppSettings> save, ProtectedApiKeyStore? apiKeyStore = null, IVocabularyExplainer? explainer = null, ISentencePhraser? sentencePhraser = null, IWritingCoach? writingCoach = null,
+        ProtectedApiKeyStore? groqKeyStore = null, ProtectedApiKeyStore? claudeKeyStore = null)
     {
         InitializeComponent();
         _draft = new StudyListDraft(initial, save);
         _apiKeyStore = apiKeyStore;
         _explainer = explainer;
         _apiKeyConfigured = initial.GeminiApiKeyConfigured;
+        _groqKeyStore = groqKeyStore;
+        _claudeKeyStore = claudeKeyStore;
+        _groqKeyConfigured = initial.GroqApiKeyConfigured;
+        _claudeKeyConfigured = initial.ClaudeApiKeyConfigured;
         _setupPageStartPracticeHandler = OnSetupPageStartPracticeRequested;
         SetupPageControl.Initialize(_draft, ShowResult, () => RefreshUi());
         SetupPageControl.SentencePhraser = sentencePhraser;
@@ -128,6 +139,8 @@ public partial class SettingsWindow : Window
         DisplayPageControl.PracticeAudioDelayChanged += OnPracticeAudioDelayChanged;
         GeminiPageControl.LoadState(_apiKeyConfigured);
         GeminiPageControl.ClearKeyRequested += OnClearKeyRequested;
+        GeminiPageControl.ProviderChanged += OnAiProviderChanged;
+        GeminiPageControl.ClearProviderKeyRequested += OnClearProviderKeyRequested;
         FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged, _explainer);
         ReviewPracticePageControl.PracticeModeChanged += OnPracticeModeChanged;
         ReviewPracticePageControl?.Initialize(_draft.Settings, (listId, sentenceId, completed) =>
@@ -175,6 +188,24 @@ public partial class SettingsWindow : Window
     private void OnPracticeAudioDelayChanged(int seconds) =>
         _draft.SetPracticeAudioDelaySeconds(seconds);
 
+    private void OnAiProviderChanged(AiProvider provider) => _draft.SetAiProvider(provider);
+
+    private void OnClearProviderKeyRequested(AiProvider provider)
+    {
+        if (provider == AiProvider.Groq)
+        {
+            _groqKeyCleared = true;
+            _groqKeyConfigured = false;
+        }
+        else if (provider == AiProvider.Claude)
+        {
+            _claudeKeyCleared = true;
+            _claudeKeyConfigured = false;
+        }
+
+        UpdateApiKeyStatus();
+    }
+
     private void OnClearKeyRequested()
     {
         _apiKeyCleared = true;
@@ -200,6 +231,8 @@ public partial class SettingsWindow : Window
         if (GeminiPageControl is not null)
         {
             GeminiPageControl.ClearKeyRequested -= OnClearKeyRequested;
+            GeminiPageControl.ProviderChanged -= OnAiProviderChanged;
+            GeminiPageControl.ClearProviderKeyRequested -= OnClearProviderKeyRequested;
         }
         ReviewPracticePageControl.PracticeModeChanged -= OnPracticeModeChanged;
         ReviewPracticePageControl?.Dispose();
@@ -302,6 +335,11 @@ public partial class SettingsWindow : Window
         }
 
         _draft.SetApiKeyConfigured(_apiKeyConfigured);
+        _groqKeyConfigured = SaveProviderKey(_groqKeyStore, GeminiPageControl.CurrentGroqKey, _groqKeyCleared, _groqKeyConfigured);
+        _claudeKeyConfigured = SaveProviderKey(_claudeKeyStore, GeminiPageControl.CurrentClaudeKey, _claudeKeyCleared, _claudeKeyConfigured);
+        _draft.SetProviderKeyConfigured(AiProvider.Groq, _groqKeyConfigured);
+        _draft.SetProviderKeyConfigured(AiProvider.Claude, _claudeKeyConfigured);
+        _draft.SetAiProvider(GeminiPageControl.SelectedProvider);
         if (DisplayPageControl is not null)
         {
             _draft.SetDisplayPreferences(
@@ -327,9 +365,28 @@ public partial class SettingsWindow : Window
         Close();
     }
 
+    /// <summary>Saves a typed key, clears a key the user removed, and returns whether a key is now stored.</summary>
+    private static bool SaveProviderKey(ProtectedApiKeyStore? store, string? typedKey, bool cleared, bool configured)
+    {
+        if (!string.IsNullOrEmpty(typedKey))
+        {
+            store?.Save(typedKey);
+            return true;
+        }
+
+        if (cleared)
+        {
+            store?.Clear();
+            return false;
+        }
+
+        return configured;
+    }
+
     private void UpdateApiKeyStatus()
     {
         GeminiPageControl?.LoadState(_apiKeyConfigured);
+        GeminiPageControl?.LoadProviderState(_draft.Settings.AiProvider, _groqKeyConfigured, _claudeKeyConfigured);
     }
 
     private bool TryUpdateSelectedList()
@@ -349,6 +406,7 @@ public partial class SettingsWindow : Window
             DisplayPageControl?.LoadSettings(_draft.Settings);
             ReviewPageControl?.LoadData(new ReviewViewModel(_draft.Settings));
             GeminiPageControl?.LoadState(_apiKeyConfigured);
+            GeminiPageControl?.LoadProviderState(_draft.Settings.AiProvider, _groqKeyConfigured, _claudeKeyConfigured);
             FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged, _explainer);
         }
         finally

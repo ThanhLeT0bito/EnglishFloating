@@ -1,32 +1,24 @@
-using System.Net.Http;
 using System.Text.Json;
 using PteFloatingSentence.Core;
 
 namespace PteFloatingSentence.Windows.Infrastructure;
 
-public sealed class GeminiWritingCoach : IWritingCoach, IDisposable
+public sealed class AiWritingCoach : IWritingCoach
 {
     public const int MaxReferenceWords = 20;
     public const int MaxVietnameseWords = 40;
     public const int MaxAnswerLength = 400;
-    public const string InvalidExerciseMessage = "Gemini returned an invalid writing exercise. Please try again.";
-    public const string InvalidCheckMessage = "Gemini returned an invalid check result. Please try again.";
+    public const string InvalidExerciseMessage = "The AI returned an invalid writing exercise. Please try again.";
+    public const string InvalidCheckMessage = "The AI returned an invalid check result. Please try again.";
     public const string EmptyAnswerMessage = "Write your English translation first.";
 
     private static readonly JsonSerializerOptions DataJson = new() { WriteIndented = false };
 
-    private readonly GeminiJsonClient _client;
-    private readonly bool _ownsClient;
+    private readonly IJsonLlmClient _client;
 
-    public GeminiWritingCoach(GeminiJsonClient client)
+    public AiWritingCoach(IJsonLlmClient client)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
-    }
-
-    public GeminiWritingCoach(Func<string?> keyProvider, HttpClient? httpClient = null)
-    {
-        _client = new GeminiJsonClient(keyProvider, httpClient);
-        _ownsClient = true;
     }
 
     /// <summary>Rules shared by the generate and check prompts.</summary>
@@ -292,9 +284,4 @@ public sealed class GeminiWritingCoach : IWritingCoach, IDisposable
         required = new[] { "score", "correctedSentence", "naturalAlternative", "summary", "issues" }
     };
 
-    public void Dispose()
-    {
-        if (_ownsClient)
-            _client.Dispose();
-    }
 }

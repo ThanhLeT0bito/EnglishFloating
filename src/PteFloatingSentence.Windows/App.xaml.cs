@@ -14,9 +14,13 @@ public partial class App : System.Windows.Application
     private readonly JsonSettingsStore _settingsStore = new();
     private readonly SettingsPersistenceQueue _persistenceQueue;
     private readonly ProtectedApiKeyStore _apiKeyStore = new();
-    private GeminiVocabularyExplainer? _explainer;
-    private GeminiSentencePhraser? _sentencePhraser;
-    private GeminiWritingCoach? _writingCoach;
+    private readonly ProtectedApiKeyStore _groqKeyStore = new(fileName: ProtectedApiKeyStore.GroqFileName);
+    private readonly ProtectedApiKeyStore _claudeKeyStore = new(fileName: ProtectedApiKeyStore.ClaudeFileName);
+    private readonly List<JsonLlmClientBase> _aiClients = [];
+    private SwitchingJsonClient? _aiClient;
+    private AiVocabularyExplainer? _explainer;
+    private AiSentencePhraser? _sentencePhraser;
+    private AiWritingCoach? _writingCoach;
     private VocabularyWorkflow? _vocabularyWorkflow;
     private Core.AppSettings _settings = Core.AppSettings.Default;
     private FloatingWindow? _floatingWindow;
@@ -54,9 +58,19 @@ public partial class App : System.Windows.Application
         var position = Core.WindowPlacementNormalizer.Normalize(_settings, displays);
         _settings = _settings with { Left = position.Left, Top = position.Top };
 
-        _explainer = new GeminiVocabularyExplainer(() => _apiKeyStore.Load());
-        _sentencePhraser = new GeminiSentencePhraser(() => _apiKeyStore.Load());
-        _writingCoach = new GeminiWritingCoach(() => _apiKeyStore.Load());
+        var gemini = new GeminiJsonClient(() => _apiKeyStore.Load());
+        var groq = OpenAiCompatibleJsonClient.ForGroq(() => _groqKeyStore.Load());
+        var claude = new AnthropicJsonClient(() => _claudeKeyStore.Load());
+        _aiClients.AddRange([gemini, groq, claude]);
+        _aiClient = new SwitchingJsonClient(() => _settings.AiProvider, new Dictionary<Core.AiProvider, IJsonLlmClient>
+        {
+            [Core.AiProvider.Gemini] = gemini,
+            [Core.AiProvider.Groq] = groq,
+            [Core.AiProvider.Claude] = claude
+        });
+        _explainer = new AiVocabularyExplainer(_aiClient);
+        _sentencePhraser = new AiSentencePhraser(_aiClient);
+        _writingCoach = new AiWritingCoach(_aiClient);
         _vocabularyWorkflow = new VocabularyWorkflow(_explainer, () => _settings, SaveSettings);
 
         _floatingWindow = new FloatingWindow { Left = position.Left, Top = position.Top };
@@ -174,7 +188,7 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore, _explainer, _sentencePhraser, _writingCoach);
+        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore, _explainer, _sentencePhraser, _writingCoach, _groqKeyStore, _claudeKeyStore);
         void OnStartPractice(object? sender, Guid listId) => _floatingWindow?.StartPractice(listId);
         _settingsWindow.StartPracticeRequested += OnStartPractice;
         _settingsWindow.Closed += (_, _) =>
@@ -228,9 +242,8 @@ public partial class App : System.Windows.Application
         _settingsWindow = null;
         _displayController?.Dispose();
         _vocabularyWorkflow?.Dispose();
-        _explainer?.Dispose();
-        _sentencePhraser?.Dispose();
-        _writingCoach?.Dispose();
+        foreach (var client in _aiClients)
+            client.Dispose();
         await _persistenceQueue.FlushAsync();
         Shutdown();
     }

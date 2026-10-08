@@ -95,7 +95,7 @@ public sealed class WritingSessionTests
         await session.CheckAsync("   ", WritingExplanationLanguage.English);
 
         Assert.AreEqual(0, coach.CheckCalls);
-        Assert.AreEqual(GeminiWritingCoach.EmptyAnswerMessage, session.Error);
+        Assert.AreEqual(AiWritingCoach.EmptyAnswerMessage, session.Error);
         Assert.AreEqual(WritingSessionState.Answering, session.State);
         Assert.IsFalse(session.CanRetry);
     }

@@ -113,7 +113,7 @@ public sealed class WritingSession : IDisposable
         var trimmed = (answer ?? string.Empty).Trim();
         if (trimmed.Length == 0)
         {
-            Error = GeminiWritingCoach.EmptyAnswerMessage;
+            Error = AiWritingCoach.EmptyAnswerMessage;
             _retry = null;
             StateChanged?.Invoke();
             return;

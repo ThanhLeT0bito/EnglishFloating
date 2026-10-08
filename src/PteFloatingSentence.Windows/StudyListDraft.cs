@@ -52,6 +52,12 @@ public sealed class StudyListDraft
 
     public void SetApiKeyConfigured(bool configured) => _settings = _settings with { GeminiApiKeyConfigured = configured };
 
+    public void SetProviderKeyConfigured(AiProvider provider, bool configured) =>
+        _settings = AiProviderRules.WithKeyConfigured(_settings, provider, configured);
+
+    public void SetAiProvider(AiProvider provider) =>
+        _settings = _settings with { AiProvider = AiProviderRules.Normalize(provider) };
+
     public void SetDisplayPreferences(bool showSentence, bool showVocabulary) =>
         _settings = _settings with
         {
