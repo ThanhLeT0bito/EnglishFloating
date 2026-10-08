@@ -90,6 +90,7 @@ public sealed class JsonSettingsStore
         {
             Sentence = StudyListRules.NormalizeSentence(settings.Sentence),
             FontSize = settings.FontSize is >= 12 and <= 96 ? settings.FontSize : defaults.FontSize,
+            PracticeAudioDelaySeconds = PracticeAudioDelay.Normalize(settings.PracticeAudioDelaySeconds),
             BackgroundOpacity = settings.BackgroundOpacity is >= 0 and <= 1 ? settings.BackgroundOpacity : defaults.BackgroundOpacity,
             TextColor = settings.TextColor is not null && ColorPattern.IsMatch(settings.TextColor)
                 ? settings.TextColor

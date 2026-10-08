@@ -1064,12 +1064,12 @@ public class SettingsWorkflowTests
 
             Assert.IsNotNull(cacheLabel);
             Assert.IsNotNull(clearButton);
-            Assert.AreEqual("Cache size: 1.0 MB / 20 MB", cacheLabel.Text);
+            Assert.AreEqual("Cache size: 1.0 MB / 100 MB", cacheLabel.Text);
 
             clearButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
 
             Assert.IsTrue(fakeCache.ClearCacheCalled);
-            Assert.AreEqual("Cache size: 0.0 MB / 20 MB", cacheLabel.Text);
+            Assert.AreEqual("Cache size: 0.0 MB / 100 MB", cacheLabel.Text);
         });
     }
 

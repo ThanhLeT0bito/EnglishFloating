@@ -54,6 +54,8 @@ public partial class SentencePhrasingReviewWindow : Window
         finally
         {
             _isLoading = false;
+            // If the window closed mid-request, OnClosed left disposal to us.
+            if (_closed) _cancellation.Dispose();
         }
     }
 
@@ -99,7 +101,8 @@ public partial class SentencePhrasingReviewWindow : Window
     {
         _closed = true;
         _cancellation.Cancel();
-        _cancellation.Dispose();
+        // An in-flight SuggestAsync still holds the token; LoadProposalAsync disposes it when it finishes.
+        if (!_isLoading) _cancellation.Dispose();
         base.OnClosed(e);
     }
 }

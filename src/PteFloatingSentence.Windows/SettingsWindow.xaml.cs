@@ -122,6 +122,7 @@ public partial class SettingsWindow : Window
         DisplayPageControl.FullDisplayPreferencesChanged += OnFullDisplayPreferencesChanged;
         DisplayPageControl.LaunchAtWindowsSignInChanged += OnLaunchAtWindowsSignInChanged;
         DisplayPageControl.TtsPreferencesChanged += OnTtsPreferencesChanged;
+        DisplayPageControl.PracticeAudioDelayChanged += OnPracticeAudioDelayChanged;
         GeminiPageControl.LoadState(_apiKeyConfigured);
         GeminiPageControl.ClearKeyRequested += OnClearKeyRequested;
         FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged, _explainer);
@@ -167,6 +168,9 @@ public partial class SettingsWindow : Window
     private void OnTtsPreferencesChanged(string voice, double speed) =>
         _draft.SetTtsPreferences(voice, speed);
 
+    private void OnPracticeAudioDelayChanged(int seconds) =>
+        _draft.SetPracticeAudioDelaySeconds(seconds);
+
     private void OnClearKeyRequested()
     {
         _apiKeyCleared = true;
@@ -187,6 +191,7 @@ public partial class SettingsWindow : Window
             DisplayPageControl.FullDisplayPreferencesChanged -= OnFullDisplayPreferencesChanged;
             DisplayPageControl.LaunchAtWindowsSignInChanged -= OnLaunchAtWindowsSignInChanged;
             DisplayPageControl.TtsPreferencesChanged -= OnTtsPreferencesChanged;
+            DisplayPageControl.PracticeAudioDelayChanged -= OnPracticeAudioDelayChanged;
         }
         if (GeminiPageControl is not null)
         {
@@ -303,6 +308,7 @@ public partial class SettingsWindow : Window
             _draft.SetTtsPreferences(
                 DisplayPageControl.TtsVoice,
                 DisplayPageControl.TtsSpeed);
+            _draft.SetPracticeAudioDelaySeconds(DisplayPageControl.PracticeAudioDelaySeconds);
         }
         var result = _draft.Save();
         ShowResult(result);

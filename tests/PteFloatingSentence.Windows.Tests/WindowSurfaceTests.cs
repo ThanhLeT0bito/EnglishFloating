@@ -1408,8 +1408,12 @@ public class WindowSurfaceTests
                 Assert.AreEqual(s1.Id, reportedSentenceId);
                 Assert.AreEqual(true, reportedCompleted);
 
-                // Should now have transitioned to sentence 2
+                // Should now have transitioned to sentence 2, with the audio countdown running
                 Assert.IsTrue(progressLabel.Text.Contains("Sentence 2 of 2"));
+                var countdownText = (System.Windows.Controls.TextBlock)window.FindName("PracticeAudioDelayText");
+                Assert.IsTrue(window.IsAudioCountdownPending);
+                Assert.AreEqual("Audio in 3s", countdownText.Text);
+                window.Close();
             }
             catch (Exception ex)
             {

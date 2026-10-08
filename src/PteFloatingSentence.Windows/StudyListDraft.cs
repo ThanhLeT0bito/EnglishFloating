@@ -82,6 +82,9 @@ public sealed class StudyListDraft
     public void SetPracticeMode(PracticeMode mode) =>
         _settings = _settings with { PracticeMode = mode };
 
+    public void SetPracticeAudioDelaySeconds(int seconds) =>
+        _settings = _settings with { PracticeAudioDelaySeconds = PracticeAudioDelay.Normalize(seconds) };
+
     public void UpdateFlashcardSettings(AppSettings settings)
     {
         _settings = _settings with
@@ -108,7 +111,8 @@ public sealed class StudyListDraft
             LaunchAtWindowsSignIn = settings.LaunchAtWindowsSignIn,
             TtsVoice = settings.TtsVoice,
             TtsSpeed = settings.TtsSpeed,
-            PracticeMode = settings.PracticeMode
+            PracticeMode = settings.PracticeMode,
+            PracticeAudioDelaySeconds = settings.PracticeAudioDelaySeconds
         };
     }
 

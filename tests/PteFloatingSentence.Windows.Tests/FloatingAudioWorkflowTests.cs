@@ -14,6 +14,138 @@ namespace PteFloatingSentence.Windows.Tests;
 
 public class FloatingAudioWorkflowTests
 {
+    [Theory]
+    [InlineData(3, 3)]
+    [InlineData(5, 5)]
+    [InlineData(0, 3)]
+    public void CompletingPracticeSentence_MovesOnAndStartsAudioCountdown(int configuredSeconds, int expectedSeconds)
+    {
+        RunOnSta(() =>
+        {
+            var player = new FakeAudioPlayer();
+            var window = new FloatingWindow(player, new FakeTtsService(), new FakeAudioCacheManager());
+            window.ApplySettings(CreateAudioCountdownSettings(configuredSeconds));
+            window.StartPractice();
+            window.IsAudioCountdownPending.Should().BeTrue("starting practice counts down before the first sentence's audio");
+            ((TextBlock)window.FindName("PracticeAudioDelayText")).Text.Should().Be($"Audio in {expectedSeconds}s");
+            window.PlayPendingPracticeAudio();
+            player.PlayCallCount.Should().Be(1);
+
+            CompleteCurrentPracticeSentence(window);
+
+            var progress = (TextBlock)window.FindName("PracticeProgressLabel");
+            var badge = (FrameworkElement)window.FindName("PracticeAudioDelayBadge");
+            var badgeText = (TextBlock)window.FindName("PracticeAudioDelayText");
+            progress.Text.Should().Contain("Sentence 2 of 2");
+            window.IsAudioCountdownPending.Should().BeTrue();
+            badge.Visibility.Should().Be(Visibility.Visible);
+            badgeText.Text.Should().Be($"Audio in {expectedSeconds}s");
+            player.IsPlaying.Should().BeFalse("the first sentence's audio stops when moving on");
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void AudioCountdown_PlaysTheNewSentenceWhenItEnds()
+    {
+        RunOnSta(() =>
+        {
+            var player = new FakeAudioPlayer();
+            var cache = new FakeAudioCacheManager();
+            cache.CachedFiles["cached.mp3"] = "cached";
+            var window = new FloatingWindow(player, new FakeTtsService(), cache);
+            window.ApplySettings(CreateAudioCountdownSettings(3));
+            window.StartPractice();
+            CompleteCurrentPracticeSentence(window);
+
+            window.PlayPendingPracticeAudio();
+
+            window.IsAudioCountdownPending.Should().BeFalse();
+            ((FrameworkElement)window.FindName("PracticeAudioDelayBadge")).Visibility.Should().Be(Visibility.Collapsed);
+            ((TextBlock)window.FindName("PracticeProgressLabel")).Text.Should().Contain("Sentence 2 of 2");
+            player.PlayCallCount.Should().Be(1);
+            player.IsPlaying.Should().BeTrue();
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void NextAndPreviousButtons_StartCountdown_ManualAudioCancelsIt()
+    {
+        RunOnSta(() =>
+        {
+            var player = new FakeAudioPlayer();
+            var window = new FloatingWindow(player, new FakeTtsService(), new FakeAudioCacheManager());
+            window.ApplySettings(CreateAudioCountdownSettings(3));
+            window.StartPractice();
+            var progress = (TextBlock)window.FindName("PracticeProgressLabel");
+
+            ((Button)window.FindName("NextButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            progress.Text.Should().Contain("Sentence 2 of 2");
+            window.IsAudioCountdownPending.Should().BeTrue();
+
+            ((Button)window.FindName("PracticeAudioButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            window.IsAudioCountdownPending.Should().BeFalse("pressing the audio button plays immediately");
+            player.PlayCallCount.Should().Be(1);
+
+            ((Button)window.FindName("PreviousButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            progress.Text.Should().Contain("Sentence 1 of 2");
+            window.IsAudioCountdownPending.Should().BeTrue();
+            player.IsPlaying.Should().BeFalse("switching sentences stops the previous audio");
+
+            window.ExitPractice();
+            window.IsAudioCountdownPending.Should().BeFalse();
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void FinishingAllSentences_ShowsCompletionWithoutCountdown()
+    {
+        RunOnSta(() =>
+        {
+            var window = new FloatingWindow(new FakeAudioPlayer(), new FakeTtsService(), new FakeAudioCacheManager());
+            window.ApplySettings(CreateAudioCountdownSettings(3));
+            window.StartPractice();
+
+            CompleteCurrentPracticeSentence(window);
+            CompleteCurrentPracticeSentence(window);
+
+            ((FrameworkElement)window.FindName("PracticeCompletionPanel")).Visibility.Should().Be(Visibility.Visible);
+            window.IsAudioCountdownPending.Should().BeFalse();
+            window.Close();
+        });
+    }
+
+    private static AppSettings CreateAudioCountdownSettings(int seconds)
+    {
+        var list = new StudyList(Guid.NewGuid(), "Audio countdown", 10, 0,
+        [
+            new StudySentence(Guid.NewGuid(), "You must wear a hard hat"),
+            new StudySentence(Guid.NewGuid(), "The project requires careful safety inspection")
+        ]);
+        return AppSettings.Default with
+        {
+            StudyLists = [list],
+            ActiveListId = list.Id,
+            PracticeAudioDelaySeconds = seconds
+        };
+    }
+
+    private static void CompleteCurrentPracticeSentence(FloatingWindow window)
+    {
+        var progress = (TextBlock)window.FindName("PracticeProgressLabel");
+        var completion = (FrameworkElement)window.FindName("PracticeCompletionPanel");
+        var before = progress.Text;
+        for (var guard = 0; guard < 25; guard++)
+        {
+            if (progress.Text != before || completion.Visibility == Visibility.Visible) return;
+            window.SkipCurrentPracticeWord();
+        }
+    }
+
     [Fact]
     public void NavigatingToNextSentence_StopsActiveAudioPlayback()
     {

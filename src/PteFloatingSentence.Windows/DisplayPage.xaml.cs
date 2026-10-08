@@ -63,12 +63,28 @@ public partial class DisplayPage : UserControl
         }
     }
 
+    public int PracticeAudioDelaySeconds
+    {
+        get => AudioCountdownSlider is null
+            ? PracticeAudioDelay.DefaultSeconds
+            : PracticeAudioDelay.Normalize((int)Math.Round(AudioCountdownSlider.Value));
+        set
+        {
+            var seconds = PracticeAudioDelay.Normalize(value);
+            if (AudioCountdownSlider is not null)
+                AudioCountdownSlider.Value = seconds;
+            if (AudioCountdownValueLabel is not null)
+                AudioCountdownValueLabel.Text = $"{seconds}s";
+        }
+    }
+
     public IAudioCacheManager AudioCacheManager => _audioCacheManager;
 
     public event Action<bool, bool>? DisplayPreferencesChanged;
     public event Action<bool, bool, bool, string?>? FullDisplayPreferencesChanged;
     public event Action<bool>? LaunchAtWindowsSignInChanged;
     public event Action<string, double>? TtsPreferencesChanged;
+    public event Action<int>? PracticeAudioDelayChanged;
 
     public DisplayPage() : this(new AudioCacheManager())
     {
@@ -99,7 +115,8 @@ public partial class DisplayPage : UserControl
             FlashcardDeckProjection.GetDeckSummaries(settings),
             settings.LaunchAtWindowsSignIn,
             settings.TtsVoice,
-            settings.TtsSpeed);
+            settings.TtsSpeed,
+            settings.PracticeAudioDelaySeconds);
     }
 
     public AppSettings ApplySettings(AppSettings settings)
@@ -113,7 +130,8 @@ public partial class DisplayPage : UserControl
             ActiveFlashcardDeckKey = ActiveFlashcardDeckKey,
             LaunchAtWindowsSignIn = LaunchAtWindowsSignIn,
             TtsVoice = TtsVoice,
-            TtsSpeed = TtsSpeed
+            TtsSpeed = TtsSpeed,
+            PracticeAudioDelaySeconds = PracticeAudioDelaySeconds
         };
     }
 
@@ -125,7 +143,8 @@ public partial class DisplayPage : UserControl
         IReadOnlyList<FlashcardDeckSummary>? availableDecks = null,
         bool launchAtWindowsSignIn = true,
         string? ttsVoice = null,
-        double? ttsSpeed = null)
+        double? ttsSpeed = null,
+        int? practiceAudioCountdownSeconds = null)
     {
         _isRendering = true;
         try
@@ -151,6 +170,11 @@ public partial class DisplayPage : UserControl
                 {
                     SpeedValueLabel.Text = $"{ttsSpeed.Value.ToString("0.00", CultureInfo.InvariantCulture)}x";
                 }
+            }
+
+            if (practiceAudioCountdownSeconds.HasValue)
+            {
+                PracticeAudioDelaySeconds = practiceAudioCountdownSeconds.Value;
             }
 
             UpdateCacheSizeDisplay();
@@ -282,6 +306,17 @@ public partial class DisplayPage : UserControl
         }
 
         NotifyPreferencesChanged();
+    }
+
+    private void AudioCountdownSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (AudioCountdownValueLabel is not null)
+        {
+            AudioCountdownValueLabel.Text = $"{PracticeAudioDelay.Normalize((int)Math.Round(e.NewValue))}s";
+        }
+
+        if (_isRendering) return;
+        PracticeAudioDelayChanged?.Invoke(PracticeAudioDelaySeconds);
     }
 
     private void NotifyPreferencesChanged()

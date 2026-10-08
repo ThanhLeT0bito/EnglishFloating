@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
@@ -29,6 +30,10 @@ public partial class FloatingWindow : Window
     private ITtsService _ttsService;
     private IAudioCacheManager _audioCacheManager;
     private ISentenceAudioPlayback _audioPlayback;
+
+    private DispatcherTimer? _audioCountdownTimer;
+    private int _audioCountdownRemainingSeconds;
+    public bool IsAudioCountdownPending => _audioCountdownTimer?.IsEnabled == true;
 
     private const string AudioGlyphIdle = "\uE767";
     private const string AudioGlyphActive = "\uE768";
@@ -183,9 +188,13 @@ public partial class FloatingWindow : Window
             if (_practiceSession is not null)
             {
                 var practiceList = settings.StudyLists.FirstOrDefault(l => l.Id == _practiceSession.List.Id) ?? activeList;
-                _practiceSession.RefreshList(practiceList);
+                if (_practiceSession.RefreshList(practiceList))
+                {
+                    CancelAudioCountdown();
+                }
                 if (_practiceSession.Mode != settings.PracticeMode)
                 {
+                    CancelAudioCountdown();
                     _practiceSession.SetMode(settings.PracticeMode);
                 }
                 _hasMultipleSentences = _practiceSession.List.Sentences.Count > 1;
@@ -571,6 +580,7 @@ public partial class FloatingWindow : Window
 
     public void StartPractice(Guid? listId = null)
     {
+        CancelAudioCountdown();
         StopAndResetAudio();
         var targetList = listId.HasValue
             ? _settings.StudyLists.FirstOrDefault(l => l.Id == listId.Value)
@@ -607,11 +617,13 @@ public partial class FloatingWindow : Window
 
         AttachPracticeEventHandlers();
         UpdatePracticeUI();
+        StartAudioCountdown();
         PracticeModeChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void ExitPractice()
     {
+        CancelAudioCountdown();
         StopAndResetAudio();
         if (!IsPracticeMode)
             return;
@@ -667,14 +679,15 @@ public partial class FloatingWindow : Window
 
     private void PracticeRestartButton_Click(object sender, RoutedEventArgs e)
     {
-        StopAndResetAudio();
-        _practiceSession?.RestartList();
-        UpdatePracticeUI();
+        if (_practiceSession is null) return;
+        var session = _practiceSession;
+        ShowPracticeSentence(session.RestartList);
     }
 
     private async void PracticeAudioButton_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
+        CancelAudioCountdown();
         await TogglePracticeAudioPlaybackAsync();
     }
 
@@ -904,14 +917,101 @@ public partial class FloatingWindow : Window
     {
         if (_practiceSession is null) return;
 
+        CancelAudioCountdown();
         if (_practiceSession.IsAllSentencesCompleted)
         {
             PracticeCompletionPanel.Visibility = Visibility.Visible;
+            return;
         }
-        else
+
+        var current = _practiceSession;
+        ShowPracticeSentence(current.MoveNextSentence);
+    }
+
+    /// <summary>
+    /// Switches to another practice sentence, then counts down next to the audio icon
+    /// before playing that sentence's audio so the learner can listen and type.
+    /// </summary>
+    private void ShowPracticeSentence(Action move)
+    {
+        CancelAudioCountdown();
+        StopAndResetAudio();
+        move();
+        UpdatePracticeUI();
+        StartAudioCountdown();
+    }
+
+    private void StartAudioCountdown()
+    {
+        if (!IsPracticeMode || _practiceSession is null) return;
+        if (string.IsNullOrWhiteSpace(_practiceSession.CurrentReview?.OriginalText)) return;
+
+        _audioCountdownRemainingSeconds = PracticeAudioDelay.Normalize(_settings.PracticeAudioDelaySeconds);
+        if (_audioCountdownTimer is null)
         {
-            _practiceSession.MoveNextSentence();
-            UpdatePracticeUI();
+            _audioCountdownTimer = new DispatcherTimer(DispatcherPriority.Normal, Dispatcher)
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+            _audioCountdownTimer.Tick += AudioCountdownTimer_Tick;
+        }
+
+        _audioCountdownTimer.Start();
+        ShowAudioCountdown();
+    }
+
+    private void CancelAudioCountdown()
+    {
+        _audioCountdownTimer?.Stop();
+        _audioCountdownRemainingSeconds = 0;
+        if (PracticeAudioDelayBadge is not null)
+            PracticeAudioDelayBadge.Visibility = Visibility.Collapsed;
+    }
+
+    private void ShowAudioCountdown()
+    {
+        PracticeAudioDelayText.Text = $"Audio in {_audioCountdownRemainingSeconds}s";
+        PracticeAudioDelayBadge.Visibility = Visibility.Visible;
+    }
+
+    private void AudioCountdownTimer_Tick(object? sender, EventArgs e)
+    {
+        if (!IsPracticeMode || _practiceSession is null)
+        {
+            CancelAudioCountdown();
+            return;
+        }
+
+        _audioCountdownRemainingSeconds--;
+        if (_audioCountdownRemainingSeconds > 0)
+        {
+            ShowAudioCountdown();
+            return;
+        }
+
+        PlayPendingPracticeAudio();
+    }
+
+    /// <summary>Ends the countdown and plays the current practice sentence. Called when the countdown reaches zero.</summary>
+    public void PlayPendingPracticeAudio()
+    {
+        CancelAudioCountdown();
+        if (!IsPracticeMode || _practiceSession is null) return;
+        _ = AutoPlayPracticeSentenceAsync();
+    }
+
+    private async Task AutoPlayPracticeSentenceAsync()
+    {
+        var state = _audioPlayback.State;
+        if (state.IsLoading || state.IsPlaying) return;
+
+        try
+        {
+            await TogglePracticeAudioPlaybackAsync();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Window closed while the audio was starting.
         }
     }
 
@@ -979,13 +1079,14 @@ public partial class FloatingWindow : Window
     private void PreviousButton_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        StopAndResetAudio();
         if (IsPracticeMode && _practiceSession is not null)
         {
-            _practiceSession.MovePreviousSentence();
-            UpdatePracticeUI();
+            var session = _practiceSession;
+            ShowPracticeSentence(session.MovePreviousSentence);
             return;
         }
+
+        StopAndResetAudio();
 
         PreviousRequested?.Invoke(this, EventArgs.Empty);
     }
@@ -993,13 +1094,14 @@ public partial class FloatingWindow : Window
     private void NextButton_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        StopAndResetAudio();
         if (IsPracticeMode && _practiceSession is not null)
         {
-            _practiceSession.MoveNextSentence();
-            UpdatePracticeUI();
+            var session = _practiceSession;
+            ShowPracticeSentence(session.MoveNextSentence);
             return;
         }
+
+        StopAndResetAudio();
 
         NextRequested?.Invoke(this, EventArgs.Empty);
     }
@@ -1104,6 +1206,12 @@ public partial class FloatingWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        CancelAudioCountdown();
+        if (_audioCountdownTimer is not null)
+        {
+            _audioCountdownTimer.Tick -= AudioCountdownTimer_Tick;
+            _audioCountdownTimer = null;
+        }
         IsVisibleChanged -= FloatingWindow_IsVisibleChanged;
         DetachPracticeEventHandlers();
         _audioPlayback.StateChanged -= AudioPlayback_StateChanged;

@@ -20,6 +20,7 @@ public static class SettingsUpdateMerger
         FlashcardProgress = FlashcardRules.NormalizeProgress(latest.FlashcardProgress.Concat(submitted.FlashcardProgress)),
         TtsVoice = submitted.TtsVoice,
         TtsSpeed = submitted.TtsSpeed,
-        PracticeMode = submitted.PracticeMode
+        PracticeMode = submitted.PracticeMode,
+        PracticeAudioDelaySeconds = PracticeAudioDelay.Normalize(submitted.PracticeAudioDelaySeconds)
     };
 }

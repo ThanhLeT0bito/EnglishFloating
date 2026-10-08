@@ -10,6 +10,29 @@ public sealed class SettingsUpdateMergerTests
     }
 
     [TestMethod]
+    public void MergeEditableFields_RetainsSubmittedAudioCountdownSeconds()
+    {
+        var latest = AppSettings.Default;
+        Assert.AreEqual(3, latest.PracticeAudioDelaySeconds);
+
+        var merged = SettingsUpdateMerger.MergeEditableFields(latest, latest with { PracticeAudioDelaySeconds = 5 });
+        Assert.AreEqual(5, merged.PracticeAudioDelaySeconds);
+
+        var outOfRange = SettingsUpdateMerger.MergeEditableFields(latest, latest with { PracticeAudioDelaySeconds = 9 });
+        Assert.AreEqual(PracticeAudioDelay.DefaultSeconds, outOfRange.PracticeAudioDelaySeconds);
+    }
+
+    [TestMethod]
+    public void PracticeAudioDelay_NormalizeKeepsOneToFiveSeconds()
+    {
+        Assert.AreEqual(1, PracticeAudioDelay.Normalize(1));
+        Assert.AreEqual(5, PracticeAudioDelay.Normalize(5));
+        Assert.AreEqual(3, PracticeAudioDelay.Normalize(0));
+        Assert.AreEqual(3, PracticeAudioDelay.Normalize(6));
+        Assert.AreEqual(3, PracticeAudioDelay.Normalize(-2));
+    }
+
+    [TestMethod]
     public void MergeEditableFields_RetainsSubmittedPracticeMode()
     {
         var latest = AppSettings.Default;

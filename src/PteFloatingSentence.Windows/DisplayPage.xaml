@@ -304,11 +304,37 @@
                                Margin="12,0,0,0" />
                 </StackPanel>
 
+                <!-- Practice Auto-Next Section -->
+                <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="#FF38BDF8" Text="Practice Audio Countdown" Margin="0,0,0,2" />
+                <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,6" TextWrapping="Wrap"
+                           Text="When floating practice moves to another sentence, count down this long next to the audio icon, then play that sentence so you can listen and type." />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                    <Slider x:Name="AudioCountdownSlider"
+                            Minimum="1"
+                            Maximum="5"
+                            Value="3"
+                            TickFrequency="1"
+                            IsSnapToTickEnabled="True"
+                            SmallChange="1"
+                            LargeChange="1"
+                            TickPlacement="BottomRight"
+                            Width="220"
+                            VerticalAlignment="Center"
+                            ValueChanged="AudioCountdownSlider_ValueChanged" />
+                    <TextBlock x:Name="AudioCountdownValueLabel"
+                               Text="3s"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               VerticalAlignment="Center"
+                               Margin="12,0,0,0" />
+                </StackPanel>
+
                 <!-- Audio Cache Section -->
                 <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="#FF38BDF8" Text="Audio Cache" Margin="0,0,0,6" />
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,16">
                     <TextBlock x:Name="CacheSizeLabel"
-                               Text="Cache size: 0.0 MB / 20 MB"
+                               Text="Cache size: 0.0 MB / 100 MB"
                                FontSize="12"
                                Foreground="{StaticResource TextSecondaryBrush}"
                                VerticalAlignment="Center"

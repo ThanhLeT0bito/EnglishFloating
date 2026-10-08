@@ -8,7 +8,7 @@ namespace PteFloatingSentence.Windows.Infrastructure;
 
 public sealed class AudioCacheManager : IAudioCacheManager
 {
-    public const long DefaultMaxCacheSizeBytes = 20 * 1024 * 1024; // 20 MB
+    public const long DefaultMaxCacheSizeBytes = 100 * 1024 * 1024; // 100 MB
 
     private readonly string _cacheDirectory;
     private readonly long _maxSizeBytes;

@@ -204,6 +204,22 @@
                                         Margin="6,0,0,0"
                                         ToolTip="Play audio (TTS)"
                                         Click="PracticeAudioButton_Click" />
+                                <Border x:Name="PracticeAudioDelayBadge"
+                                        Margin="6,0,0,0"
+                                        Padding="7,1"
+                                        CornerRadius="8"
+                                        Background="#2634D399"
+                                        BorderBrush="#FF34D399"
+                                        BorderThickness="1"
+                                        VerticalAlignment="Center"
+                                        Visibility="Collapsed"
+                                        ToolTip="The sentence audio plays automatically when the countdown ends">
+                                    <TextBlock x:Name="PracticeAudioDelayText"
+                                               FontSize="11"
+                                               FontWeight="SemiBold"
+                                               Foreground="#FF34D399"
+                                               Text="Audio in 3s" />
+                                </Border>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                 <Button x:Name="PracticeSkipButton" Style="{StaticResource CardActionButtonStyle}" Content="Skip" ToolTip="Skip word (Tab)" Click="PracticeSkipButton_Click" Margin="0,0,6,0" VerticalAlignment="Center" />

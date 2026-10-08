@@ -67,24 +67,44 @@ public sealed class SentenceAudioPlayback : ISentenceAudioPlayback
                 path = _cache.GetCacheFilePath(text, resolvedVoice, speed);
             }
 
-            Task playback;
             lock (_gate)
             {
-                if (!IsCurrent(generation, request)) return;
+                if (!IsCurrent(generation)) return;
+                // Loading is over. Release the request so Stop() never cancels a source we are about to dispose.
+                _request = null;
                 SetState(new AudioPlaybackState(false, true, null));
-                playback = _player.PlayFileAsync(path,
-                    () => Finish(generation, request, null),
-                    error => Finish(generation, request, $"Playback error: {error.Message}"));
             }
-            await playback;
+
+            // Start the player outside the lock so player/UI work never runs while _gate is held.
+            await _player.PlayFileAsync(path,
+                () => Finish(generation, null),
+                error => Finish(generation, $"Playback error: {error.Message}"));
+
+            lock (_gate)
+            {
+                // Stop() may have run while the player was starting. If nothing newer is playing,
+                // silence the orphaned playback.
+                if (!IsCurrent(generation) && !_state.IsPlaying && _player.IsPlaying)
+                    _player.Stop();
+            }
         }
         catch (OperationCanceledException) when (request.IsCancellationRequested)
         {
-            Finish(generation, request, null);
+            Finish(generation, null);
         }
         catch (Exception error)
         {
-            Finish(generation, request, $"Audio error: {error.Message}");
+            Finish(generation, $"Audio error: {error.Message}");
+        }
+        finally
+        {
+            // This method owns the request. It is only disposed after it has been detached from
+            // _request under the lock, so StopCore() can never Cancel() a disposed source.
+            lock (_gate)
+            {
+                if (ReferenceEquals(_request, request)) _request = null;
+            }
+            request.Dispose();
         }
     }
 
@@ -102,23 +122,22 @@ public sealed class SentenceAudioPlayback : ISentenceAudioPlayback
         ++_generation;
         var request = _request;
         _request = null;
+        // Cancel only: the in-flight ToggleAsync owns the source and disposes it in its finally block.
         request?.Cancel();
-        request?.Dispose();
         if (_player.IsPlaying) _player.Stop();
         SetState(new AudioPlaybackState(false, false, null));
     }
 
-    private bool IsCurrent(long generation, CancellationTokenSource request) =>
-        !_disposed && generation == _generation && ReferenceEquals(request, _request) && !request.IsCancellationRequested;
+    // Every Stop/Finish/new request bumps _generation, so the generation alone identifies the live request.
+    private bool IsCurrent(long generation) => !_disposed && generation == _generation;
 
-    private void Finish(long generation, CancellationTokenSource request, string? error)
+    private void Finish(long generation, string? error)
     {
         lock (_gate)
         {
-            if (!IsCurrent(generation, request)) return;
+            if (!IsCurrent(generation)) return;
             ++_generation;
             _request = null;
-            request.Dispose();
             if (_player.IsPlaying) _player.Stop();
             SetState(new AudioPlaybackState(false, false, error));
         }
