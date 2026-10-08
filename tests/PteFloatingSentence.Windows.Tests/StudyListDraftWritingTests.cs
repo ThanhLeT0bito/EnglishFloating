@@ -62,4 +62,36 @@ public class StudyListDraftWritingTests
         CollectionAssert.AreEqual(new[] { "travel" }, draft.Settings.SelectedWritingTopicKeys.ToArray());
         Assert.AreEqual(WritingLevel.Easy, draft.Settings.WritingLevel);
     }
+    [TestMethod]
+    public void AddSentenceToList_AppendsWithoutChangingSelection()
+    {
+        var draft = new StudyListDraft(AppSettings.Default, _ => { });
+        var other = draft.CreateList();
+        var first = draft.Settings.StudyLists[0];
+        draft.SelectList(first.Id);
+
+        var result = draft.AddSentenceToList(other.Id, "  There was a traffic jam this morning.  ");
+
+        Assert.IsTrue(result.IsValid);
+        Assert.AreEqual(first.Id, draft.SelectedListId);
+        var saved = draft.Settings.StudyLists.Single(list => list.Id == other.Id).Sentences.Single();
+        Assert.AreEqual("There was a traffic jam this morning.", saved.Text);
+    }
+
+    [TestMethod]
+    public void AddSentenceToList_RejectsDuplicateTooLongAndUnknownList()
+    {
+        var draft = new StudyListDraft(AppSettings.Default, _ => { });
+        var listId = draft.Settings.StudyLists[0].Id;
+        draft.AddSentenceToList(listId, "I got to the office late.");
+
+        var duplicate = draft.AddSentenceToList(listId, "i got to the office   late.");
+        var tooLong = draft.AddSentenceToList(listId, string.Join(' ', Enumerable.Repeat("word", 21)));
+        var unknown = draft.AddSentenceToList(Guid.NewGuid(), "Hello there.");
+
+        Assert.AreEqual("This sentence is already in the list.", duplicate.Error);
+        Assert.IsFalse(tooLong.IsValid);
+        Assert.AreEqual("Choose a study list.", unknown.Error);
+        Assert.AreEqual(2, draft.Settings.StudyLists[0].Sentences.Count);
+    }
 }

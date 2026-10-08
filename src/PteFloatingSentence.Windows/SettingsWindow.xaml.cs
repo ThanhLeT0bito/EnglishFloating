@@ -44,6 +44,8 @@ public partial class SettingsWindow : Window
             GeminiSection.Visibility = SelectedPage == SettingsPageId.Gemini ? Visibility.Visible : Visibility.Collapsed;
         if (FlashcardsSection is not null)
             FlashcardsSection.Visibility = SelectedPage == SettingsPageId.Flashcards ? Visibility.Visible : Visibility.Collapsed;
+        if (WritingSection is not null)
+            WritingSection.Visibility = SelectedPage == SettingsPageId.Writing ? Visibility.Visible : Visibility.Collapsed;
 
         if (PageScrollViewer is not null)
         {
@@ -102,11 +104,12 @@ public partial class SettingsWindow : Window
             SettingsPageId.Review => ("Review", "Track vocabulary mastery and study progress"),
             SettingsPageId.ReviewPractice => ("Practice", "Practice sentences with masked hidden words"),
             SettingsPageId.Gemini => ("Gemini", "Configure Gemini API key for vocabulary explanations"),
+            SettingsPageId.Writing => ("Writing", "Translate Vietnamese sentences into English and get AI feedback"),
             _ => ("Settings", string.Empty)
         };
     }
 
-    public SettingsWindow(AppSettings initial, Action<AppSettings> save, ProtectedApiKeyStore? apiKeyStore = null, IVocabularyExplainer? explainer = null, ISentencePhraser? sentencePhraser = null)
+    public SettingsWindow(AppSettings initial, Action<AppSettings> save, ProtectedApiKeyStore? apiKeyStore = null, IVocabularyExplainer? explainer = null, ISentencePhraser? sentencePhraser = null, IWritingCoach? writingCoach = null)
     {
         InitializeComponent();
         _draft = new StudyListDraft(initial, save);
@@ -133,6 +136,7 @@ public partial class SettingsWindow : Window
             SetupPageControl.RefreshFromDraft(_draft);
             ReviewPageControl?.LoadData(new ReviewViewModel(_draft.Settings));
         });
+        WritingPageControl.Initialize(_draft, writingCoach, () => SetupPageControl.RefreshFromDraft(_draft));
         UpdateApiKeyStatus();
         SyncNavigationSelection();
         UpdatePageHeader();
@@ -200,6 +204,7 @@ public partial class SettingsWindow : Window
         ReviewPracticePageControl.PracticeModeChanged -= OnPracticeModeChanged;
         ReviewPracticePageControl?.Dispose();
         FlashcardsPageControl?.Dispose();
+        WritingPageControl?.Dispose();
     }
 
     private void NewListButton_Click(object sender, RoutedEventArgs e)

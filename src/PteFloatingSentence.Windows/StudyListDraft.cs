@@ -168,6 +168,30 @@ public sealed class StudyListDraft
         return new(true, null);
     }
 
+    /// <summary>Appends a sentence to any list without changing the selection (used by Writing practice).</summary>
+    public ValidationResult AddSentenceToList(Guid listId, string? text)
+    {
+        var list = _settings.StudyLists.FirstOrDefault(candidate => candidate.Id == listId);
+        if (list is null)
+            return new(false, "Choose a study list.");
+
+        var trimmed = (text ?? string.Empty).Trim();
+        var validation = SentenceValidator.Validate(trimmed);
+        if (!validation.IsValid)
+            return validation;
+
+        var key = VocabularyRules.NormalizePhrase(trimmed);
+        if (list.Sentences.Any(sentence => string.Equals(VocabularyRules.NormalizePhrase(sentence.Text), key, StringComparison.OrdinalIgnoreCase)))
+            return new(false, "This sentence is already in the list.");
+
+        var updated = list with { Sentences = list.Sentences.Append(new StudySentence(Guid.NewGuid(), trimmed)).ToList() };
+        _settings = _settings with
+        {
+            StudyLists = _settings.StudyLists.Select(candidate => candidate.Id == listId ? updated : candidate).ToList()
+        };
+        return new(true, null);
+    }
+
     public ValidationResult AddPhrasedSentence(string groups)
     {
         var proposal = SentencePhrasing.ParseGroups(groups);
