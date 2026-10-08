@@ -33,6 +33,9 @@ public partial class WritingPage : UserControl, IDisposable
     private bool _rendering;
     private bool _disposed;
 
+    /// <summary>Setup options are folded under the arrow header.</summary>
+    private bool _setupCollapsed;
+
     public WritingPage() : this(new SentenceAudioPlayback(new WpfAudioPlayer(), new EdgeNeuralTtsService(), new AudioCacheManager()))
     {
     }
@@ -88,11 +91,42 @@ public partial class WritingPage : UserControl, IDisposable
             EnglishExplanationButton.IsChecked = settings.WritingExplanationLanguage == WritingExplanationLanguage.English;
             VietnameseExplanationButton.IsChecked = settings.WritingExplanationLanguage == WritingExplanationLanguage.Vietnamese;
             RenderSaveListSelector();
+            RenderSetupCard();
         }
         finally
         {
             _rendering = false;
         }
+    }
+
+    /// <summary>
+    /// Folds or unfolds the setup options under the arrow header. Folded, the header shows a one-line summary;
+    /// Generate stays in the header so a sentence can always be requested.
+    /// </summary>
+    private void RenderSetupCard()
+    {
+        if (_draft is null)
+            return;
+
+        SetupExpandedPanel.Visibility = _setupCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        SetupSummaryText.Visibility = _setupCollapsed ? Visibility.Visible : Visibility.Collapsed;
+        SetupChevron.Text = _setupCollapsed ? "\uE76C" : "\uE70D";
+        SetupToggleButton.ToolTip = _setupCollapsed ? "Show options" : "Hide options";
+
+        var settings = _draft.Settings;
+        SetupSummaryText.Text = WritingPresentation.SetupSummary(
+            WritingTopicRules.SelectedTopics(settings).Select(topic => topic.Name).ToList(),
+            settings.WritingLevel,
+            settings.WritingExplanationLanguage);
+    }
+
+    /// <summary>True when the setup options are folded under the header.</summary>
+    public bool IsSetupCollapsed => SetupExpandedPanel.Visibility != Visibility.Visible;
+
+    private void SetupToggleButton_Click(object sender, RoutedEventArgs e)
+    {
+        _setupCollapsed = !_setupCollapsed;
+        RenderSetupCard();
     }
 
     // ---- Preferences -------------------------------------------------------------------------
@@ -264,7 +298,12 @@ public partial class WritingPage : UserControl, IDisposable
         var topics = WritingTopicRules.SelectedTopics(settings).Select(topic => topic.Name).ToList();
         await _session.GenerateAsync(topics, settings.WritingLevel, settings.WritingExplanationLanguage);
         if (_session?.State == WritingSessionState.Answering)
+        {
+            // Options are set; fold them away so the sentence and answer get the space.
+            _setupCollapsed = true;
+            RenderSetupCard();
             AnswerBox.Focus();
+        }
     }
 
     /// <summary>Checks the text in the answer box.</summary>
@@ -336,6 +375,7 @@ public partial class WritingPage : UserControl, IDisposable
 
         var session = _session;
         GenerateButton.Content = session?.Prompt is null ? "Generate sentence" : "New sentence";
+        RenderSetupCard();
 
         if (session is null)
         {

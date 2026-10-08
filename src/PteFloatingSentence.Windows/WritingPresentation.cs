@@ -71,6 +71,22 @@ public static class WritingPresentation
         _ => null
     };
 
+    public const int SummaryTopicCount = 3;
+
+    /// <summary>One-line summary of the setup card, e.g. "Working in IT, Traffic &amp; transport · Medium · Explain in English".</summary>
+    public static string SetupSummary(IReadOnlyList<string>? topicNames, WritingLevel level, WritingExplanationLanguage language)
+    {
+        var names = (topicNames ?? []).Where(name => !string.IsNullOrWhiteSpace(name)).ToList();
+        var topics = names.Count switch
+        {
+            0 => "Mixed topics",
+            <= SummaryTopicCount => string.Join(", ", names),
+            _ => string.Join(", ", names.Take(SummaryTopicCount)) + $" +{names.Count - SummaryTopicCount} more"
+        };
+        var explain = language == WritingExplanationLanguage.Vietnamese ? "Tiếng Việt" : "English";
+        return $"{topics} · {LevelLabel(level)} · Explain in {explain}";
+    }
+
     public static string PromptMeta(WritingPrompt prompt) => $"{prompt.Topic} · {LevelLabel(prompt.Level)}";
 
     public static string IssueText(WritingIssue issue)

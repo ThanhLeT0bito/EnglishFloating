@@ -94,4 +94,17 @@ public sealed class WritingPresentationTests
         Assert.IsNotNull(WritingPresentation.BusyText(WritingSessionState.Checking));
         Assert.IsNull(WritingPresentation.BusyText(WritingSessionState.Answering));
     }
+    [TestMethod]
+    public void SetupSummary_ListsTopicsLevelAndLanguage()
+    {
+        Assert.AreEqual(
+            "Working in IT, Traffic & transport · Medium · Explain in English",
+            WritingPresentation.SetupSummary(["Working in IT", "Traffic & transport"], WritingLevel.Medium, WritingExplanationLanguage.English));
+        Assert.AreEqual(
+            "Mixed topics · Hard · Explain in Tiếng Việt",
+            WritingPresentation.SetupSummary([], WritingLevel.Hard, WritingExplanationLanguage.Vietnamese));
+        Assert.AreEqual(
+            "A, B, C +2 more · Easy · Explain in English",
+            WritingPresentation.SetupSummary(["A", "B", "C", "D", "E"], WritingLevel.Easy, WritingExplanationLanguage.English));
+    }
 }

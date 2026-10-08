@@ -311,11 +311,12 @@ public sealed class WritingPageTests
         public WritingRequest? LastRequest { get; private set; }
         public string? LastAnswer { get; private set; }
         public Exception? CheckFailure { get; set; }
+        public Exception? GenerateFailure { get; set; }
 
         public Task<WritingPrompt> GenerateAsync(WritingRequest request, CancellationToken cancellationToken = default)
         {
             LastRequest = request;
-            return Task.FromResult(Prompt);
+            return GenerateFailure is null ? Task.FromResult(Prompt) : Task.FromException<WritingPrompt>(GenerateFailure);
         }
 
         public Task<WritingFeedback> CheckAsync(WritingPrompt prompt, string translation, WritingExplanationLanguage language, CancellationToken cancellationToken = default)
@@ -347,5 +348,54 @@ public sealed class WritingPageTests
         public void Dispose()
         {
         }
+    }
+    [TestMethod]
+    public void SetupArrow_FoldsAfterGenerateAndTogglesOnClick()
+    {
+        RunOnSta(() =>
+        {
+            var settings = WritingTopicRules.ToggleSelection(AppSettings.Default, "traffic");
+            var (page, _, _, _) = CreatePage(settings);
+            var chevron = (TextBlock)page.FindName("SetupChevron");
+            var summary = (TextBlock)page.FindName("SetupSummaryText");
+            Assert.IsFalse(page.IsSetupCollapsed, "options start open");
+            Assert.AreEqual("\uE70D", chevron.Text);
+            Assert.AreEqual(Visibility.Collapsed, summary.Visibility);
+
+            Click(page, "GenerateButton");
+
+            Assert.IsTrue(page.IsSetupCollapsed, "options fold once a sentence is shown");
+            Assert.AreEqual("\uE76C", chevron.Text);
+            Assert.AreEqual(Visibility.Visible, summary.Visibility);
+            Assert.AreEqual("Traffic & transport · Medium · Explain in English", summary.Text);
+            Assert.AreEqual(Visibility.Visible, ((FrameworkElement)page.FindName("GenerateButton")).Visibility);
+
+            Click(page, "SetupToggleButton");
+            Assert.IsFalse(page.IsSetupCollapsed);
+            ((RadioButton)page.FindName("HardLevelButton")).IsChecked = true;
+
+            Click(page, "SetupToggleButton");
+            Assert.IsTrue(page.IsSetupCollapsed);
+            StringAssert.Contains(summary.Text, "Hard");
+
+            Click(page, "SkipButton");
+            Assert.IsTrue(page.IsSetupCollapsed, "a new sentence keeps the options folded");
+        });
+    }
+
+    [TestMethod]
+    public void SetupArrow_CanFoldBeforeAnySentenceAndGenerateStillWorks()
+    {
+        RunOnSta(() =>
+        {
+            var (page, _, coach, _) = CreatePage();
+
+            Click(page, "SetupToggleButton");
+            Assert.IsTrue(page.IsSetupCollapsed);
+            Click(page, "GenerateButton");
+
+            Assert.IsNotNull(coach.LastRequest);
+            Assert.AreEqual(Visibility.Visible, ((FrameworkElement)page.FindName("PromptCard")).Visibility);
+        });
     }
 }

@@ -40,6 +40,28 @@
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
 
+        <Style x:Key="HeaderToggleStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="6,6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="HeaderBorder" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="HeaderBorder" Property="Background" Value="#FF1E293B" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="ChipRemoveButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="22" />
             <Setter Property="Height" Value="22" />
@@ -386,43 +408,58 @@
     </UserControl.Resources>
 
     <StackPanel>
-        <!-- Exercise setup: topics, level, explanation language -->
-        <Border Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="18,14" Margin="0,0,0,14">
+        <!-- Exercise setup: a header with an arrow folds or unfolds the topics, level and language. -->
+        <Border x:Name="SetupCard" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,14">
             <StackPanel>
-                <TextBlock Style="{StaticResource SectionLabelStyle}" Text="Topics" />
-                <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,-2,0,8" TextWrapping="Wrap"
-                           Text="Pick one or more topics. With none selected, sentences mix all built-in topics." />
-                <WrapPanel x:Name="TopicPanel" Orientation="Horizontal" />
-                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                    <TextBox x:Name="NewTopicInput" Width="220" MaxLength="40" VerticalContentAlignment="Center" ToolTip="New topic name (Enter to add)" />
-                    <Button x:Name="AddTopicButton" Content="+ Add topic" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Click="AddTopicButton_Click" />
-                    <TextBlock x:Name="TopicErrorText" Foreground="#FFFCA5A5" FontSize="12" VerticalAlignment="Center" Margin="10,0,0,0" />
-                </StackPanel>
-
-                <Grid Margin="0,16,0,0">
+                <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0" Margin="0,0,24,0">
-                        <TextBlock Style="{StaticResource SectionLabelStyle}" Text="Level" />
-                        <StackPanel Orientation="Horizontal">
-                            <RadioButton x:Name="EasyLevelButton" GroupName="WritingLevel" Content="Easy" Style="{StaticResource SegmentStyle}" Checked="LevelButton_Checked" />
-                            <RadioButton x:Name="MediumLevelButton" GroupName="WritingLevel" Content="Medium" Style="{StaticResource SegmentStyle}" Checked="LevelButton_Checked" />
-                            <RadioButton x:Name="HardLevelButton" GroupName="WritingLevel" Content="Hard" Style="{StaticResource SegmentStyle}" Checked="LevelButton_Checked" />
-                        </StackPanel>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Style="{StaticResource SectionLabelStyle}" Text="Explain in" />
-                        <StackPanel Orientation="Horizontal">
-                            <RadioButton x:Name="EnglishExplanationButton" GroupName="WritingLanguage" Content="English" Style="{StaticResource SegmentStyle}" Checked="LanguageButton_Checked" />
-                            <RadioButton x:Name="VietnameseExplanationButton" GroupName="WritingLanguage" Content="Tiếng Việt" Style="{StaticResource SegmentStyle}" Checked="LanguageButton_Checked" />
-                        </StackPanel>
-                    </StackPanel>
-                    <Button x:Name="GenerateButton" Grid.Column="3" VerticalAlignment="Bottom" Margin="0" Content="Generate sentence" Style="{StaticResource PrimaryButtonStyle}" Click="GenerateButton_Click" />
+                    <Button x:Name="SetupToggleButton" Style="{StaticResource HeaderToggleStyle}" ToolTip="Hide options" Click="SetupToggleButton_Click">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="SetupChevron" FontFamily="Segoe MDL2 Assets" Text="&#xE70D;" FontSize="11" Foreground="#FF93C5FD" VerticalAlignment="Center" Margin="0,1,8,0" />
+                            <TextBlock Grid.Column="1" Text="Practice options" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                            <TextBlock x:Name="SetupSummaryText" Grid.Column="2" FontSize="12.5" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="12,0,0,0" Visibility="Collapsed" />
+                        </Grid>
+                    </Button>
+                    <Button x:Name="GenerateButton" Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0" Content="Generate sentence" Style="{StaticResource PrimaryButtonStyle}" Click="GenerateButton_Click" />
                 </Grid>
+
+                <StackPanel x:Name="SetupExpandedPanel" Margin="4,14,4,4">
+                    <TextBlock Style="{StaticResource SectionLabelStyle}" Text="Topics" />
+                    <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,-2,0,8" TextWrapping="Wrap"
+                               Text="Pick one or more topics. With none selected, sentences mix all built-in topics." />
+                    <WrapPanel x:Name="TopicPanel" Orientation="Horizontal" />
+                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                        <TextBox x:Name="NewTopicInput" Width="220" MaxLength="40" VerticalContentAlignment="Center" ToolTip="New topic name (Enter to add)" />
+                        <Button x:Name="AddTopicButton" Content="+ Add topic" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Click="AddTopicButton_Click" />
+                        <TextBlock x:Name="TopicErrorText" Foreground="#FFFCA5A5" FontSize="12" VerticalAlignment="Center" Margin="10,0,0,0" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                        <StackPanel Margin="0,0,24,0">
+                            <TextBlock Style="{StaticResource SectionLabelStyle}" Text="Level" />
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton x:Name="EasyLevelButton" GroupName="WritingLevel" Content="Easy" Style="{StaticResource SegmentStyle}" Checked="LevelButton_Checked" />
+                                <RadioButton x:Name="MediumLevelButton" GroupName="WritingLevel" Content="Medium" Style="{StaticResource SegmentStyle}" Checked="LevelButton_Checked" />
+                                <RadioButton x:Name="HardLevelButton" GroupName="WritingLevel" Content="Hard" Style="{StaticResource SegmentStyle}" Checked="LevelButton_Checked" />
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionLabelStyle}" Text="Explain in" />
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton x:Name="EnglishExplanationButton" GroupName="WritingLanguage" Content="English" Style="{StaticResource SegmentStyle}" Checked="LanguageButton_Checked" />
+                                <RadioButton x:Name="VietnameseExplanationButton" GroupName="WritingLanguage" Content="Tiếng Việt" Style="{StaticResource SegmentStyle}" Checked="LanguageButton_Checked" />
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
             </StackPanel>
         </Border>
 
