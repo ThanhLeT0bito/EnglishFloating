@@ -23,5 +23,9 @@ public sealed record AppSettings
     public double TtsSpeed { get; init; } = 1.0;
     public PracticeMode PracticeMode { get; init; } = PracticeMode.TextHints;
     public int PracticeAudioDelaySeconds { get; init; } = PracticeAudioDelay.DefaultSeconds;
+    public IReadOnlyList<WritingTopic> CustomWritingTopics { get; init; } = [];
+    public IReadOnlyList<string> SelectedWritingTopicKeys { get; init; } = [];
+    public WritingLevel WritingLevel { get; init; } = WritingLevel.Medium;
+    public WritingExplanationLanguage WritingExplanationLanguage { get; init; } = WritingExplanationLanguage.English;
     public static AppSettings Default => StudyListRules.CreateDefault("Right-click this sentence to open Settings.");
 }

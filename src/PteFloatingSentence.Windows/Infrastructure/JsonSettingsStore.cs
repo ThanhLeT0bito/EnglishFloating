@@ -81,7 +81,7 @@ public sealed class JsonSettingsStore
     }
 
     private static AppSettings NormalizeVersion2(AppSettings settings) =>
-        NormalizeDisplay(StudyListRules.Normalize(settings));
+        WritingTopicRules.Normalize(NormalizeDisplay(StudyListRules.Normalize(settings)));
 
     private static AppSettings NormalizeDisplay(AppSettings settings)
     {

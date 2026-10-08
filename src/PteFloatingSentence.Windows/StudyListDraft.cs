@@ -85,6 +85,26 @@ public sealed class StudyListDraft
     public void SetPracticeAudioDelaySeconds(int seconds) =>
         _settings = _settings with { PracticeAudioDelaySeconds = PracticeAudioDelay.Normalize(seconds) };
 
+    public void SetWritingLevel(WritingLevel level) =>
+        _settings = WritingTopicRules.Normalize(_settings with { WritingLevel = level });
+
+    public void SetWritingExplanationLanguage(WritingExplanationLanguage language) =>
+        _settings = WritingTopicRules.Normalize(_settings with { WritingExplanationLanguage = language });
+
+    public void ToggleWritingTopic(string key) =>
+        _settings = WritingTopicRules.ToggleSelection(_settings, key);
+
+    public ValidationResult AddWritingTopic(string? name)
+    {
+        var (settings, result) = WritingTopicRules.AddCustom(_settings, name);
+        if (result.IsValid)
+            _settings = settings;
+        return result;
+    }
+
+    public void RemoveWritingTopic(string key) =>
+        _settings = WritingTopicRules.RemoveCustom(_settings, key);
+
     public void UpdateFlashcardSettings(AppSettings settings)
     {
         _settings = _settings with
@@ -112,7 +132,11 @@ public sealed class StudyListDraft
             TtsVoice = settings.TtsVoice,
             TtsSpeed = settings.TtsSpeed,
             PracticeMode = settings.PracticeMode,
-            PracticeAudioDelaySeconds = settings.PracticeAudioDelaySeconds
+            PracticeAudioDelaySeconds = settings.PracticeAudioDelaySeconds,
+            CustomWritingTopics = settings.CustomWritingTopics,
+            SelectedWritingTopicKeys = settings.SelectedWritingTopicKeys,
+            WritingLevel = settings.WritingLevel,
+            WritingExplanationLanguage = settings.WritingExplanationLanguage
         };
     }
 

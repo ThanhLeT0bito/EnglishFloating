@@ -2,7 +2,7 @@ namespace PteFloatingSentence.Core;
 
 public static class SettingsUpdateMerger
 {
-    public static AppSettings MergeEditableFields(AppSettings latest, AppSettings submitted) => latest with
+    public static AppSettings MergeEditableFields(AppSettings latest, AppSettings submitted) => WritingTopicRules.Normalize(latest with
     {
         Sentence = submitted.Sentence,
         ActiveListId = submitted.ActiveListId,
@@ -21,6 +21,10 @@ public static class SettingsUpdateMerger
         TtsVoice = submitted.TtsVoice,
         TtsSpeed = submitted.TtsSpeed,
         PracticeMode = submitted.PracticeMode,
-        PracticeAudioDelaySeconds = PracticeAudioDelay.Normalize(submitted.PracticeAudioDelaySeconds)
-    };
+        PracticeAudioDelaySeconds = PracticeAudioDelay.Normalize(submitted.PracticeAudioDelaySeconds),
+        CustomWritingTopics = submitted.CustomWritingTopics,
+        SelectedWritingTopicKeys = submitted.SelectedWritingTopicKeys,
+        WritingLevel = submitted.WritingLevel,
+        WritingExplanationLanguage = submitted.WritingExplanationLanguage
+    });
 }
