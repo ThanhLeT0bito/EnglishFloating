@@ -8,7 +8,8 @@ namespace PteFloatingSentence.Windows.Infrastructure;
 
 /// <summary>
 /// Sends one bounded Gemini generateContent request that must return JSON text.
-/// Tries each candidate model in turn on 404/429/500/503, enforces a timeout and a response size cap,
+/// Asks for low thinking to keep latency down, gives each candidate model its own time slot and moves on
+/// when a model is slow or returns 404/429/500/503, enforces a total timeout and a response size cap,
 /// and turns failures into <see cref="InvalidOperationException"/> with a user-facing message.
 /// Caller cancellation is reported as <see cref="OperationCanceledException"/>.
 /// </summary>
@@ -23,23 +24,34 @@ public sealed class GeminiJsonClient : IDisposable
     public const string ConnectionMessage = "Could not connect to Gemini. Check your connection and try again.";
     public const string InvalidResponseMessage = "Gemini returned an invalid response. Please try again.";
 
+    /// <summary>Lowest thinking level accepted by every default model (3.8/3.7 Flash reject "minimal").</summary>
+    public const string ThinkingLevel = "low";
+
+    public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(45);
+    public static readonly TimeSpan DefaultAttemptTimeout = TimeSpan.FromSeconds(20);
+
     private readonly Func<string?> _keyProvider;
     private readonly HttpClient _client;
     private readonly bool _ownsClient;
     private readonly IReadOnlyList<string> _models;
     private readonly TimeSpan _timeout;
+    private readonly TimeSpan _attemptTimeout;
 
+    /// <param name="timeout">Total time for the whole request, across all models.</param>
+    /// <param name="attemptTimeout">Time one model may take before the next model is tried.</param>
     public GeminiJsonClient(
         Func<string?> keyProvider,
         HttpClient? client = null,
         IReadOnlyList<string>? models = null,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        TimeSpan? attemptTimeout = null)
     {
         _keyProvider = keyProvider ?? throw new ArgumentNullException(nameof(keyProvider));
         _ownsClient = client is null;
         _client = client ?? new HttpClient();
         _models = models is { Count: > 0 } ? models : DefaultModels;
-        _timeout = timeout ?? TimeSpan.FromSeconds(30);
+        _timeout = timeout ?? DefaultTimeout;
+        _attemptTimeout = attemptTimeout ?? DefaultAttemptTimeout;
     }
 
     public bool HasKey => !string.IsNullOrWhiteSpace(_keyProvider());
@@ -56,54 +68,65 @@ public sealed class GeminiJsonClient : IDisposable
         if (string.IsNullOrEmpty(key))
             throw new InvalidOperationException(MissingKeyMessage);
 
-        var payload = JsonSerializer.Serialize(new
-        {
-            systemInstruction = new { parts = new[] { new { text = systemInstruction } } },
-            contents = new[] { new { role = "user", parts = new[] { new { text = userText } } } },
-            generationConfig = new Dictionary<string, object?>
-            {
-                ["responseMimeType"] = "application/json",
-                ["responseSchema"] = responseSchema,
-                ["temperature"] = temperature
-            }.Where(pair => pair.Value is not null).ToDictionary(pair => pair.Key, pair => pair.Value)
-        });
+        var payloadWithThinking = BuildPayload(systemInstruction, userText, responseSchema, temperature, includeThinking: true);
+        string? payloadWithoutThinking = null;
 
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(_timeout);
+        using var total = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        total.CancelAfter(_timeout);
         HttpStatusCode? lastTransientStatus = null;
+        var modelTimedOut = false;
         try
         {
             foreach (var model in _models)
             {
-                using var request = new HttpRequestMessage(
-                    HttpMethod.Post,
-                    $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent")
+                var payload = payloadWithThinking;
+                for (var pass = 0; pass < 2; pass++)
                 {
-                    Content = new StringContent(payload, Encoding.UTF8, "application/json")
-                };
-                request.Headers.Add("x-goog-api-key", key);
+                    using var attempt = CancellationTokenSource.CreateLinkedTokenSource(total.Token);
+                    attempt.CancelAfter(_attemptTimeout);
 
-                using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-                if (response.StatusCode is HttpStatusCode.NotFound
-                    or HttpStatusCode.ServiceUnavailable
-                    or HttpStatusCode.TooManyRequests
-                    or HttpStatusCode.InternalServerError)
-                {
-                    lastTransientStatus = response.StatusCode;
-                    continue;
+                    HttpStatusCode status;
+                    string? body;
+                    try
+                    {
+                        (status, body) = await SendOnceAsync(model, key, payload, attempt.Token);
+                    }
+                    catch (OperationCanceledException) when (attempt.IsCancellationRequested && !total.IsCancellationRequested)
+                    {
+                        // This model is too slow right now; give the next one a chance.
+                        modelTimedOut = true;
+                        break;
+                    }
+
+                    if (status == HttpStatusCode.BadRequest && ReferenceEquals(payload, payloadWithThinking))
+                    {
+                        // A model that does not accept the thinking level gets one retry without it.
+                        payload = payloadWithoutThinking ??= BuildPayload(systemInstruction, userText, responseSchema, temperature, includeThinking: false);
+                        continue;
+                    }
+
+                    if (status is HttpStatusCode.NotFound
+                        or HttpStatusCode.ServiceUnavailable
+                        or HttpStatusCode.TooManyRequests
+                        or HttpStatusCode.InternalServerError)
+                    {
+                        lastTransientStatus = status;
+                        break;
+                    }
+
+                    if (body is null)
+                        throw new InvalidOperationException($"Gemini request failed (HTTP {(int)status}). Try again later.");
+
+                    return ExtractText(body);
                 }
-
-                if (!response.IsSuccessStatusCode)
-                    throw new InvalidOperationException($"Gemini request failed (HTTP {(int)response.StatusCode}). Try again later.");
-
-                var body = await ReadBoundedAsync(response, timeout.Token);
-                return ExtractText(body);
             }
 
             if (lastTransientStatus is HttpStatusCode.TooManyRequests)
                 throw new InvalidOperationException("Gemini is busy or your quota is used up (HTTP 429). Try again in a moment.");
             if (lastTransientStatus is not null)
                 throw new InvalidOperationException($"Gemini is unavailable right now (HTTP {(int)lastTransientStatus.Value}). Try again later.");
+            if (modelTimedOut)
+                throw new InvalidOperationException(TimeoutMessage);
             throw new InvalidOperationException("No supported Gemini model is available. Try again later.");
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -114,6 +137,44 @@ public sealed class GeminiJsonClient : IDisposable
         {
             throw new InvalidOperationException(ConnectionMessage);
         }
+    }
+
+    private static string BuildPayload(string systemInstruction, string userText, object responseSchema, double? temperature, bool includeThinking)
+    {
+        var generationConfig = new Dictionary<string, object>
+        {
+            ["responseMimeType"] = "application/json",
+            ["responseSchema"] = responseSchema
+        };
+        if (temperature is not null)
+            generationConfig["temperature"] = temperature.Value;
+        if (includeThinking)
+            generationConfig["thinkingConfig"] = new { thinkingLevel = ThinkingLevel };
+
+        return JsonSerializer.Serialize(new
+        {
+            systemInstruction = new { parts = new[] { new { text = systemInstruction } } },
+            contents = new[] { new { role = "user", parts = new[] { new { text = userText } } } },
+            generationConfig
+        });
+    }
+
+    /// <summary>Sends to one model; returns the status and, on success, the bounded body.</summary>
+    private async Task<(HttpStatusCode Status, string? Body)> SendOnceAsync(string model, string key, string payload, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent")
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json")
+        };
+        request.Headers.Add("x-goog-api-key", key);
+
+        using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            return (response.StatusCode, null);
+
+        return (response.StatusCode, await ReadBoundedAsync(response, cancellationToken));
     }
 
     private static async Task<string> ReadBoundedAsync(HttpResponseMessage response, CancellationToken cancellationToken)

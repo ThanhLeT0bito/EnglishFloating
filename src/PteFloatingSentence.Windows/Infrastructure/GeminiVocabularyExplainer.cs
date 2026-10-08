@@ -70,6 +70,7 @@ public sealed class GeminiVocabularyExplainer : IVocabularyExplainer, IDisposabl
             generationConfig = new
             {
                 response_mime_type = "application/json",
+                thinkingConfig = new { thinkingLevel = GeminiJsonClient.ThinkingLevel },
                 response_schema = new
                 {
                     type = "OBJECT",

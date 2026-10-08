@@ -82,7 +82,36 @@ public sealed class GeminiJsonClientTests
     }
 
     [TestMethod]
-    public async Task GenerateJsonAsync_NonTransientStatus_StopsImmediately()
+    public async Task GenerateJsonAsync_RequestsLowThinking()
+    {
+        var handler = GeminiTestHandler.Returning("{}");
+        using var client = new GeminiJsonClient(() => "k", new HttpClient(handler));
+
+        await client.GenerateJsonAsync("s", "u", Schema);
+
+        using var body = JsonDocument.Parse(handler.RequestBodies[0]);
+        var thinking = body.RootElement.GetProperty("generationConfig").GetProperty("thinkingConfig");
+        Assert.AreEqual("low", thinking.GetProperty("thinkingLevel").GetString());
+    }
+
+    [TestMethod]
+    public async Task GenerateJsonAsync_BadRequestWithThinking_RetriesSameModelWithoutThinking()
+    {
+        var handler = new GeminiTestHandler((_, attempt) => Task.FromResult(attempt == 0
+            ? GeminiTestHandler.Status(HttpStatusCode.BadRequest)
+            : GeminiTestHandler.Ok("{\"ok\":true}")));
+        using var client = new GeminiJsonClient(() => "k", new HttpClient(handler), ["a", "b"]);
+
+        var text = await client.GenerateJsonAsync("s", "u", Schema);
+
+        Assert.AreEqual("{\"ok\":true}", text);
+        StringAssert.Contains(handler.RequestUris[1], "/models/a:");
+        using var retry = JsonDocument.Parse(handler.RequestBodies[1]);
+        Assert.IsFalse(retry.RootElement.GetProperty("generationConfig").TryGetProperty("thinkingConfig", out _));
+    }
+
+    [TestMethod]
+    public async Task GenerateJsonAsync_NonTransientStatus_StopsAfterRetryWithoutThinking()
     {
         var handler = new GeminiTestHandler((_, _) => Task.FromResult(GeminiTestHandler.Status(HttpStatusCode.BadRequest)));
         using var client = new GeminiJsonClient(() => "k", new HttpClient(handler), ["a", "b"]);
@@ -90,7 +119,37 @@ public sealed class GeminiJsonClientTests
         var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => client.GenerateJsonAsync("s", "u", Schema));
 
         StringAssert.Contains(error.Message, "400");
-        Assert.AreEqual(1, handler.RequestBodies.Count);
+        Assert.AreEqual(2, handler.RequestBodies.Count);
+        Assert.IsTrue(handler.RequestUris.All(uri => uri.Contains("/models/a:")));
+    }
+
+    [TestMethod]
+    public async Task GenerateJsonAsync_SlowModel_FallsBackToNextModel()
+    {
+        var handler = new GeminiTestHandler(async (request, attempt) =>
+        {
+            if (attempt == 0)
+                await Task.Delay(TimeSpan.FromSeconds(10));
+            return GeminiTestHandler.Ok("{\"fast\":true}");
+        });
+        using var client = new GeminiJsonClient(() => "k", new HttpClient(new CancelAwareHandler(handler)), ["slow", "fast"],
+            timeout: TimeSpan.FromSeconds(5), attemptTimeout: TimeSpan.FromMilliseconds(100));
+
+        var text = await client.GenerateJsonAsync("s", "u", Schema);
+
+        Assert.AreEqual("{\"fast\":true}", text);
+        StringAssert.Contains(handler.RequestUris[1], "/models/fast:");
+    }
+
+    [TestMethod]
+    public async Task GenerateJsonAsync_EveryModelSlow_ReportsTookTooLong()
+    {
+        using var client = new GeminiJsonClient(() => "k", new HttpClient(new CancellableDelayHandler()), ["a", "b"],
+            timeout: TimeSpan.FromSeconds(5), attemptTimeout: TimeSpan.FromMilliseconds(50));
+
+        var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => client.GenerateJsonAsync("s", "u", Schema));
+
+        Assert.AreEqual(GeminiJsonClient.TimeoutMessage, error.Message);
     }
 
     [TestMethod]
@@ -169,6 +228,13 @@ public sealed class GeminiJsonClientTests
         var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => client.GenerateJsonAsync("s", "u", Schema));
 
         Assert.AreEqual(GeminiJsonClient.ConnectionMessage, error.Message);
+    }
+
+    /// <summary>Wraps a scripted handler so a slow scripted response still honours the request's cancellation token.</summary>
+    private sealed class CancelAwareHandler(GeminiTestHandler inner) : DelegatingHandler(inner)
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            base.SendAsync(request, cancellationToken).WaitAsync(cancellationToken);
     }
 
     private sealed class CancellableDelayHandler : HttpMessageHandler

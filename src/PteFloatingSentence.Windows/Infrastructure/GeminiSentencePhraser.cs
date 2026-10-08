@@ -37,6 +37,7 @@ public sealed class GeminiSentencePhraser : ISentencePhraser, IDisposable
             generationConfig = new
             {
                 responseMimeType = "application/json",
+                thinkingConfig = new { thinkingLevel = GeminiJsonClient.ThinkingLevel },
                 responseSchema = new
                 {
                     type = "OBJECT",
