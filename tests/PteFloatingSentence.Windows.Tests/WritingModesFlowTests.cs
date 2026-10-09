@@ -99,6 +99,36 @@ public sealed class WritingModesFlowTests
     }
 
     [TestMethod]
+    public async Task Combine_AsksForSentencesThatMustChangeAndHidesTheWordList()
+    {
+        var json = CombineJson
+            .Replace("\"sentences\": [\"It was raining.\", \"We went for a walk.\"]", "\"sentences\": [\"He was tired.\", \"He had worked all day.\", \"He kept working.\"]")
+            .Replace("\"connector\": \"although\"", "\"connector\": \"despite + V-ing\"")
+            .Replace("\"vocabulary\": []", "\"vocabulary\": [ { \"vietnamese\": \"mặc dù\", \"english\": \"despite\", \"partOfSpeech\": \"preposition\" } ]");
+        var (coach, handler) = CoachReturning(json);
+
+        var prompt = await coach.GenerateAsync(Request(WritingPracticeMode.Combine) with { Level = WritingLevel.Hard });
+
+        Assert.AreEqual("He was tired.\nHe had worked all day.\nHe kept working.", prompt.SourceEnglish, "hard exercises may join three sentences");
+        Assert.AreEqual("despite + V-ing", prompt.Instruction);
+        Assert.AreEqual(0, prompt.Tips.Vocabulary.Count, "a word list would give the connector away");
+        var system = handler.SystemInstruction(0);
+        StringAssert.Contains(system, "REQUIRES changing them");
+        StringAssert.Contains(system, "Never give sentences that can be joined by just putting the connector between them");
+        using var data = JsonDocument.Parse(handler.UserText(0));
+        StringAssert.Contains(data.RootElement.GetProperty("levelRules").GetString()!, "having + past participle");
+    }
+
+    [TestMethod]
+    public void CombineLevelRules_MediumNeedsATransformation()
+    {
+        var medium = AiWritingCoach.CombineLevelRules(WritingLevel.Medium);
+        StringAssert.Contains(medium, "whose");
+        StringAssert.Contains(medium, "unless (from an if-not sentence)");
+        Assert.IsFalse(medium.Contains("while", StringComparison.Ordinal), "a plain while only goes between two unchanged sentences");
+    }
+
+    [TestMethod]
     public async Task Combine_WithoutConnectorOrSecondSentenceIsRejected()
     {
         var (noConnector, _) = CoachReturning(CombineJson.Replace("\"connector\": \"although\"", "\"connector\": \"\""));

@@ -66,8 +66,13 @@ The mode switch now has five choices: **Translate | Dictation | Paraphrase | Com
 | EN → VI | English sentence | Vietnamese translation | AI, meaning only; missing diacritics are not mistakes |
 
 - Each mode has its own generate prompt and level rules (`ParaphraseLevelRules`, `CombineLevelRules`).
-  Combine connectors: Easy and/but/because/so/when; Medium although/while/unless/which/who…;
-  Hard despite + -ing, not only … but also, having + past participle, participle clauses, provided that, whereas.
+  Combine must make the learner **transform** the sentences, never just insert a word between them:
+  Easy and/but with the repeated subject removed, because, so, when, before/after + -ing, who/which;
+  Medium who/which/whose/where replacing a repeated noun, so/such … that, too … to / enough to, unless (from if-not),
+  because of / due to + noun phrase, in order to, although at the start;
+  Hard (2–3 sentences) despite + V-ing, having + past participle, participle clauses, reduced relative clauses,
+  "which" for the whole clause, Not only did …, Not until … did, No sooner had … than, the more …, the more …, noun clauses.
+  The connector is shown as a pattern ("Use: despite + V-ing"). Combine exercises have no word list, which would give the connector away.
 - `WritingPrompt` gained `Mode`, `SourceEnglish` (the sentence to paraphrase, or the two sentences, one per
   line) and `Instruction` (the connector). Dictation keeps using translate prompts.
 - Switching to a mode whose kind of sentence differs (e.g. Translate → Combine) requests a new sentence at once;
