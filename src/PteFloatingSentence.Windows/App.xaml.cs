@@ -104,6 +104,27 @@ public partial class App : System.Windows.Application
             PersistSettings();
         };
 
+        _floatingWindow.WritingCoach = _writingCoach;
+        _floatingWindow.WritingPreferencesChanged += (_, updated) =>
+        {
+            if (_isShuttingDown) return;
+            _settings = _settings with
+            {
+                CustomWritingTopics = updated.CustomWritingTopics,
+                SelectedWritingTopicKeys = updated.SelectedWritingTopicKeys,
+                WritingLevel = updated.WritingLevel,
+                WritingExplanationLanguage = updated.WritingExplanationLanguage
+            };
+            _settingsWindow?.UpdateSettingsFromApp(_settings);
+            PersistSettings();
+        };
+        _floatingWindow.SaveWritingSentence = text =>
+        {
+            if (_isShuttingDown) return new Core.ValidationResult(false, "The app is closing.");
+            var draft = new StudyListDraft(_settings, SaveSettings);
+            var result = draft.AddSentenceToList(Core.StudyListRules.ActiveList(_settings).Id, text);
+            return result.IsValid ? draft.Save() : result;
+        };
         _floatingWindow.SettingsRequested += (_, _) => OpenSettings();
         _floatingWindow.ExitRequested += async (_, _) => await ShutdownAsync();
         _floatingWindow.PreviousRequested += (_, _) => NavigateCurrentSentence(-1);

@@ -46,6 +46,15 @@ Natural:    I was nearly half an hour late for work because of the traffic this 
 [ Save to study list ▾ ]  [ Next sentence ]
 ~~~
 
+## Floating writing
+
+Writing practice also runs in the floating window, opened from the right-click menu ("Start Writing" / "Exit Writing") or the pencil button next to the audio button; it replaces the sentence (and Practice) while active.
+
+- Top: the input bar (Enter checks; Enter after a review gets a new sentence) with Check, Tip n/N (Ctrl+H), New sentence and Exit.
+- Below: the Vietnamese sentence with topic · level and the timing line, then revealed tips.
+- Two sections fold under an arrow: **Topics & level** (chips, + Add topic, level, Explain in; folded with a one-line summary once a sentence is shown) and **Result** (score and verdict in the header; highlighted answer, issues, corrected sentence with audio, natural alternative, Save to the active study list). A hidden Result stays hidden on the next check.
+- Topic, level and language changes are saved to settings immediately and shared with the Settings page. The first sentence is generated when writing starts; the next one is prefetched.
+
 ## Levels
 
 | Level  | Vietnamese source | Expected English |

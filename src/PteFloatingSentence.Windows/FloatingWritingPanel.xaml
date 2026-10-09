@@ -1,0 +1,396 @@
+<UserControl x:Class="PteFloatingSentence.Windows.FloatingWritingPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Foreground="#FFE2E8F0"
+             Width="640">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#FF111827" />
+        <SolidColorBrush x:Key="CardSubtleBrush" Color="#FF161F30" />
+        <SolidColorBrush x:Key="PanelBorderBrush" Color="#FF334155" />
+        <SolidColorBrush x:Key="InputBorderBrush" Color="#FF475569" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFF8FAFC" />
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FFE2E8F0" />
+        <SolidColorBrush x:Key="TextMutedBrush" Color="#FF94A3B8" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#FF2563EB" />
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="#FF1D4ED8" />
+
+        <Style x:Key="SectionLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="12,7" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Background" Value="#FF263449" />
+            <Setter Property="Foreground" Value="#FFD8E2F0" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style x:Key="HeaderToggleStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="6,6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="HeaderBorder" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="HeaderBorder" Property="Background" Value="#FF1E293B" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ChipRemoveButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="22" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="Margin" Value="2,0,0,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Content" Value="&#x2715;" />
+            <Setter Property="ToolTip" Value="Remove topic" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="RemoveBorder" Background="{TemplateBinding Background}" CornerRadius="11">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="RemoveBorder" Property="Background" Value="#FF7F1D2D" />
+                                <Setter Property="Foreground" Value="#FFFCA5A5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TopicChipStyle" TargetType="ToggleButton">
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Background" Value="#FF1E293B" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+            <Setter Property="Foreground" Value="#FFCBD5E1" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Chip"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="14"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chip" Property="BorderBrush" Value="#FF3B82F6" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Chip" Property="Background" Value="#FF1D4ED8" />
+                                <Setter TargetName="Chip" Property="BorderBrush" Value="#FF3B82F6" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SegmentStyle" TargetType="RadioButton">
+            <Setter Property="Padding" Value="14,6" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="Background" Value="#FF1E293B" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+            <Setter Property="Foreground" Value="#FFCBD5E1" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Segment"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Segment" Property="BorderBrush" Value="#FF3B82F6" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Segment" Property="Background" Value="#FF1D4ED8" />
+                                <Setter TargetName="Segment" Property="BorderBrush" Value="#FF3B82F6" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="AudioButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Content" Value="&#xE767;" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}" CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FF1E293B" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Background" Value="#FF1E293B" />
+            <Setter Property="Foreground" Value="#FFF8FAFC" />
+            <Setter Property="BorderBrush" Value="{StaticResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CaretBrush" Value="#FFF8FAFC" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                SnapsToDevicePixels="True">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Focusable="False"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Stretch"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Auto" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="BorderBrush" Value="#FF64748B" />
+                            </Trigger>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="Border" Property="BorderBrush" Value="#FF3B82F6" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="IconButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+            <Setter Property="Padding" Value="9,6" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+        </Style>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <!-- Input bar on top -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Grid>
+                <TextBox x:Name="AnswerInput"
+                         FontSize="15"
+                         MinHeight="36"
+                         MaxLength="400"
+                         VerticalContentAlignment="Center"
+                         SpellCheck.IsEnabled="False"
+                         TextChanged="AnswerInput_TextChanged" />
+                <TextBlock x:Name="AnswerPlaceholder"
+                           Text="Type your English translation… (Enter to check)"
+                           FontSize="14"
+                           Foreground="#FF64748B"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,0"
+                           IsHitTestVisible="False" />
+            </Grid>
+            <Button x:Name="CheckButton" Grid.Column="1" Content="Check" Style="{StaticResource PrimaryButtonStyle}" Margin="8,0,0,0" Click="CheckButton_Click" />
+            <Button x:Name="TipButton" Grid.Column="2" Style="{StaticResource IconButtonStyle}" ToolTip="Stuck? Show key words, then a grammar hint, then a starter (Ctrl+H)" Click="TipButton_Click">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE82F;" Foreground="#FFFBBF24" VerticalAlignment="Center" />
+                    <TextBlock x:Name="TipButtonText" Text="0/3" Margin="5,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+            <Button x:Name="NextButton" Grid.Column="3" Style="{StaticResource IconButtonStyle}" ToolTip="New sentence" Click="NextButton_Click">
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE893;" VerticalAlignment="Center" />
+            </Button>
+            <Button x:Name="ExitButton" Grid.Column="4" Style="{StaticResource IconButtonStyle}" ToolTip="Exit writing" Click="ExitButton_Click">
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE711;" VerticalAlignment="Center" />
+            </Button>
+        </Grid>
+
+        <!-- Vietnamese sentence -->
+        <Grid Margin="2,10,2,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="VietnameseText" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+            <StackPanel Grid.Column="1" Margin="12,2,0,0" HorizontalAlignment="Right">
+                <TextBlock x:Name="PromptMetaText" FontSize="11" Foreground="#FF93C5FD" HorizontalAlignment="Right" />
+                <TextBlock x:Name="PromptCallText" FontSize="10.5" Foreground="#FF64748B" HorizontalAlignment="Right" Margin="0,2,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Status: loading, errors and retry -->
+        <StackPanel x:Name="StatusPanel" Orientation="Horizontal" Margin="2,8,0,0" Visibility="Collapsed">
+            <TextBlock x:Name="StatusText" FontSize="12.5" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="520" Foreground="{StaticResource TextMutedBrush}" />
+            <Button x:Name="RetryButton" Content="Retry" Style="{StaticResource SecondaryButtonStyle}" Margin="10,0,0,0" Padding="10,4" Visibility="Collapsed" Click="RetryButton_Click" />
+        </StackPanel>
+
+        <!-- Revealed tips -->
+        <Border x:Name="TipsPanel" Background="#14FBBF24" BorderBrush="#40FBBF24" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,8,0,0" Visibility="Collapsed">
+            <StackPanel>
+                <StackPanel x:Name="VocabularyTipSection" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource SectionLabelStyle}" Foreground="#FFFBBF24" Text="Key words" Margin="0,0,0,2" />
+                    <StackPanel x:Name="VocabularyTipList" />
+                </StackPanel>
+                <StackPanel x:Name="GrammarTipSection" Margin="0,6,0,0" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource SectionLabelStyle}" Foreground="#FFFBBF24" Text="Grammar hint" Margin="0,0,0,2" />
+                    <TextBlock x:Name="GrammarTipText" FontSize="12.5" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel x:Name="StarterTipSection" Margin="0,6,0,0" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource SectionLabelStyle}" Foreground="#FFFBBF24" Text="Start with" Margin="0,0,0,2" />
+                    <TextBlock x:Name="StarterTipText" FontSize="12.5" FontStyle="Italic" Foreground="{StaticResource TextSecondaryBrush}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <Border Height="1" Background="{StaticResource PanelBorderBrush}" Margin="0,10,0,4" />
+
+        <!-- Topics & level (collapsible) -->
+        <Button x:Name="TopicsToggleButton" Style="{StaticResource HeaderToggleStyle}" Padding="4,5" ToolTip="Show topics and level" Click="TopicsToggleButton_Click">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TopicsChevron" FontFamily="Segoe MDL2 Assets" Text="&#xE76C;" FontSize="10" Foreground="#FF93C5FD" VerticalAlignment="Center" Margin="0,1,8,0" />
+                <TextBlock Grid.Column="1" Text="Topics &amp; level" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                <TextBlock x:Name="TopicsSummaryText" Grid.Column="2" FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="10,0,0,0" />
+            </Grid>
+        </Button>
+        <StackPanel x:Name="TopicsBody" Margin="6,6,0,6" Visibility="Collapsed">
+            <WrapPanel x:Name="TopicPanel" Orientation="Horizontal" />
+            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                <TextBox x:Name="NewTopicInput" Width="200" MaxLength="40" VerticalContentAlignment="Center" ToolTip="New topic name (Enter to add)" />
+                <Button x:Name="AddTopicButton" Content="+ Add topic" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Click="AddTopicButton_Click" />
+                <TextBlock x:Name="TopicErrorText" Foreground="#FFFCA5A5" FontSize="12" VerticalAlignment="Center" Margin="10,0,0,0" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <StackPanel Margin="0,0,20,0">
+                    <TextBlock Style="{StaticResource SectionLabelStyle}" Text="Level" />
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="EasyLevelButton" GroupName="FloatingWritingLevel" Content="Easy" Style="{StaticResource SegmentStyle}" Checked="LevelButton_Checked" />
+                        <RadioButton x:Name="MediumLevelButton" GroupName="FloatingWritingLevel" Content="Medium" Style="{StaticResource SegmentStyle}" Checked="LevelButton_Checked" />
+                        <RadioButton x:Name="HardLevelButton" GroupName="FloatingWritingLevel" Content="Hard" Style="{StaticResource SegmentStyle}" Checked="LevelButton_Checked" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionLabelStyle}" Text="Explain in" />
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="EnglishExplanationButton" GroupName="FloatingWritingLanguage" Content="English" Style="{StaticResource SegmentStyle}" Checked="LanguageButton_Checked" />
+                        <RadioButton x:Name="VietnameseExplanationButton" GroupName="FloatingWritingLanguage" Content="Tiếng Việt" Style="{StaticResource SegmentStyle}" Checked="LanguageButton_Checked" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Result (collapsible) -->
+        <Button x:Name="ResultToggleButton" Style="{StaticResource HeaderToggleStyle}" Padding="4,5" Visibility="Collapsed" ToolTip="Hide result" Click="ResultToggleButton_Click">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="ResultChevron" FontFamily="Segoe MDL2 Assets" Text="&#xE70D;" FontSize="10" Foreground="#FF93C5FD" VerticalAlignment="Center" Margin="0,1,8,0" />
+                <TextBlock Grid.Column="1" Text="Result" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                <TextBlock x:Name="ResultSummaryText" Grid.Column="2" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center" Margin="10,0,0,0" />
+            </Grid>
+        </Button>
+        <StackPanel x:Name="ResultBody" Margin="6,6,0,4" Visibility="Collapsed">
+            <TextBlock x:Name="SummaryText" FontSize="12.5" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
+            <TextBlock x:Name="AnswerHighlightText" FontSize="14.5" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+            <TextBlock x:Name="NoIssuesText" FontSize="12.5" Foreground="#FF34D399" Margin="0,8,0,0" Text="No mistakes found. Well done!" Visibility="Collapsed" />
+            <StackPanel x:Name="IssuesPanel" Margin="0,8,0,0" />
+            <Grid Margin="0,6,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE73E;" Foreground="#FF34D399" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBlock x:Name="CorrectedText" Grid.Column="1" FontSize="14.5" FontWeight="SemiBold" Foreground="#FF34D399" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <Button x:Name="AudioButton" Grid.Column="2" Style="{StaticResource AudioButtonStyle}" Margin="8,0,0,0" ToolTip="Play audio (TTS)" Click="AudioButton_Click" />
+            </Grid>
+            <TextBlock x:Name="NaturalText" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="22,6,0,0" Visibility="Collapsed" />
+            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                <Button x:Name="SaveToListButton" Content="Save to study list" Style="{StaticResource SecondaryButtonStyle}" Padding="10,5" Click="SaveToListButton_Click" />
+                <TextBlock x:Name="SaveStatusText" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="380" Visibility="Collapsed" />
+            </StackPanel>
+            <TextBlock x:Name="ResultCallText" FontSize="10.5" Foreground="#FF64748B" Margin="0,6,0,0" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

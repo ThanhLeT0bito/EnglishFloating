@@ -15,6 +15,7 @@
     <Window.ContextMenu>
         <ContextMenu>
             <MenuItem x:Name="PracticeMenuItem" Header="Start Practice" Click="PracticeMenuItem_Click" />
+            <MenuItem x:Name="WritingMenuItem" Header="Start Writing" Click="WritingMenuItem_Click" />
             <MenuItem Header="Settings" Click="SettingsMenuItem_Click" />
             <MenuItem Header="Exit" Click="ExitMenuItem_Click" />
         </ContextMenu>
@@ -187,8 +188,17 @@
                                     Margin="6,0,0,0"
                                     ToolTip="Play audio (TTS)"
                                     Click="AudioButton_Click" />
+                            <Button x:Name="WritingButton"
+                                    Style="{StaticResource AudioButtonStyle}"
+                                    Margin="2,0,0,0"
+                                    Content="&#xE70F;"
+                                    ToolTip="Writing practice: translate Vietnamese into English"
+                                    Click="WritingButton_Click" />
                         </StackPanel>
                     </StackPanel>
+
+                    <!-- Writing mode view -->
+                    <local:FloatingWritingPanel x:Name="WritingPanel" Visibility="Collapsed" />
 
                     <!-- Practice mode view -->
                     <StackPanel x:Name="PracticeContainer" HorizontalAlignment="Center" Visibility="Collapsed" MaxWidth="900">

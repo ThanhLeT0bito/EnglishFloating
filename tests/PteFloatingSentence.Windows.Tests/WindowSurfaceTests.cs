@@ -142,7 +142,8 @@ public class WindowSurfaceTests
         StringAssert.Contains(xaml, "Header=\"Settings\"");
         StringAssert.Contains(xaml, "Header=\"Exit\"");
         StringAssert.Contains(xaml, "x:Name=\"PracticeMenuItem\"");
-        Assert.AreEqual(3, Regex.Matches(xaml, "<MenuItem\\s").Count);
+        StringAssert.Contains(xaml, "x:Name=\"WritingMenuItem\"");
+        Assert.AreEqual(4, Regex.Matches(xaml, "<MenuItem\\s").Count);
     }
 
     [TestMethod]
