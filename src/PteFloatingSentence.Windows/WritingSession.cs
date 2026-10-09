@@ -31,6 +31,7 @@ public sealed class WritingSession : IDisposable
 {
     public const int RecentCapacity = 20;
     public const string UnexpectedErrorMessage = "Something went wrong. Please try again.";
+    public const string CopiedParaphraseMessage = "That is the original sentence. Rewrite it in your own words.";
 
     private readonly IWritingCoach _coach;
     private readonly bool _prefetchNext;
@@ -59,8 +60,17 @@ public sealed class WritingSession : IDisposable
 
     public event Action? StateChanged;
 
-    /// <summary>How the next answer is checked. Dictation compares with the English reference without AI.</summary>
+    /// <summary>
+    /// Kind of exercise to create and how answers are checked. Dictation compares with the English reference
+    /// without AI. A prompt made for another kind keeps its own mode until a new sentence is generated.
+    /// </summary>
     public WritingPracticeMode Mode { get; set; } = WritingPracticeMode.Translate;
+
+    /// <summary>The mode the current prompt is practiced in (see <see cref="WritingModes.Effective"/>).</summary>
+    public WritingPracticeMode PromptMode => Prompt is null ? Mode : WritingModes.Effective(Prompt, Mode);
+
+    /// <summary>True when the current prompt was made for a different kind of exercise than <see cref="Mode"/>.</summary>
+    public bool PromptNeedsNewMode => Prompt is not null && !WritingModes.Fits(Prompt.Mode, Mode);
 
     /// <summary>When true, a check with mistakes asks the learner to type the corrected sentence once.</summary>
     public bool RetypeEnabled { get; set; } = true;
@@ -123,6 +133,7 @@ public sealed class WritingSession : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         var topics = (topicNames ?? []).ToList();
         var focus = (focusTags ?? []).Distinct().ToList();
+        var mode = WritingModes.GenerationMode(Mode);
         var (request, generation) = BeginRequest();
         Prompt = null;
         Feedback = null;
@@ -135,7 +146,7 @@ public sealed class WritingSession : IDisposable
         _retry = null;
         SetState(WritingSessionState.Generating);
 
-        var key = PrefetchKey(topics, level, language, focus);
+        var key = PrefetchKey(mode, topics, level, language, focus);
         var prefetched = TakePrefetch(key);
         try
         {
@@ -153,14 +164,14 @@ public sealed class WritingSession : IDisposable
                 }
             }
 
-            prompt ??= await _coach.GenerateAsync(NewRequest(topics, level, language, focus), request.Token);
+            prompt ??= await _coach.GenerateAsync(NewRequest(mode, topics, level, language, focus), request.Token);
             if (!IsCurrent(generation))
                 return;
 
             Prompt = prompt;
             Remember(prompt.Vietnamese);
             SetState(WritingSessionState.Answering);
-            StartPrefetch(key, topics, level, language, focus);
+            StartPrefetch(key, mode, topics, level, language, focus);
         }
         catch (OperationCanceledException) when (request.IsCancellationRequested)
         {
@@ -197,7 +208,15 @@ public sealed class WritingSession : IDisposable
             return;
         }
 
-        var mode = Mode;
+        var mode = WritingModes.Effective(prompt, Mode);
+        if (mode == WritingPracticeMode.Paraphrase && WritingModes.IsCopiedParaphrase(prompt, trimmed))
+        {
+            Error = CopiedParaphraseMessage;
+            _retry = null;
+            StateChanged?.Invoke();
+            return;
+        }
+
         if (mode == WritingPracticeMode.Dictation)
         {
             // Dictation is scored locally and instantly against the English reference.
@@ -326,11 +345,12 @@ public sealed class WritingSession : IDisposable
     }
 
     private WritingRequest NewRequest(
+        WritingPracticeMode mode,
         IReadOnlyList<string> topics,
         WritingLevel level,
         WritingExplanationLanguage language,
         IReadOnlyList<WritingSkillTag> focus) =>
-        new(topics, level, language, _recent.ToList()) { FocusTags = focus };
+        new(topics, level, language, _recent.ToList()) { FocusTags = focus, Mode = mode };
 
     /// <summary>Repeats the last failed generate or check.</summary>
     public Task RetryAsync()
@@ -368,11 +388,12 @@ public sealed class WritingSession : IDisposable
     private sealed record Prefetch(string Key, Task<WritingPrompt> Task, CancellationTokenSource Cancellation);
 
     private static string PrefetchKey(
+        WritingPracticeMode mode,
         IReadOnlyList<string> topics,
         WritingLevel level,
         WritingExplanationLanguage language,
         IReadOnlyList<WritingSkillTag> focus) =>
-        $"{level}|{language}|{string.Join(",", focus)}|{string.Join("\u001f", topics)}";
+        $"{mode}|{level}|{language}|{string.Join(",", focus)}|{string.Join("\u001f", topics)}";
 
     /// <summary>Hands over a prefetched request made with the same options, cancelling one made with other options.</summary>
     private Task<WritingPrompt>? TakePrefetch(string key)
@@ -390,6 +411,7 @@ public sealed class WritingSession : IDisposable
 
     private void StartPrefetch(
         string key,
+        WritingPracticeMode mode,
         IReadOnlyList<string> topics,
         WritingLevel level,
         WritingExplanationLanguage language,
@@ -403,7 +425,7 @@ public sealed class WritingSession : IDisposable
         Task<WritingPrompt> task;
         try
         {
-            task = _coach.GenerateAsync(NewRequest(topics, level, language, focus), cancellation.Token);
+            task = _coach.GenerateAsync(NewRequest(mode, topics, level, language, focus), cancellation.Token);
         }
         catch (Exception error)
         {

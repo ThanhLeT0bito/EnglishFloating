@@ -89,7 +89,7 @@ public static class WritingPresentation
             _ => string.Join(", ", names.Take(SummaryTopicCount)) + $" +{names.Count - SummaryTopicCount} more"
         };
         var explain = language == WritingExplanationLanguage.Vietnamese ? "Tiếng Việt" : "English";
-        var prefix = mode == WritingPracticeMode.Dictation ? "Dictation · " : string.Empty;
+        var prefix = mode == WritingPracticeMode.Translate ? string.Empty : $"{ModeLabel(mode)} · ";
         var focus = focusWeakPoints ? " · Weak points" : string.Empty;
         return $"{prefix}{topics} · {LevelLabel(level)} · Explain in {explain}{focus}";
     }
@@ -116,16 +116,82 @@ public static class WritingPresentation
     public static string FocusText(IReadOnlyList<WritingSkillTag> tags) =>
         "Focus: " + string.Join(", ", tags.Select(WritingSkillTags.Label));
 
-    public static string ModeLabel(WritingPracticeMode mode) =>
-        mode == WritingPracticeMode.Dictation ? "Dictation" : "Translate";
+    public static string ModeLabel(WritingPracticeMode mode) => mode switch
+    {
+        WritingPracticeMode.Dictation => "Dictation",
+        WritingPracticeMode.Paraphrase => "Paraphrase",
+        WritingPracticeMode.Combine => "Combine",
+        WritingPracticeMode.Reverse => "EN → VI",
+        _ => "Translate"
+    };
+
+    /// <summary>Heading of the exercise card.</summary>
+    public static string PromptHeader(WritingPracticeMode mode) => mode switch
+    {
+        WritingPracticeMode.Dictation => "Write what you hear",
+        WritingPracticeMode.Paraphrase => "Rewrite in your own words",
+        WritingPracticeMode.Combine => "Combine into one sentence",
+        WritingPracticeMode.Reverse => "Translate into Vietnamese",
+        _ => "Translate into English"
+    };
+
+    /// <summary>Line under the exercise, e.g. the connector to use when combining.</summary>
+    public static string InstructionText(WritingPrompt prompt, WritingPracticeMode mode) =>
+        mode == WritingPracticeMode.Combine && prompt.Instruction.Length > 0 ? $"Use: {prompt.Instruction}" : string.Empty;
+
+    /// <summary>Vietnamese meaning shown after a paraphrase or combine exercise is checked.</summary>
+    public static string MeaningLine(WritingPrompt prompt, WritingPracticeMode mode)
+    {
+        var meaning = WritingModes.MeaningText(prompt, mode);
+        return meaning.Length == 0 ? string.Empty : $"Nghĩa: {meaning}";
+    }
+
+    /// <summary>Label above the answer box.</summary>
+    public static string AnswerLabel(WritingPracticeMode mode, bool isRetyping) =>
+        isRetyping ? "Type the corrected sentence"
+        : mode switch
+        {
+            WritingPracticeMode.Dictation => "What you hear",
+            WritingPracticeMode.Paraphrase => "Your paraphrase",
+            WritingPracticeMode.Combine => "Your combined sentence",
+            WritingPracticeMode.Reverse => "Your Vietnamese translation",
+            _ => "Your English translation"
+        };
+
+    /// <summary>Keyboard hint under the answer box on the Writing page.</summary>
+    public static string AnswerHint(WritingPracticeMode mode, bool isRetyping) =>
+        isRetyping ? "Enter to submit · Typing it once helps you remember it"
+        : mode switch
+        {
+            WritingPracticeMode.Dictation => "Enter to check · Shift+Enter for a new line · Replay with Ctrl+Space (slow: Ctrl+Shift+Space)",
+            WritingPracticeMode.Translate => "Enter to check · Shift+Enter for a new line · Stuck? Press Tip (Ctrl+H)",
+            _ => "Enter to check · Shift+Enter for a new line · Tip: Ctrl+H · Listen: Ctrl+Space"
+        };
+
+    /// <summary>True when the listen buttons are shown: every mode except translate, where the English is the answer.</summary>
+    public static bool ShowsListenBar(WritingPracticeMode mode) => mode != WritingPracticeMode.Translate;
+
+    /// <summary>Vocabulary tip line; in reverse translation the English word comes first.</summary>
+    public static string VocabularyLine(WritingVocabularyHint hint, WritingPracticeMode mode) =>
+        mode != WritingPracticeMode.Reverse
+            ? VocabularyLine(hint)
+            : string.IsNullOrWhiteSpace(hint.PartOfSpeech)
+                ? $"{hint.English} → {hint.Vietnamese}"
+                : $"{hint.English} → {hint.Vietnamese} ({hint.PartOfSpeech})";
 
     public const string DictationPromptText = "Listen and type the English sentence you hear.";
 
     /// <summary>Placeholder of the answer box.</summary>
     public static string AnswerPlaceholder(WritingPracticeMode mode, bool isRetyping) =>
         isRetyping ? "Type the corrected sentence once to remember it… (Enter)"
-        : mode == WritingPracticeMode.Dictation ? "Type what you hear… (Enter to check)"
-        : "Type your English translation… (Enter to check)";
+        : mode switch
+        {
+            WritingPracticeMode.Dictation => "Type what you hear… (Enter to check)",
+            WritingPracticeMode.Paraphrase => "Rewrite the sentence in your own words… (Enter to check)",
+            WritingPracticeMode.Combine => "Write one sentence that joins both… (Enter to check)",
+            WritingPracticeMode.Reverse => "Type your Vietnamese translation… (Enter to check)",
+            _ => "Type your English translation… (Enter to check)"
+        };
 
     /// <summary>Label of the main button: check, check again or submit a retype.</summary>
     public static string CheckButtonText(WritingSessionState state, bool isRetyping) =>

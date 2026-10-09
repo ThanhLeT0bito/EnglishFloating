@@ -472,15 +472,18 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                        <StackPanel Margin="0,0,24,0">
+                    <StackPanel Margin="0,16,0,0">
+                        <StackPanel>
                             <TextBlock Style="{StaticResource SectionLabelStyle}" Text="Mode" />
                             <StackPanel Orientation="Horizontal">
                                 <RadioButton x:Name="TranslateModeButton" GroupName="WritingMode" Content="Translate" Style="{StaticResource SegmentStyle}" ToolTip="Translate the Vietnamese sentence into English" Checked="ModeButton_Checked" />
                                 <RadioButton x:Name="DictationModeButton" GroupName="WritingMode" Content="Dictation" Style="{StaticResource SegmentStyle}" ToolTip="Listen and type the English sentence (PTE Write from Dictation)" Checked="ModeButton_Checked" />
+                                <RadioButton x:Name="ParaphraseModeButton" GroupName="WritingMode" Content="Paraphrase" Style="{StaticResource SegmentStyle}" ToolTip="Rewrite an English sentence in your own words" Checked="ModeButton_Checked" />
+                                <RadioButton x:Name="CombineModeButton" GroupName="WritingMode" Content="Combine" Style="{StaticResource SegmentStyle}" ToolTip="Join two sentences into one with the given connector" Checked="ModeButton_Checked" />
+                                <RadioButton x:Name="ReverseModeButton" GroupName="WritingMode" Content="EN → VI" Style="{StaticResource SegmentStyle}" ToolTip="Translate an English sentence into Vietnamese to check you understand it" Checked="ModeButton_Checked" />
                             </StackPanel>
                         </StackPanel>
-                        <StackPanel VerticalAlignment="Bottom">
+                        <StackPanel Margin="0,12,0,0">
                             <CheckBox x:Name="RetypeCheckBox" Content="Retype the corrected sentence" Style="{StaticResource OptionCheckStyle}" Click="PracticeOption_Click" />
                             <CheckBox x:Name="AutoPlayCheckBox" Content="Play the corrected sentence after checking" Style="{StaticResource OptionCheckStyle}" Click="PracticeOption_Click" />
                         </StackPanel>
@@ -536,6 +539,8 @@
                     <TextBlock x:Name="DictationHintText" FontSize="13" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="4,0,0,0" />
                 </StackPanel>
                 <TextBlock x:Name="VietnameseText" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,10,0,0" />
+                <TextBlock x:Name="InstructionText" FontSize="14" FontWeight="SemiBold" Foreground="#FF93C5FD" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed" />
+                <TextBlock x:Name="MeaningText" FontSize="13" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed" />
                 <TextBlock x:Name="PromptCallText" FontSize="11" Foreground="#FF64748B" Margin="0,6,0,0" />
 
                 <Border x:Name="TipsPanel" Background="#14FBBF24" BorderBrush="#40FBBF24" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,12,0,0" Visibility="Collapsed">

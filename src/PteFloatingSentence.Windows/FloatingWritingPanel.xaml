@@ -327,6 +327,8 @@
                     <TextBlock x:Name="DictationHintText" FontSize="12.5" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
                 </StackPanel>
                 <TextBlock x:Name="VietnameseText" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                <TextBlock x:Name="InstructionText" FontSize="13" FontWeight="SemiBold" Foreground="#FF93C5FD" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed" />
+                <TextBlock x:Name="MeaningText" FontSize="12.5" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed" />
             </StackPanel>
             <StackPanel Grid.Column="1" Margin="12,2,0,0" HorizontalAlignment="Right">
                 <TextBlock x:Name="PromptMetaText" FontSize="11" Foreground="#FF93C5FD" HorizontalAlignment="Right" />
@@ -397,16 +399,19 @@
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                <StackPanel Margin="0,0,20,0">
+            <StackPanel Margin="0,12,0,0">
+                <StackPanel>
                     <TextBlock Style="{StaticResource SectionLabelStyle}" Text="Mode" />
                     <StackPanel Orientation="Horizontal">
                         <RadioButton x:Name="TranslateModeButton" GroupName="FloatingWritingMode" Content="Translate" Style="{StaticResource SegmentStyle}" ToolTip="Translate the Vietnamese sentence into English" Checked="ModeButton_Checked" />
                         <RadioButton x:Name="DictationModeButton" GroupName="FloatingWritingMode" Content="Dictation" Style="{StaticResource SegmentStyle}" ToolTip="Listen and type the English sentence (PTE Write from Dictation)" Checked="ModeButton_Checked" />
+                        <RadioButton x:Name="ParaphraseModeButton" GroupName="FloatingWritingMode" Content="Paraphrase" Style="{StaticResource SegmentStyle}" ToolTip="Rewrite an English sentence in your own words" Checked="ModeButton_Checked" />
+                        <RadioButton x:Name="CombineModeButton" GroupName="FloatingWritingMode" Content="Combine" Style="{StaticResource SegmentStyle}" ToolTip="Join two sentences into one with the given connector" Checked="ModeButton_Checked" />
+                        <RadioButton x:Name="ReverseModeButton" GroupName="FloatingWritingMode" Content="EN → VI" Style="{StaticResource SegmentStyle}" ToolTip="Translate an English sentence into Vietnamese to check you understand it" Checked="ModeButton_Checked" />
                     </StackPanel>
                 </StackPanel>
-                <StackPanel VerticalAlignment="Bottom">
-                    <CheckBox x:Name="RetypeCheckBox" Content="Retype the corrected sentence" Style="{StaticResource OptionCheckStyle}" Click="PracticeOption_Click" />
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                    <CheckBox x:Name="RetypeCheckBox" Content="Retype the corrected sentence" Style="{StaticResource OptionCheckStyle}" Margin="0,0,18,4" Click="PracticeOption_Click" />
                     <CheckBox x:Name="AutoPlayCheckBox" Content="Play the corrected sentence after checking" Style="{StaticResource OptionCheckStyle}" Click="PracticeOption_Click" />
                 </StackPanel>
             </StackPanel>

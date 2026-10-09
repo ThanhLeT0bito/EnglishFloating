@@ -3,8 +3,20 @@ namespace PteFloatingSentence.Core;
 /// <summary>How the learner practices: translate a Vietnamese sentence, or type an English sentence they hear.</summary>
 public enum WritingPracticeMode
 {
+    /// <summary>Translate a Vietnamese sentence into English.</summary>
     Translate = 0,
-    Dictation = 1
+
+    /// <summary>Type the English sentence you hear (PTE Write from Dictation).</summary>
+    Dictation = 1,
+
+    /// <summary>Rewrite an English sentence in your own words.</summary>
+    Paraphrase = 2,
+
+    /// <summary>Combine two short English sentences into one with a given connector.</summary>
+    Combine = 3,
+
+    /// <summary>Translate an English sentence into Vietnamese (checks understanding).</summary>
+    Reverse = 4
 }
 
 /// <summary>Fine-grained grammar point of a mistake, used for statistics and weak-point practice.</summary>
@@ -21,7 +33,8 @@ public enum WritingSkillTag
     WordOrder = 8,
     Spelling = 9,
     MissingWord = 10,
-    ExtraWord = 11
+    ExtraWord = 11,
+    SentenceStructure = 12
 }
 
 /// <summary>One recorded mistake. <see cref="Source"/> is the Vietnamese prompt, or the English sentence in dictation.</summary>

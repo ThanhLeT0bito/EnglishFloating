@@ -161,6 +161,9 @@ public partial class FloatingWritingPanel : UserControl, IDisposable
             VietnameseExplanationButton.IsChecked = _settings.WritingExplanationLanguage == WritingExplanationLanguage.Vietnamese;
             TranslateModeButton.IsChecked = _settings.WritingPracticeMode == WritingPracticeMode.Translate;
             DictationModeButton.IsChecked = _settings.WritingPracticeMode == WritingPracticeMode.Dictation;
+            ParaphraseModeButton.IsChecked = _settings.WritingPracticeMode == WritingPracticeMode.Paraphrase;
+            CombineModeButton.IsChecked = _settings.WritingPracticeMode == WritingPracticeMode.Combine;
+            ReverseModeButton.IsChecked = _settings.WritingPracticeMode == WritingPracticeMode.Reverse;
             RetypeCheckBox.IsChecked = _settings.WritingRetypeEnabled;
             AutoPlayCheckBox.IsChecked = _settings.WritingAutoPlayCorrected;
             RenderWeakPoints();
@@ -235,15 +238,34 @@ public partial class FloatingWritingPanel : UserControl, IDisposable
         if (_rendering)
             return;
 
-        var mode = ReferenceEquals(sender, DictationModeButton) ? WritingPracticeMode.Dictation : WritingPracticeMode.Translate;
+        var mode = ModeFor(sender);
         if (mode == _settings.WritingPracticeMode)
             return;
 
         ChangePreferences(_settings with { WritingPracticeMode = mode });
         RenderSession();
-        if (mode == WritingPracticeMode.Dictation && _session is { State: WritingSessionState.Answering, Prompt: not null } session)
+        if (_session is null)
+            return;
+
+        // A paraphrase or combine exercise needs its own kind of sentence: get one right away.
+        if (_session.PromptNeedsNewMode || (_session.State == WritingSessionState.Generating && _session.Prompt is null))
+            _ = GenerateAsync();
+        else if (mode == WritingPracticeMode.Dictation && _session is { State: WritingSessionState.Answering, Prompt: not null } session)
             RequestAudio(session.Prompt.ReferenceEnglish, restart: true);
     }
+
+    private WritingPracticeMode ModeFor(object sender) =>
+        ReferenceEquals(sender, DictationModeButton) ? WritingPracticeMode.Dictation
+        : ReferenceEquals(sender, ParaphraseModeButton) ? WritingPracticeMode.Paraphrase
+        : ReferenceEquals(sender, CombineModeButton) ? WritingPracticeMode.Combine
+        : ReferenceEquals(sender, ReverseModeButton) ? WritingPracticeMode.Reverse
+        : WritingPracticeMode.Translate;
+
+    /// <summary>English sentence to play or save after a check (the English source when translating into Vietnamese).</summary>
+    private string? EnglishResult() =>
+        _session is { Prompt: { } prompt, Feedback: { } feedback } session
+            ? WritingModes.EnglishResult(prompt, feedback, session.FeedbackMode)
+            : null;
 
     private void PracticeOption_Click(object sender, RoutedEventArgs e)
     {
@@ -383,7 +405,7 @@ public partial class FloatingWritingPanel : UserControl, IDisposable
 
     private void PlayDictation(bool slow)
     {
-        var reference = _session?.Prompt?.ReferenceEnglish;
+        var reference = _session is { Prompt: { } prompt } session ? WritingModes.ListenText(prompt, session.PromptMode) : null;
         if (!string.IsNullOrWhiteSpace(reference))
             RequestAudio(reference, restart: true, slow: slow);
         FocusInput();
@@ -403,8 +425,8 @@ public partial class FloatingWritingPanel : UserControl, IDisposable
             return;
 
         var result = session.SubmitRetype(AnswerInput.Text);
-        if (result is { IsMatch: true } && session.Feedback is not null)
-            RequestAudio(session.Feedback.CorrectedSentence, restart: true);
+        if (result is { IsMatch: true } && EnglishResult() is { } english)
+            RequestAudio(english, restart: true);
         FocusInput();
     }
 
@@ -462,9 +484,9 @@ public partial class FloatingWritingPanel : UserControl, IDisposable
             AnswerInput.Text = string.Empty;
             FocusInput();
         }
-        else if (_settings.WritingAutoPlayCorrected)
+        else if (_settings.WritingAutoPlayCorrected && EnglishResult() is { } english)
         {
-            RequestAudio(session.Feedback.CorrectedSentence, restart: true);
+            RequestAudio(english, restart: true);
         }
     }
 
@@ -486,12 +508,12 @@ public partial class FloatingWritingPanel : UserControl, IDisposable
         if (ctrl && e.Key == Key.H)
         {
             e.Handled = true;
-            if (_session is { Mode: WritingPracticeMode.Translate })
+            if (_session is not null && _session.PromptMode != WritingPracticeMode.Dictation)
                 _session.RevealNextTip();
             return;
         }
 
-        if (ctrl && e.Key == Key.Space && _session is { Mode: WritingPracticeMode.Dictation, Prompt: not null })
+        if (ctrl && e.Key == Key.Space && _session is { Prompt: not null } && WritingPresentation.ShowsListenBar(_session.PromptMode))
         {
             e.Handled = true;
             PlayDictation(slow: (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift);
@@ -574,19 +596,26 @@ public partial class FloatingWritingPanel : UserControl, IDisposable
             StatusPanel.Visibility = Visibility.Collapsed;
 
         var prompt = session.Prompt;
-        var dictation = _settings.WritingPracticeMode == WritingPracticeMode.Dictation;
+        var mode = session.PromptMode;
+        var dictation = mode == WritingPracticeMode.Dictation;
         var reviewed = session.State == WritingSessionState.Reviewed;
         // In dictation the Vietnamese meaning stays hidden until the answer is checked.
         var hideMeaning = dictation && !reviewed;
-        VietnameseText.Text = prompt?.Vietnamese ?? string.Empty;
+        VietnameseText.Text = prompt is null ? string.Empty : WritingModes.PromptText(prompt, mode);
         VietnameseText.Visibility = hideMeaning ? Visibility.Collapsed : Visibility.Visible;
-        DictationBar.Visibility = dictation && prompt is not null ? Visibility.Visible : Visibility.Collapsed;
+        DictationBar.Visibility = prompt is not null && WritingPresentation.ShowsListenBar(mode) ? Visibility.Visible : Visibility.Collapsed;
         DictationHintText.Visibility = hideMeaning ? Visibility.Visible : Visibility.Collapsed;
         DictationHintText.Text = WritingPresentation.DictationPromptText;
+        var instruction = prompt is null ? string.Empty : WritingPresentation.InstructionText(prompt, mode);
+        InstructionText.Text = instruction;
+        InstructionText.Visibility = instruction.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        var meaning = prompt is not null && reviewed ? WritingPresentation.MeaningLine(prompt, mode) : string.Empty;
+        MeaningText.Text = meaning;
+        MeaningText.Visibility = meaning.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         PromptMetaText.Text = prompt is null ? string.Empty : WritingPresentation.PromptMeta(prompt);
         PromptCallText.Text = prompt is null ? string.Empty : WritingPresentation.CallText(prompt.Call, session.PromptWasPrefetched);
         AnswerInput.IsReadOnly = session.State == WritingSessionState.Checking;
-        AnswerPlaceholder.Text = WritingPresentation.AnswerPlaceholder(_settings.WritingPracticeMode, session.IsRetyping);
+        AnswerPlaceholder.Text = WritingPresentation.AnswerPlaceholder(mode, session.IsRetyping);
         CheckButton.Content = WritingPresentation.CheckButtonText(session.State, session.IsRetyping);
         CheckButton.IsEnabled = prompt is not null && session.State is WritingSessionState.Answering or WritingSessionState.Reviewed;
         NextButton.IsEnabled = true;
@@ -640,7 +669,7 @@ public partial class FloatingWritingPanel : UserControl, IDisposable
         {
             VocabularyTipList.Children.Add(new TextBlock
             {
-                Text = "• " + WritingPresentation.VocabularyLine(hint),
+                Text = "• " + WritingPresentation.VocabularyLine(hint, session.PromptMode),
                 FontSize = 12.5,
                 Foreground = (Brush)FindResource("TextSecondaryBrush"),
                 TextWrapping = TextWrapping.Wrap
@@ -750,14 +779,15 @@ public partial class FloatingWritingPanel : UserControl, IDisposable
     private void AudioButton_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        var text = _session?.Feedback?.CorrectedSentence;
+        var text = EnglishResult();
         if (!string.IsNullOrWhiteSpace(text))
             RequestAudio(text);
     }
 
     private void SaveToListButton_Click(object sender, RoutedEventArgs e)
     {
-        var corrected = _session?.Feedback?.CorrectedSentence;
+        // Study lists hold English sentences: in EN → VI practice the English source is saved.
+        var corrected = EnglishResult();
         if (string.IsNullOrWhiteSpace(corrected))
             return;
 

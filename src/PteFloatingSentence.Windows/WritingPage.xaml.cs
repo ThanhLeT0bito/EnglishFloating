@@ -141,6 +141,9 @@ public partial class WritingPage : UserControl, IDisposable
             VietnameseExplanationButton.IsChecked = settings.WritingExplanationLanguage == WritingExplanationLanguage.Vietnamese;
             TranslateModeButton.IsChecked = settings.WritingPracticeMode == WritingPracticeMode.Translate;
             DictationModeButton.IsChecked = settings.WritingPracticeMode == WritingPracticeMode.Dictation;
+            ParaphraseModeButton.IsChecked = settings.WritingPracticeMode == WritingPracticeMode.Paraphrase;
+            CombineModeButton.IsChecked = settings.WritingPracticeMode == WritingPracticeMode.Combine;
+            ReverseModeButton.IsChecked = settings.WritingPracticeMode == WritingPracticeMode.Reverse;
             RetypeCheckBox.IsChecked = settings.WritingRetypeEnabled;
             AutoPlayCheckBox.IsChecked = settings.WritingAutoPlayCorrected;
             RenderWeakPoints();
@@ -192,16 +195,36 @@ public partial class WritingPage : UserControl, IDisposable
         if (_rendering || _draft is null)
             return;
 
-        var mode = ReferenceEquals(sender, DictationModeButton) ? WritingPracticeMode.Dictation : WritingPracticeMode.Translate;
+        var mode = ModeFor(sender);
         if (mode == _draft.Settings.WritingPracticeMode)
             return;
 
         _draft.SetWritingPracticeMode(mode);
         ApplySessionOptions();
+        RenderSetupCard();
         RenderSession();
-        if (mode == WritingPracticeMode.Dictation && _session is { State: WritingSessionState.Answering, Prompt: not null } session)
+        if (_session is null)
+            return;
+
+        // A paraphrase or combine exercise needs its own kind of sentence: get one right away.
+        if (_session.PromptNeedsNewMode || (_session.State == WritingSessionState.Generating && _session.Prompt is null))
+            _ = GenerateAsync();
+        else if (mode == WritingPracticeMode.Dictation && _session is { State: WritingSessionState.Answering, Prompt: not null } session)
             _ = PlayAsync(session.Prompt.ReferenceEnglish, restart: true);
     }
+
+    private WritingPracticeMode ModeFor(object sender) =>
+        ReferenceEquals(sender, DictationModeButton) ? WritingPracticeMode.Dictation
+        : ReferenceEquals(sender, ParaphraseModeButton) ? WritingPracticeMode.Paraphrase
+        : ReferenceEquals(sender, CombineModeButton) ? WritingPracticeMode.Combine
+        : ReferenceEquals(sender, ReverseModeButton) ? WritingPracticeMode.Reverse
+        : WritingPracticeMode.Translate;
+
+    /// <summary>English sentence to play or save after a check (the English source when translating into Vietnamese).</summary>
+    private string? EnglishResult() =>
+        _session is { Prompt: { } prompt, Feedback: { } feedback } session
+            ? WritingModes.EnglishResult(prompt, feedback, session.FeedbackMode)
+            : null;
 
     private void PracticeOption_Click(object sender, RoutedEventArgs e)
     {
@@ -386,7 +409,7 @@ public partial class WritingPage : UserControl, IDisposable
 
     private async Task PlayDictationAsync(bool slow)
     {
-        var reference = _session?.Prompt?.ReferenceEnglish;
+        var reference = _session is { Prompt: { } prompt } session ? WritingModes.ListenText(prompt, session.PromptMode) : null;
         AnswerBox.Focus();
         if (!string.IsNullOrWhiteSpace(reference))
             await PlayAsync(reference, restart: true, slow: slow);
@@ -414,8 +437,8 @@ public partial class WritingPage : UserControl, IDisposable
             return;
 
         var result = session.SubmitRetype(AnswerBox.Text);
-        if (result is { IsMatch: true } && session.Feedback is not null)
-            _ = PlayAsync(session.Feedback.CorrectedSentence, restart: true);
+        if (result is { IsMatch: true } && EnglishResult() is { } english)
+            _ = PlayAsync(english, restart: true);
         AnswerBox.Focus();
     }
 
@@ -475,9 +498,9 @@ public partial class WritingPage : UserControl, IDisposable
             AnswerBox.Text = string.Empty;
             AnswerBox.Focus();
         }
-        else if (_draft.Settings.WritingAutoPlayCorrected)
+        else if (_draft.Settings.WritingAutoPlayCorrected && EnglishResult() is { } english)
         {
-            await PlayAsync(session.Feedback.CorrectedSentence, restart: true);
+            await PlayAsync(english, restart: true);
         }
     }
 
@@ -489,12 +512,12 @@ public partial class WritingPage : UserControl, IDisposable
         if (ctrl && e.Key == Key.H)
         {
             e.Handled = true;
-            if (_session is { Mode: WritingPracticeMode.Translate })
+            if (_session is not null && _session.PromptMode != WritingPracticeMode.Dictation)
                 _session.RevealNextTip();
             return;
         }
 
-        if (ctrl && e.Key == Key.Space && _session is { Mode: WritingPracticeMode.Dictation, Prompt: not null })
+        if (ctrl && e.Key == Key.Space && _session is { Prompt: not null } && WritingPresentation.ShowsListenBar(_session.PromptMode))
         {
             e.Handled = true;
             _ = PlayDictationAsync(slow: shift);
@@ -578,16 +601,11 @@ public partial class WritingPage : UserControl, IDisposable
         RenderPrompt(session);
 
         var hasPrompt = session.Prompt is not null;
-        var dictation = _draft?.Settings.WritingPracticeMode == WritingPracticeMode.Dictation;
+        var mode = session.PromptMode;
         AnswerSection.Visibility = hasPrompt ? Visibility.Visible : Visibility.Collapsed;
         AnswerBox.IsReadOnly = session.State == WritingSessionState.Checking;
-        AnswerLabelText.Text = session.IsRetyping ? "Type the corrected sentence"
-            : dictation ? "What you hear" : "Your English translation";
-        AnswerHintText.Text = session.IsRetyping
-            ? "Enter to submit · Typing it once helps you remember it"
-            : dictation
-                ? "Enter to check · Shift+Enter for a new line · Replay with Ctrl+Space (slow: Ctrl+Shift+Space)"
-                : "Enter to check · Shift+Enter for a new line · Stuck? Press Tip (Ctrl+H)";
+        AnswerLabelText.Text = WritingPresentation.AnswerLabel(mode, session.IsRetyping);
+        AnswerHintText.Text = WritingPresentation.AnswerHint(mode, session.IsRetyping);
         CheckButton.IsEnabled = hasPrompt && session.State is WritingSessionState.Answering or WritingSessionState.Reviewed;
         CheckButton.Content = WritingPresentation.CheckButtonText(session.State, session.IsRetyping);
         RenderRetype(session);
@@ -746,15 +764,23 @@ public partial class WritingPage : UserControl, IDisposable
 
         PromptCard.Visibility = Visibility.Visible;
         PromptMetaText.Text = WritingPresentation.PromptMeta(prompt);
-        var dictation = _draft?.Settings.WritingPracticeMode == WritingPracticeMode.Dictation;
+        var mode = session.PromptMode;
+        var reviewed = session.State == WritingSessionState.Reviewed;
+        var dictation = mode == WritingPracticeMode.Dictation;
         // In dictation the Vietnamese meaning stays hidden until the answer is checked.
-        var hideMeaning = dictation && session.State != WritingSessionState.Reviewed;
-        PromptHeaderText.Text = dictation ? "Write what you hear" : "Translate into English";
-        DictationBar.Visibility = dictation ? Visibility.Visible : Visibility.Collapsed;
+        var hideMeaning = dictation && !reviewed;
+        PromptHeaderText.Text = WritingPresentation.PromptHeader(mode);
+        DictationBar.Visibility = WritingPresentation.ShowsListenBar(mode) ? Visibility.Visible : Visibility.Collapsed;
         DictationHintText.Text = hideMeaning ? WritingPresentation.DictationPromptText : string.Empty;
         VietnameseText.Visibility = hideMeaning ? Visibility.Collapsed : Visibility.Visible;
         TipButton.Visibility = dictation ? Visibility.Collapsed : Visibility.Visible;
-        VietnameseText.Text = prompt.Vietnamese;
+        VietnameseText.Text = WritingModes.PromptText(prompt, mode);
+        var instruction = WritingPresentation.InstructionText(prompt, mode);
+        InstructionText.Text = instruction;
+        InstructionText.Visibility = instruction.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        var meaning = reviewed ? WritingPresentation.MeaningLine(prompt, mode) : string.Empty;
+        MeaningText.Text = meaning;
+        MeaningText.Visibility = meaning.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         PromptCallText.Text = WritingPresentation.CallText(prompt.Call, session.PromptWasPrefetched);
 
         var available = session.AvailableTipTiers;
@@ -770,7 +796,7 @@ public partial class WritingPage : UserControl, IDisposable
         {
             VocabularyTipList.Children.Add(new TextBlock
             {
-                Text = "• " + WritingPresentation.VocabularyLine(hint),
+                Text = "• " + WritingPresentation.VocabularyLine(hint, mode),
                 FontSize = 13,
                 Foreground = (Brush)FindResource("TextSecondaryBrush"),
                 TextWrapping = TextWrapping.Wrap,
@@ -891,14 +917,15 @@ public partial class WritingPage : UserControl, IDisposable
     private async void AudioButton_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        var text = _session?.Feedback?.CorrectedSentence;
+        var text = EnglishResult();
         if (!string.IsNullOrWhiteSpace(text))
             await PlayAsync(text);
     }
 
     private void SaveToListButton_Click(object sender, RoutedEventArgs e)
     {
-        var corrected = _session?.Feedback?.CorrectedSentence;
+        // Study lists hold English sentences: in EN → VI practice the English source is saved.
+        var corrected = EnglishResult();
         if (_draft is null || string.IsNullOrWhiteSpace(corrected))
             return;
 

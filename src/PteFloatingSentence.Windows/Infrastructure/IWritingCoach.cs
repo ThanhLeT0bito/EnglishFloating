@@ -13,6 +13,9 @@ public sealed record WritingRequest(
 {
     /// <summary>Weak points the sentence must make the learner practice; empty for a normal sentence.</summary>
     public IReadOnlyList<WritingSkillTag> FocusTags { get; init; } = [];
+
+    /// <summary>Kind of exercise to create; dictation uses a translate exercise.</summary>
+    public WritingPracticeMode Mode { get; init; } = WritingPracticeMode.Translate;
 }
 
 public interface IWritingCoach

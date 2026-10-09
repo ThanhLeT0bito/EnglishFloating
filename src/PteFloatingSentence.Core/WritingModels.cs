@@ -57,6 +57,18 @@ public sealed record WritingPrompt(string Vietnamese, string ReferenceEnglish, s
 
     /// <summary>Weak points this sentence was written to practice; empty for a normal sentence.</summary>
     public IReadOnlyList<WritingSkillTag> FocusTags { get; init; } = [];
+
+    /// <summary>
+    /// Kind of exercise. Translate prompts also serve dictation; paraphrase and combine prompts carry
+    /// <see cref="SourceEnglish"/>; a reverse prompt's answer is <see cref="Vietnamese"/>.
+    /// </summary>
+    public WritingPracticeMode Mode { get; init; } = WritingPracticeMode.Translate;
+
+    /// <summary>English text the learner works from: the sentence to paraphrase, or the two sentences to combine (one per line).</summary>
+    public string SourceEnglish { get; init; } = string.Empty;
+
+    /// <summary>Instruction shown with the prompt, e.g. the connector to use when combining.</summary>
+    public string Instruction { get; init; } = string.Empty;
 }
 
 /// <summary>One problem in the learner's answer. <see cref="Original"/> is copied from the answer and is empty for missing meaning.</summary>

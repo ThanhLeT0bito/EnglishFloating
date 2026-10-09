@@ -53,6 +53,35 @@ all available on the Settings → Writing page and in floating Writing:
   reference word typed correctly. Close misspellings are "spelling", other substitutions "wrong word",
   plus missing and extra words. The result is shown, retyped and recorded like a translation check.
 
+## 5. More exercise types
+
+The mode switch now has five choices: **Translate | Dictation | Paraphrase | Combine | EN → VI**.
+
+| Mode | The learner sees | The learner writes | Checked by |
+| --- | --- | --- | --- |
+| Translate | Vietnamese sentence | English translation | AI |
+| Dictation | English audio (meaning hidden) | What they hear | Local word scoring |
+| Paraphrase | English sentence | The same meaning in other words | AI (meaning 40, grammar/words 40, how much changed 20) |
+| Combine | Two short English sentences + "Use: although" | One sentence with that connector | AI (connector/structure 40, meaning 40, grammar 20) |
+| EN → VI | English sentence | Vietnamese translation | AI, meaning only; missing diacritics are not mistakes |
+
+- Each mode has its own generate prompt and level rules (`ParaphraseLevelRules`, `CombineLevelRules`).
+  Combine connectors: Easy and/but/because/so/when; Medium although/while/unless/which/who…;
+  Hard despite + -ing, not only … but also, having + past participle, participle clauses, provided that, whereas.
+- `WritingPrompt` gained `Mode`, `SourceEnglish` (the sentence to paraphrase, or the two sentences, one per
+  line) and `Instruction` (the connector). Dictation keeps using translate prompts.
+- Switching to a mode whose kind of sentence differs (e.g. Translate → Combine) requests a new sentence at once;
+  until it arrives the old sentence keeps its own mode. Prefetching is per kind of sentence.
+- A paraphrase identical to the original (ignoring case and punctuation) is stopped locally with
+  "That is the original sentence. Rewrite it in your own words." and no AI call.
+- The listen buttons appear in every mode except Translate (where the English is the answer). Only dictation
+  plays automatically.
+- In EN → VI the answer and its correction are Vietnamese, so audio, auto-play and "Save to study list" use the
+  English sentence instead.
+- After checking a paraphrase or combine exercise the Vietnamese meaning is shown.
+- New skill tag **Sentence structure** (clauses, connectors, conditionals, participle clauses); it can be
+  targeted by weak-point practice. Weak points are ignored for EN → VI sentences.
+
 ## Settings
 
 `WritingPracticeMode`, `WritingRetypeEnabled` (true), `WritingAutoPlayCorrected` (false),
@@ -63,7 +92,7 @@ all available on the Settings → Writing page and in floating Writing:
 
 | Area | Files |
 | --- | --- |
-| Core models and rules | `WritingHistory.cs`, `WritingHistoryRules.cs`, `WritingSkillTags.cs`, `WritingTextMatch.cs`, `WritingModels.cs` (issue `Tag`, prompt `FocusTags`) |
+| Core models and rules | `WritingHistory.cs`, `WritingHistoryRules.cs`, `WritingSkillTags.cs`, `WritingTextMatch.cs`, `WritingModes.cs`, `WritingModels.cs` (issue `Tag`, prompt `FocusTags`, `Mode`, `SourceEnglish`, `Instruction`) |
 | Notebook storage | `Infrastructure/WritingHistoryBook.cs` (book, JSON and in-memory stores) |
 | AI | `AiWritingCoach.cs` (focus rule in generate, `tag` in check), `IWritingCoach.cs` (`FocusTags`) |
 | Flow | `WritingSession.cs` (mode, retype, history, focus tags, `EnterActionFor`) |
@@ -71,6 +100,6 @@ all available on the Settings → Writing page and in floating Writing:
 
 ## Tests
 
-Core: `WritingTextMatchTests`, `WritingHistoryRulesTests`. Windows: `WritingPracticeFlowTests` (session,
-notebook, JSON store, presentation), `AiWritingCoachFocusTests`, `WritingPracticeUiTests` (page and floating
-panel on STA).
+Core: `WritingTextMatchTests`, `WritingHistoryRulesTests`, `WritingModesTests`. Windows: `WritingPracticeFlowTests`
+(session, notebook, JSON store, presentation), `AiWritingCoachFocusTests`, `WritingModesFlowTests` (per-mode prompts,
+parsing, session), `WritingPracticeUiTests` and `WritingModesUiTests` (page and floating panel on STA).

@@ -4,7 +4,7 @@ public static class WritingSkillTags
 {
     /// <summary>Values the AI may return for an issue's tag, in prompt order.</summary>
     public const string PromptValues =
-        "tense, article, preposition, subject_verb_agreement, plural, word_form, word_choice, word_order, spelling, missing_word, extra_word or other";
+        "tense, article, preposition, subject_verb_agreement, plural, word_form, word_choice, word_order, sentence_structure, spelling, missing_word, extra_word or other";
 
     public static string Label(WritingSkillTag tag) => tag switch
     {
@@ -19,6 +19,7 @@ public static class WritingSkillTags
         WritingSkillTag.Spelling => "Spelling",
         WritingSkillTag.MissingWord => "Missing words",
         WritingSkillTag.ExtraWord => "Extra words",
+        WritingSkillTag.SentenceStructure => "Sentence structure",
         _ => "Other"
     };
 
@@ -29,7 +30,7 @@ public static class WritingSkillTags
     public static bool IsTargetable(WritingSkillTag tag) => tag is
         WritingSkillTag.Tense or WritingSkillTag.Article or WritingSkillTag.Preposition or
         WritingSkillTag.SubjectVerbAgreement or WritingSkillTag.Plural or WritingSkillTag.WordForm or
-        WritingSkillTag.WordChoice or WritingSkillTag.WordOrder;
+        WritingSkillTag.WordChoice or WritingSkillTag.WordOrder or WritingSkillTag.SentenceStructure;
 
     /// <summary>What the generated sentence must make the learner use, for the AI prompt.</summary>
     public static string FocusDescription(WritingSkillTag tag) => tag switch
@@ -42,6 +43,7 @@ public static class WritingSkillTags
         WritingSkillTag.WordForm => "the right word form (noun, verb, adjective or adverb of the same root)",
         WritingSkillTag.WordChoice => "a common collocation where a word-for-word translation sounds wrong",
         WritingSkillTag.WordOrder => "English word order (adverb position, adjective order or an indirect question)",
+        WritingSkillTag.SentenceStructure => "a complex sentence structure (a relative clause, a connector such as although/despite/unless, a conditional or a participle clause)",
         _ => Label(tag)
     };
 
@@ -70,6 +72,7 @@ public static class WritingSkillTags
             "wordform" or "partofspeech" => WritingSkillTag.WordForm,
             "wordchoice" or "vocabulary" or "collocation" => WritingSkillTag.WordChoice,
             "wordorder" => WritingSkillTag.WordOrder,
+            "sentencestructure" or "structure" or "clause" or "clauses" or "connector" or "conjunction" or "relativeclause" => WritingSkillTag.SentenceStructure,
             "spelling" => WritingSkillTag.Spelling,
             "missingword" or "missingwords" or "missing" => WritingSkillTag.MissingWord,
             "extraword" or "extrawords" or "extra" => WritingSkillTag.ExtraWord,

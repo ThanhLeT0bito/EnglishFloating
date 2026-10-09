@@ -117,7 +117,7 @@ public sealed class WritingHistoryBook
         ArgumentNullException.ThrowIfNull(prompt);
         ArgumentNullException.ThrowIfNull(feedback);
         var now = Now;
-        var source = mode == WritingPracticeMode.Dictation ? prompt.ReferenceEnglish : prompt.Vietnamese;
+        var source = WritingModes.HistorySource(prompt, mode);
         var updated = WritingHistoryRules.RecordFeedback(Current, mode, source, answer, feedback, now);
         updated = WritingHistoryRules.RecordFocusResult(updated, prompt.FocusTags, feedback, now);
         Replace(updated);
