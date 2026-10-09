@@ -409,8 +409,21 @@
         </StackPanel>
 
         <!-- Revealed tips -->
-        <Border x:Name="TipsPanel" Background="#14FBBF24" BorderBrush="#40FBBF24" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,8,0,0" Visibility="Collapsed">
+        <Border x:Name="TipsPanel" Background="#14FBBF24" BorderBrush="#40FBBF24" BorderThickness="1" CornerRadius="6" Padding="4,3" Margin="0,8,0,0" Visibility="Collapsed">
             <StackPanel>
+                <Button x:Name="TipsToggleButton" Style="{StaticResource HeaderToggleStyle}" Padding="6,4" ToolTip="Hide tips" Click="TipsToggleButton_Click">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="TipsChevron" FontFamily="Segoe MDL2 Assets" Text="&#xE70D;" FontSize="10" Foreground="#FFFBBF24" VerticalAlignment="Center" Margin="0,1,8,0" />
+                        <TextBlock Grid.Column="1" Text="Tips" FontSize="12.5" FontWeight="SemiBold" Foreground="#FFFBBF24" VerticalAlignment="Center" />
+                        <TextBlock x:Name="TipsSummaryText" Grid.Column="2" FontSize="11.5" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="10,0,0,0" />
+                    </Grid>
+                </Button>
+                <StackPanel x:Name="TipsBody" Margin="6,2,6,6">
                 <StackPanel x:Name="VocabularyTipSection" Visibility="Collapsed">
                     <TextBlock Style="{StaticResource SectionLabelStyle}" Foreground="#FFFBBF24" Text="Key words" Margin="0,0,0,2" />
                     <StackPanel x:Name="VocabularyTipList" />
@@ -422,6 +435,7 @@
                 <StackPanel x:Name="StarterTipSection" Margin="0,6,0,0" Visibility="Collapsed">
                     <TextBlock Style="{StaticResource SectionLabelStyle}" Foreground="#FFFBBF24" Text="Start with" Margin="0,0,0,2" />
                     <TextBlock x:Name="StarterTipText" FontSize="12.5" FontStyle="Italic" Foreground="{StaticResource TextSecondaryBrush}" />
+                </StackPanel>
                 </StackPanel>
             </StackPanel>
         </Border>
@@ -481,7 +495,7 @@
                     <CheckBox x:Name="AutoPlayCheckBox" Content="Play the corrected sentence after checking" Style="{StaticResource OptionCheckStyle}" Click="PracticeOption_Click" />
                 </StackPanel>
             </StackPanel>
-            <CheckBox x:Name="WeakPointsCheckBox" Style="{StaticResource OptionCheckStyle}" Margin="0,8,0,0" ToolTipService.ShowOnDisabled="True" ToolTip="New sentences make you practice the grammar you get wrong most" Click="PracticeOption_Click">
+            <CheckBox x:Name="WeakPointsCheckBox" Style="{StaticResource OptionCheckStyle}" Margin="0,8,0,0" ToolTipService.ShowOnDisabled="True" Click="PracticeOption_Click">
                 <TextBlock x:Name="WeakPointsText" TextWrapping="Wrap" />
             </CheckBox>
         </StackPanel>

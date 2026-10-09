@@ -181,6 +181,27 @@ public static class WritingPresentation
 
     public const string DictationPromptText = "Listen and type the English sentence you hear.";
 
+    public const string RetypeOptionHelp =
+        "When a checked answer has mistakes, type the corrected sentence once before moving on. " +
+        "Copying the right form by hand helps you remember it. You can always press Skip.";
+
+    public const string AutoPlayOptionHelp =
+        "Read the corrected sentence aloud right after each check, with your TTS voice and speed. " +
+        "With retype on, it plays after you retype the sentence correctly instead.";
+
+    public const string WeakPointsOptionHelp =
+        "New sentences are written to make you use the grammar you get wrong most (up to 3 points, listed here). " +
+        "It unlocks after 5 mistakes in the last 30 days. A weak-point sentence done without that mistake counts as practiced (✓ in My mistakes).";
+
+    /// <summary>Header text of the tips box, e.g. "Key words · Grammar hint".</summary>
+    public static string TipsSummary(IReadOnlyList<WritingTipTier> revealed) =>
+        string.Join(" · ", revealed.Select(tier => tier switch
+        {
+            WritingTipTier.Vocabulary => "Key words",
+            WritingTipTier.Grammar => "Grammar hint",
+            _ => "Start with"
+        }));
+
     /// <summary>Placeholder of the answer box.</summary>
     public static string AnswerPlaceholder(WritingPracticeMode mode, bool isRetyping) =>
         isRetyping ? "Type the corrected sentence once to remember it… (Enter)"

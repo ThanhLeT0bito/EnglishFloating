@@ -285,6 +285,15 @@ public sealed class WritingModesFlowTests
             WritingPresentation.SetupSummary([], WritingLevel.Easy, WritingExplanationLanguage.English, WritingPracticeMode.Combine));
     }
 
+    [TestMethod]
+    public void Presentation_TipsSummaryAndOptionHelp()
+    {
+        Assert.AreEqual("", WritingPresentation.TipsSummary([]));
+        Assert.AreEqual("Key words · Grammar hint · Start with",
+            WritingPresentation.TipsSummary([WritingTipTier.Vocabulary, WritingTipTier.Grammar, WritingTipTier.Starter]));
+        StringAssert.Contains(WritingPresentation.WeakPointsOptionHelp, "5 mistakes");
+    }
+
     /// <summary>Returns a prompt of the requested kind.</summary>
     private sealed class StubCoach : IWritingCoach
     {

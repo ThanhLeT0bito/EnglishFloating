@@ -130,6 +130,47 @@ public sealed class WritingModesUiTests
         });
     }
 
+    [TestMethod]
+    public void Page_TipsFoldAndANewTipUnfoldsThem()
+    {
+        RunOnSta(() =>
+        {
+            var (page, _, _, _) = CreatePage();
+            Click(page, "GenerateButton");
+            Click(page, "TipButton");
+            Assert.IsFalse(page.IsTipsCollapsed);
+            Assert.AreEqual("Key words", Text(page, "TipsSummaryText"));
+
+            Click(page, "TipsToggleButton");
+            Assert.IsTrue(page.IsTipsCollapsed);
+            Assert.AreEqual(Visibility.Visible, ((FrameworkElement)page.FindName("TipsPanel")).Visibility, "the header stays so tips can be shown again");
+
+            Click(page, "TipButton");
+            Assert.IsFalse(page.IsTipsCollapsed, "revealing another tip shows the tips");
+            Assert.AreEqual("Key words · Grammar hint", Text(page, "TipsSummaryText"));
+            StringAssert.Contains(((CheckBox)page.FindName("RetypeCheckBox")).ToolTip as string, "Skip");
+        });
+    }
+
+    [TestMethod]
+    public void Panel_TipsFoldAndUnfold()
+    {
+        RunOnSta(() =>
+        {
+            var panel = new FloatingWritingPanel();
+            panel.SetCoach(new ModeCoach());
+            panel.ActivateAsync(AppSettings.Default).GetAwaiter().GetResult();
+
+            Click(panel, "TipButton");
+            Click(panel, "TipsToggleButton");
+            Assert.IsTrue(panel.IsTipsCollapsed);
+
+            Click(panel, "TipsToggleButton");
+            Assert.IsFalse(panel.IsTipsCollapsed);
+            Assert.AreEqual(WritingPresentation.WeakPointsOptionHelp, ((CheckBox)panel.FindName("WeakPointsCheckBox")).ToolTip);
+        });
+    }
+
     private static (WritingPage Page, StudyListDraft Draft, ModeCoach Coach, FakeAudio Audio) CreatePage(AppSettings? settings = null)
     {
         var draft = new StudyListDraft(settings ?? AppSettings.Default, _ => { });

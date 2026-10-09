@@ -33,12 +33,16 @@ public partial class FloatingWritingPanel : UserControl, IDisposable
     private bool _disposed;
     private bool _topicsCollapsed = true;
     private bool _resultCollapsed;
+    private bool _tipsCollapsed;
     private WritingHistoryBook? _history;
 
     public FloatingWritingPanel()
     {
         InitializeComponent();
         PreviewKeyDown += Panel_PreviewKeyDown;
+        RetypeCheckBox.ToolTip = WritingPresentation.RetypeOptionHelp;
+        AutoPlayCheckBox.ToolTip = WritingPresentation.AutoPlayOptionHelp;
+        WeakPointsCheckBox.ToolTip = WritingPresentation.WeakPointsOptionHelp;
         RenderPreferences();
         RenderSession();
     }
@@ -434,7 +438,36 @@ public partial class FloatingWritingPanel : UserControl, IDisposable
 
     private void ExitButton_Click(object sender, RoutedEventArgs e) => ExitRequested?.Invoke();
 
-    private void TipButton_Click(object sender, RoutedEventArgs e) => _session?.RevealNextTip();
+    private void TipButton_Click(object sender, RoutedEventArgs e) => RevealTip();
+
+    /// <summary>True when revealed tips are folded under the "Tips" header.</summary>
+    public bool IsTipsCollapsed => TipsBody.Visibility != Visibility.Visible;
+
+    /// <summary>Reveals the next tip and unfolds the tips so it can be read.</summary>
+    private void RevealTip()
+    {
+        if (_session is null || _session.PromptMode == WritingPracticeMode.Dictation)
+            return;
+
+        var wasCollapsed = _tipsCollapsed;
+        _tipsCollapsed = false;
+        if (!_session.RevealNextTip() && wasCollapsed)
+            RenderSession();
+    }
+
+    private void TipsToggleButton_Click(object sender, RoutedEventArgs e)
+    {
+        _tipsCollapsed = !_tipsCollapsed;
+        RenderSession();
+    }
+
+    private void RenderTipsHeader(WritingSession session)
+    {
+        TipsBody.Visibility = _tipsCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        TipsChevron.Text = _tipsCollapsed ? "\uE76C" : "\uE70D";
+        TipsToggleButton.ToolTip = _tipsCollapsed ? "Show tips" : "Hide tips";
+        TipsSummaryText.Text = WritingPresentation.TipsSummary(session.RevealedTipTiers);
+    }
 
     private async void RetryButton_Click(object sender, RoutedEventArgs e)
     {
@@ -508,8 +541,7 @@ public partial class FloatingWritingPanel : UserControl, IDisposable
         if (ctrl && e.Key == Key.H)
         {
             e.Handled = true;
-            if (_session is not null && _session.PromptMode != WritingPracticeMode.Dictation)
-                _session.RevealNextTip();
+            RevealTip();
             return;
         }
 
@@ -662,6 +694,8 @@ public partial class FloatingWritingPanel : UserControl, IDisposable
         TipsPanel.Visibility = prompt is not null && revealed.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         if (prompt is null)
             return;
+
+        RenderTipsHeader(session);
 
         VocabularyTipSection.Visibility = revealed.Contains(WritingTipTier.Vocabulary) ? Visibility.Visible : Visibility.Collapsed;
         VocabularyTipList.Children.Clear();
