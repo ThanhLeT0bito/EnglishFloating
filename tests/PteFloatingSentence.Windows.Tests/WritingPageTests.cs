@@ -166,7 +166,10 @@ public sealed class WritingPageTests
             Assert.AreEqual(Visibility.Visible, ((FrameworkElement)page.FindName("NaturalSection")).Visibility);
             var inlines = ((TextBlock)page.FindName("AnswerHighlightText")).Inlines.Count;
             Assert.IsTrue(inlines >= 4, $"expected highlighted runs, got {inlines}");
-            Assert.AreEqual("Check again", ((Button)page.FindName("CheckButton")).Content);
+            // The answer had mistakes, so the learner now retypes the corrected sentence.
+            Assert.AreEqual("Submit", ((Button)page.FindName("CheckButton")).Content);
+            Assert.AreEqual(Visibility.Visible, ((FrameworkElement)page.FindName("RetypePanel")).Visibility);
+            Assert.AreEqual("", ((TextBox)page.FindName("AnswerBox")).Text);
         });
     }
 

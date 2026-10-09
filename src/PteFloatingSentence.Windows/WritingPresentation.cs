@@ -8,7 +8,7 @@ public readonly record struct AnswerSegment(string Text, int? IssueIndex);
 /// <summary>WPF-free text and color choices for the Writing page.</summary>
 public static class WritingPresentation
 {
-    public const string NoCoachMessage = "Configure your Gemini API key in Settings first.";
+    public const string NoCoachMessage = "Add an API key on the AI page in Settings first.";
 
     public static string LevelLabel(WritingLevel level) => level switch
     {
@@ -74,7 +74,12 @@ public static class WritingPresentation
     public const int SummaryTopicCount = 3;
 
     /// <summary>One-line summary of the setup card, e.g. "Working in IT, Traffic &amp; transport · Medium · Explain in English".</summary>
-    public static string SetupSummary(IReadOnlyList<string>? topicNames, WritingLevel level, WritingExplanationLanguage language)
+    public static string SetupSummary(
+        IReadOnlyList<string>? topicNames,
+        WritingLevel level,
+        WritingExplanationLanguage language,
+        WritingPracticeMode mode = WritingPracticeMode.Translate,
+        bool focusWeakPoints = false)
     {
         var names = (topicNames ?? []).Where(name => !string.IsNullOrWhiteSpace(name)).ToList();
         var topics = names.Count switch
@@ -84,7 +89,9 @@ public static class WritingPresentation
             _ => string.Join(", ", names.Take(SummaryTopicCount)) + $" +{names.Count - SummaryTopicCount} more"
         };
         var explain = language == WritingExplanationLanguage.Vietnamese ? "Tiếng Việt" : "English";
-        return $"{topics} · {LevelLabel(level)} · Explain in {explain}";
+        var prefix = mode == WritingPracticeMode.Dictation ? "Dictation · " : string.Empty;
+        var focus = focusWeakPoints ? " · Weak points" : string.Empty;
+        return $"{prefix}{topics} · {LevelLabel(level)} · Explain in {explain}{focus}";
     }
 
     /// <summary>Timing line such as "Groq · openai/gpt-oss-120b · 1.3 s", or "ready instantly" for a prepared sentence.</summary>
@@ -101,7 +108,88 @@ public static class WritingPresentation
         return $"{model} · {seconds} s{retries}";
     }
 
-    public static string PromptMeta(WritingPrompt prompt) => $"{prompt.Topic} · {LevelLabel(prompt.Level)}";
+    public static string PromptMeta(WritingPrompt prompt) =>
+        prompt.FocusTags.Count == 0
+            ? $"{prompt.Topic} · {LevelLabel(prompt.Level)}"
+            : $"{prompt.Topic} · {LevelLabel(prompt.Level)} · {FocusText(prompt.FocusTags)}";
+
+    public static string FocusText(IReadOnlyList<WritingSkillTag> tags) =>
+        "Focus: " + string.Join(", ", tags.Select(WritingSkillTags.Label));
+
+    public static string ModeLabel(WritingPracticeMode mode) =>
+        mode == WritingPracticeMode.Dictation ? "Dictation" : "Translate";
+
+    public const string DictationPromptText = "Listen and type the English sentence you hear.";
+
+    /// <summary>Placeholder of the answer box.</summary>
+    public static string AnswerPlaceholder(WritingPracticeMode mode, bool isRetyping) =>
+        isRetyping ? "Type the corrected sentence once to remember it… (Enter)"
+        : mode == WritingPracticeMode.Dictation ? "Type what you hear… (Enter to check)"
+        : "Type your English translation… (Enter to check)";
+
+    /// <summary>Label of the main button: check, check again or submit a retype.</summary>
+    public static string CheckButtonText(WritingSessionState state, bool isRetyping) =>
+        isRetyping ? "Submit" : state == WritingSessionState.Reviewed ? "Check again" : "Check";
+
+    /// <summary>Explains the first difference of a failed retype, e.g. word 3 should be "has".</summary>
+    public static string RetypeMessage(RetypeResult? result, bool skipped = false)
+    {
+        if (skipped)
+            return string.Empty;
+        if (result is null)
+            return "Now type the corrected sentence once.";
+        if (result.IsMatch)
+            return "Well done! Press Enter for the next sentence.";
+
+        var position = result.WordIndex + 1;
+        if (result.Expected is null)
+            return $"Word {position}: \"{result.Typed}\" is extra — the sentence ends before it.";
+        if (result.Typed is null)
+            return $"Word {position}: \"{result.Expected}\" is missing.";
+        return $"Word {position}: expected \"{result.Expected}\", you typed \"{result.Typed}\".";
+    }
+
+    /// <summary>Slower playback for dictation: 80% of the learner's speed, never below 0.5.</summary>
+    public static double SlowSpeed(double normalSpeed)
+    {
+        var speed = normalSpeed is >= 0.5 and <= 2.0 ? normalSpeed : 1.0;
+        return Math.Max(0.5, Math.Round(speed * 0.8, 2));
+    }
+
+    /// <summary>Normal playback speed from settings.</summary>
+    public static double NormalSpeed(double settingsSpeed) => settingsSpeed is >= 0.8 and <= 1.2 ? settingsSpeed : 1.0;
+
+    /// <summary>Text of the weak-point switch: the tags it will target, or how many mistakes are still needed.</summary>
+    public static string WeakPointsText(bool available, IReadOnlyList<WritingSkillTag> weakTags, int recentMistakes)
+    {
+        if (available)
+            return "Practice my weak points: " + string.Join(", ", weakTags.Select(WritingSkillTags.Label));
+        if (recentMistakes < WritingHistoryRules.MinMistakesForWeakPoints)
+            return $"Practice my weak points (after {WritingHistoryRules.MinMistakesForWeakPoints} mistakes · {recentMistakes} so far)";
+        return "Practice my weak points (no grammar weak point yet)";
+    }
+
+    /// <summary>"today", "yesterday" or "N days ago".</summary>
+    public static string RelativeDay(DateTimeOffset at, DateTimeOffset now)
+    {
+        var days = (now.Date - at.ToOffset(now.Offset).Date).Days;
+        return days switch
+        {
+            <= 0 => "today",
+            1 => "yesterday",
+            _ => $"{days} days ago"
+        };
+    }
+
+    /// <summary>One statistics chip, e.g. "Tense · 6" or "Articles · 4 · ✓2".</summary>
+    public static string TagStatText(WritingTagStat stat) =>
+        stat.Passed > 0
+            ? $"{WritingSkillTags.Label(stat.Tag)} · {stat.Mistakes} · ✓{stat.Passed}"
+            : $"{WritingSkillTags.Label(stat.Tag)} · {stat.Mistakes}";
+
+    /// <summary>Line for a saved mistake, e.g. "\"go\" → \"went\"".</summary>
+    public static string MistakeText(WritingMistake mistake) =>
+        IssueText(new WritingIssue(mistake.Type, mistake.Original, mistake.Suggestion, mistake.Explanation));
 
     public static string IssueText(WritingIssue issue)
     {

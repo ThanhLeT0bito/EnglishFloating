@@ -69,6 +69,19 @@ public partial class FloatingWindow : Window
             WritingPanel.SetCoach(value);
         }
     }
+
+    private WritingHistoryBook? _writingHistory;
+
+    /// <summary>The shared mistake notebook used by floating writing practice.</summary>
+    public WritingHistoryBook? WritingHistory
+    {
+        get => _writingHistory;
+        set
+        {
+            _writingHistory = value;
+            WritingPanel.SetHistory(value);
+        }
+    }
     public event EventHandler? PracticeModeChanged;
     public event EventHandler<(Guid ListId, Guid SentenceId, bool Completed)>? SentenceCompleted;
 
@@ -757,21 +770,18 @@ public partial class FloatingWindow : Window
 
     private void WritingPanel_PreferencesChanged(AppSettings updated)
     {
-        _settings = _settings with
-        {
-            CustomWritingTopics = updated.CustomWritingTopics,
-            SelectedWritingTopicKeys = updated.SelectedWritingTopicKeys,
-            WritingLevel = updated.WritingLevel,
-            WritingExplanationLanguage = updated.WritingExplanationLanguage
-        };
+        _settings = WritingTopicRules.CopyPreferences(_settings, updated);
         WritingPreferencesChanged?.Invoke(this, _settings);
     }
 
-    private async void WritingPanel_AudioRequested(string text)
+    private async void WritingPanel_AudioRequested(WritingAudioRequest request)
     {
         var voice = string.IsNullOrWhiteSpace(_settings.TtsVoice) ? EdgeNeuralTtsService.DefaultVoice : _settings.TtsVoice;
-        var speed = _settings.TtsSpeed is >= 0.8 and <= 1.2 ? _settings.TtsSpeed : 1.0;
-        await _audioPlayback.ToggleAsync(text, voice, speed);
+        var normal = WritingPresentation.NormalSpeed(_settings.TtsSpeed);
+        var speed = request.Slow ? WritingPresentation.SlowSpeed(normal) : normal;
+        if (request.Restart)
+            _audioPlayback.Stop();
+        await _audioPlayback.ToggleAsync(request.Text, voice, speed);
     }
 
     /// <summary>Clicks and typing inside the writing panel's controls must not start a window drag.</summary>

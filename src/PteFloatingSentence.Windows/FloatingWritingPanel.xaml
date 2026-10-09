@@ -232,6 +232,19 @@
             </Setter>
         </Style>
 
+        <Style x:Key="OptionCheckStyle" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#FFCBD5E1" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.55" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <Style x:Key="IconButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
             <Setter Property="Padding" Value="9,6" />
             <Setter Property="Margin" Value="6,0,0,0" />
@@ -279,13 +292,42 @@
             </Button>
         </Grid>
 
-        <!-- Vietnamese sentence -->
+        <!-- Retype the corrected sentence -->
+        <Grid x:Name="RetypePanel" Margin="2,6,0,0" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE70F;" FontSize="12" Foreground="#FF93C5FD" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBlock x:Name="RetypeMessageText" Grid.Column="1" FontSize="12.5" Foreground="#FF93C5FD" TextWrapping="Wrap" VerticalAlignment="Center" />
+            <Button x:Name="SkipRetypeButton" Grid.Column="2" Content="Skip" Style="{StaticResource SecondaryButtonStyle}" Padding="10,3" Margin="8,0,0,0" ToolTip="Skip typing the corrected sentence" Click="SkipRetypeButton_Click" />
+        </Grid>
+
+        <!-- Vietnamese sentence (or the dictation player) -->
         <Grid Margin="2,10,2,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock x:Name="VietnameseText" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+            <StackPanel>
+                <StackPanel x:Name="DictationBar" Orientation="Horizontal" Margin="0,0,0,6" Visibility="Collapsed">
+                    <Button x:Name="ListenButton" Style="{StaticResource SecondaryButtonStyle}" Padding="10,5" ToolTip="Play the sentence (Ctrl+Space)" Click="ListenButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE768;" VerticalAlignment="Center" />
+                            <TextBlock Text="Listen" Margin="6,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="SlowListenButton" Style="{StaticResource SecondaryButtonStyle}" Padding="10,5" ToolTip="Play slowly (Ctrl+Shift+Space)" Click="SlowListenButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE768;" VerticalAlignment="Center" />
+                            <TextBlock Text="Slow" Margin="6,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock x:Name="DictationHintText" FontSize="12.5" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                </StackPanel>
+                <TextBlock x:Name="VietnameseText" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+            </StackPanel>
             <StackPanel Grid.Column="1" Margin="12,2,0,0" HorizontalAlignment="Right">
                 <TextBlock x:Name="PromptMetaText" FontSize="11" Foreground="#FF93C5FD" HorizontalAlignment="Right" />
                 <TextBlock x:Name="PromptCallText" FontSize="10.5" Foreground="#FF64748B" HorizontalAlignment="Right" Margin="0,2,0,0" />
@@ -355,6 +397,22 @@
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <StackPanel Margin="0,0,20,0">
+                    <TextBlock Style="{StaticResource SectionLabelStyle}" Text="Mode" />
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="TranslateModeButton" GroupName="FloatingWritingMode" Content="Translate" Style="{StaticResource SegmentStyle}" ToolTip="Translate the Vietnamese sentence into English" Checked="ModeButton_Checked" />
+                        <RadioButton x:Name="DictationModeButton" GroupName="FloatingWritingMode" Content="Dictation" Style="{StaticResource SegmentStyle}" ToolTip="Listen and type the English sentence (PTE Write from Dictation)" Checked="ModeButton_Checked" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel VerticalAlignment="Bottom">
+                    <CheckBox x:Name="RetypeCheckBox" Content="Retype the corrected sentence" Style="{StaticResource OptionCheckStyle}" Click="PracticeOption_Click" />
+                    <CheckBox x:Name="AutoPlayCheckBox" Content="Play the corrected sentence after checking" Style="{StaticResource OptionCheckStyle}" Click="PracticeOption_Click" />
+                </StackPanel>
+            </StackPanel>
+            <CheckBox x:Name="WeakPointsCheckBox" Style="{StaticResource OptionCheckStyle}" Margin="0,8,0,0" ToolTipService.ShowOnDisabled="True" ToolTip="New sentences make you practice the grammar you get wrong most" Click="PracticeOption_Click">
+                <TextBlock x:Name="WeakPointsText" TextWrapping="Wrap" />
+            </CheckBox>
         </StackPanel>
 
         <!-- Result (collapsible) -->

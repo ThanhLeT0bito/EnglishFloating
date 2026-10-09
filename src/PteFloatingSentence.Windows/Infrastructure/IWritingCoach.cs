@@ -9,7 +9,11 @@ public sealed record WritingRequest(
     IReadOnlyList<string> TopicNames,
     WritingLevel Level,
     WritingExplanationLanguage Language,
-    IReadOnlyList<string> RecentVietnamese);
+    IReadOnlyList<string> RecentVietnamese)
+{
+    /// <summary>Weak points the sentence must make the learner practice; empty for a normal sentence.</summary>
+    public IReadOnlyList<WritingSkillTag> FocusTags { get; init; } = [];
+}
 
 public interface IWritingCoach
 {

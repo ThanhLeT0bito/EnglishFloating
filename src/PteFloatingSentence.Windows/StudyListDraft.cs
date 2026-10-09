@@ -97,6 +97,18 @@ public sealed class StudyListDraft
     public void SetWritingExplanationLanguage(WritingExplanationLanguage language) =>
         _settings = WritingTopicRules.Normalize(_settings with { WritingExplanationLanguage = language });
 
+    public void SetWritingPracticeMode(WritingPracticeMode mode) =>
+        _settings = WritingTopicRules.Normalize(_settings with { WritingPracticeMode = mode });
+
+    /// <summary>Sets the retype, auto-play and weak-point switches of Writing practice.</summary>
+    public void SetWritingOptions(bool retype, bool autoPlayCorrected, bool focusWeakPoints) =>
+        _settings = _settings with
+        {
+            WritingRetypeEnabled = retype,
+            WritingAutoPlayCorrected = autoPlayCorrected,
+            WritingFocusWeakPoints = focusWeakPoints
+        };
+
     public void ToggleWritingTopic(string key) =>
         _settings = WritingTopicRules.ToggleSelection(_settings, key);
 
@@ -124,7 +136,7 @@ public sealed class StudyListDraft
 
     public void UpdateSettingsFromApp(AppSettings settings)
     {
-        _settings = _settings with
+        _settings = WritingTopicRules.CopyPreferences(_settings with
         {
             StudyLists = settings.StudyLists,
             CustomFlashcardDecks = settings.CustomFlashcardDecks,
@@ -138,12 +150,8 @@ public sealed class StudyListDraft
             TtsVoice = settings.TtsVoice,
             TtsSpeed = settings.TtsSpeed,
             PracticeMode = settings.PracticeMode,
-            PracticeAudioDelaySeconds = settings.PracticeAudioDelaySeconds,
-            CustomWritingTopics = settings.CustomWritingTopics,
-            SelectedWritingTopicKeys = settings.SelectedWritingTopicKeys,
-            WritingLevel = settings.WritingLevel,
-            WritingExplanationLanguage = settings.WritingExplanationLanguage
-        };
+            PracticeAudioDelaySeconds = settings.PracticeAudioDelaySeconds
+        }, settings);
     }
 
     public ValidationResult DeleteSelectedList()

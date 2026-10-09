@@ -21,6 +21,7 @@ public partial class App : System.Windows.Application
     private AiVocabularyExplainer? _explainer;
     private AiSentencePhraser? _sentencePhraser;
     private AiWritingCoach? _writingCoach;
+    private readonly WritingHistoryBook _writingHistory = new(new JsonWritingHistoryStore());
     private VocabularyWorkflow? _vocabularyWorkflow;
     private Core.AppSettings _settings = Core.AppSettings.Default;
     private FloatingWindow? _floatingWindow;
@@ -105,16 +106,11 @@ public partial class App : System.Windows.Application
         };
 
         _floatingWindow.WritingCoach = _writingCoach;
+        _floatingWindow.WritingHistory = _writingHistory;
         _floatingWindow.WritingPreferencesChanged += (_, updated) =>
         {
             if (_isShuttingDown) return;
-            _settings = _settings with
-            {
-                CustomWritingTopics = updated.CustomWritingTopics,
-                SelectedWritingTopicKeys = updated.SelectedWritingTopicKeys,
-                WritingLevel = updated.WritingLevel,
-                WritingExplanationLanguage = updated.WritingExplanationLanguage
-            };
+            _settings = Core.WritingTopicRules.CopyPreferences(_settings, updated);
             _settingsWindow?.UpdateSettingsFromApp(_settings);
             PersistSettings();
         };
@@ -209,7 +205,7 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore, _explainer, _sentencePhraser, _writingCoach, _groqKeyStore, _claudeKeyStore);
+        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore, _explainer, _sentencePhraser, _writingCoach, _groqKeyStore, _claudeKeyStore, _writingHistory);
         void OnStartPractice(object? sender, Guid listId) => _floatingWindow?.StartPractice(listId);
         _settingsWindow.StartPracticeRequested += OnStartPractice;
         _settingsWindow.Closed += (_, _) =>

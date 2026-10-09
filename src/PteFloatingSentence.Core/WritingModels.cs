@@ -54,10 +54,23 @@ public sealed record WritingPrompt(string Vietnamese, string ReferenceEnglish, s
 {
     /// <summary>How the prompt was generated, for the timing line on the Writing page.</summary>
     public AiCallInfo? Call { get; init; }
+
+    /// <summary>Weak points this sentence was written to practice; empty for a normal sentence.</summary>
+    public IReadOnlyList<WritingSkillTag> FocusTags { get; init; } = [];
 }
 
 /// <summary>One problem in the learner's answer. <see cref="Original"/> is copied from the answer and is empty for missing meaning.</summary>
-public sealed record WritingIssue(WritingIssueType Type, string Original, string Suggestion, string Explanation);
+public sealed record WritingIssue(WritingIssueType Type, string Original, string Suggestion, string Explanation)
+{
+    private readonly WritingSkillTag? _tag;
+
+    /// <summary>Fine-grained grammar point; defaults from <see cref="Type"/> when the AI gives none.</summary>
+    public WritingSkillTag Tag
+    {
+        get => _tag ?? WritingSkillTags.DefaultFor(Type);
+        init => _tag = value;
+    }
+}
 
 public sealed record WritingFeedback(
     int Score,

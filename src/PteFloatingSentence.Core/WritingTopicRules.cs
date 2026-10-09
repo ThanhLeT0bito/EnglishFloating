@@ -93,9 +93,26 @@ public static class WritingTopicRules
             WritingLevel = Enum.IsDefined(settings.WritingLevel) ? settings.WritingLevel : WritingLevel.Medium,
             WritingExplanationLanguage = Enum.IsDefined(settings.WritingExplanationLanguage)
                 ? settings.WritingExplanationLanguage
-                : WritingExplanationLanguage.English
+                : WritingExplanationLanguage.English,
+            WritingPracticeMode = Enum.IsDefined(settings.WritingPracticeMode) ? settings.WritingPracticeMode : WritingPracticeMode.Translate
         };
     }
+
+    /// <summary>
+    /// Copies every Writing preference (topics, level, language, mode and practice switches) from
+    /// <paramref name="source"/> onto <paramref name="target"/>, leaving everything else untouched.
+    /// </summary>
+    public static AppSettings CopyPreferences(AppSettings target, AppSettings source) => Normalize(target with
+    {
+        CustomWritingTopics = source.CustomWritingTopics,
+        SelectedWritingTopicKeys = source.SelectedWritingTopicKeys,
+        WritingLevel = source.WritingLevel,
+        WritingExplanationLanguage = source.WritingExplanationLanguage,
+        WritingPracticeMode = source.WritingPracticeMode,
+        WritingRetypeEnabled = source.WritingRetypeEnabled,
+        WritingAutoPlayCorrected = source.WritingAutoPlayCorrected,
+        WritingFocusWeakPoints = source.WritingFocusWeakPoints
+    });
 
     private static string CleanName(string? name) =>
         string.Join(' ', (name ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));

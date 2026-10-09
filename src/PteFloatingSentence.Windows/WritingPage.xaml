@@ -405,6 +405,18 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="OptionCheckStyle" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#FFCBD5E1" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.55" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
     <StackPanel>
@@ -459,6 +471,24 @@
                             </StackPanel>
                         </StackPanel>
                     </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                        <StackPanel Margin="0,0,24,0">
+                            <TextBlock Style="{StaticResource SectionLabelStyle}" Text="Mode" />
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton x:Name="TranslateModeButton" GroupName="WritingMode" Content="Translate" Style="{StaticResource SegmentStyle}" ToolTip="Translate the Vietnamese sentence into English" Checked="ModeButton_Checked" />
+                                <RadioButton x:Name="DictationModeButton" GroupName="WritingMode" Content="Dictation" Style="{StaticResource SegmentStyle}" ToolTip="Listen and type the English sentence (PTE Write from Dictation)" Checked="ModeButton_Checked" />
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel VerticalAlignment="Bottom">
+                            <CheckBox x:Name="RetypeCheckBox" Content="Retype the corrected sentence" Style="{StaticResource OptionCheckStyle}" Click="PracticeOption_Click" />
+                            <CheckBox x:Name="AutoPlayCheckBox" Content="Play the corrected sentence after checking" Style="{StaticResource OptionCheckStyle}" Click="PracticeOption_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                    <CheckBox x:Name="WeakPointsCheckBox" Style="{StaticResource OptionCheckStyle}" Margin="0,10,0,0" ToolTipService.ShowOnDisabled="True"
+                              ToolTip="New sentences make you practice the grammar you get wrong most" Click="PracticeOption_Click">
+                        <TextBlock x:Name="WeakPointsText" TextWrapping="Wrap" />
+                    </CheckBox>
                 </StackPanel>
             </StackPanel>
         </Border>
@@ -478,7 +508,7 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="Translate into English" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="PromptHeaderText" Text="Translate into English" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" />
                         <Border Background="#262563EB" BorderBrush="#663B82F6" BorderThickness="1" CornerRadius="8" Padding="8,1" Margin="10,0,0,0" VerticalAlignment="Center">
                             <TextBlock x:Name="PromptMetaText" FontSize="11" Foreground="#FF93C5FD" />
                         </Border>
@@ -490,6 +520,21 @@
                         </StackPanel>
                     </Button>
                 </Grid>
+                <StackPanel x:Name="DictationBar" Orientation="Horizontal" Margin="0,12,0,0" Visibility="Collapsed">
+                    <Button x:Name="ListenButton" Style="{StaticResource PrimaryButtonStyle}" ToolTip="Play the sentence (Ctrl+Space)" Click="ListenButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE768;" VerticalAlignment="Center" />
+                            <TextBlock Text="Listen" Margin="6,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="SlowListenButton" Style="{StaticResource SecondaryButtonStyle}" ToolTip="Play slowly (Ctrl+Shift+Space)" Click="SlowListenButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE768;" VerticalAlignment="Center" />
+                            <TextBlock Text="Slow" Margin="6,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock x:Name="DictationHintText" FontSize="13" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="4,0,0,0" />
+                </StackPanel>
                 <TextBlock x:Name="VietnameseText" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,10,0,0" />
                 <TextBlock x:Name="PromptCallText" FontSize="11" Foreground="#FF64748B" Margin="0,6,0,0" />
 
@@ -514,7 +559,7 @@
 
         <!-- Answer -->
         <StackPanel x:Name="AnswerSection" Margin="0,0,0,12" Visibility="Collapsed">
-            <TextBlock Style="{StaticResource SectionLabelStyle}" Text="Your English translation" />
+            <TextBlock x:Name="AnswerLabelText" Style="{StaticResource SectionLabelStyle}" Text="Your English translation" />
             <TextBox x:Name="AnswerBox"
                      MinHeight="72"
                      MaxLength="400"
@@ -523,6 +568,16 @@
                      TextWrapping="Wrap"
                      VerticalContentAlignment="Top"
                      SpellCheck.IsEnabled="False" />
+            <Grid x:Name="RetypePanel" Margin="0,8,0,0" Visibility="Collapsed">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE70F;" FontSize="12" Foreground="#FF93C5FD" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBlock x:Name="RetypeMessageText" Grid.Column="1" FontSize="13" Foreground="#FF93C5FD" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <Button x:Name="SkipRetypeButton" Grid.Column="2" Content="Skip retype" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" ToolTip="Skip typing the corrected sentence" Click="SkipRetypeButton_Click" />
+            </Grid>
             <TextBlock x:Name="AnswerHintText" FontSize="11.5" Foreground="#FF64748B" Margin="0,6,0,0" TextWrapping="Wrap"
                        Text="Enter to check · Shift+Enter for a new line · Stuck? Press Tip (Ctrl+H)" />
             <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
@@ -578,6 +633,33 @@
                 </Grid>
                 <TextBlock x:Name="SaveStatusText" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
                 <TextBlock x:Name="ResultCallText" FontSize="11" Foreground="#FF64748B" Margin="0,8,0,0" />
+            </StackPanel>
+        </Border>
+
+        <!-- Mistake notebook -->
+        <Border x:Name="MistakesCard" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,14,0,0">
+            <StackPanel>
+                <Button x:Name="MistakesToggleButton" Style="{StaticResource HeaderToggleStyle}" ToolTip="Show my mistakes" Click="MistakesToggleButton_Click">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="MistakesChevron" FontFamily="Segoe MDL2 Assets" Text="&#xE76C;" FontSize="11" Foreground="#FF93C5FD" VerticalAlignment="Center" Margin="0,1,8,0" />
+                        <TextBlock Grid.Column="1" Text="My mistakes" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="MistakesSummaryText" Grid.Column="2" FontSize="12.5" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="12,0,0,0" />
+                    </Grid>
+                </Button>
+                <StackPanel x:Name="MistakesBody" Margin="4,12,4,4" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource SectionLabelStyle}" Text="Last 30 days · ✓ = weak-point sentences done right" />
+                    <WrapPanel x:Name="TagStatsPanel" Orientation="Horizontal" />
+                    <TextBlock x:Name="NoMistakesText" FontSize="13" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"
+                               Text="No mistakes yet. Checked sentences are collected here so you can practice your weak points." />
+                    <TextBlock x:Name="RecentMistakesLabel" Style="{StaticResource SectionLabelStyle}" Text="Recent mistakes" Margin="0,12,0,6" />
+                    <StackPanel x:Name="RecentMistakesPanel" />
+                    <Button x:Name="ClearHistoryButton" Content="Clear history" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,8,0,0" Click="ClearHistoryButton_Click" />
+                </StackPanel>
             </StackPanel>
         </Border>
     </StackPanel>

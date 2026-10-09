@@ -12,9 +12,19 @@ public enum WritingSessionState
     Reviewed
 }
 
+/// <summary>What Enter in the answer box does in the current state.</summary>
+public enum WritingEnterAction
+{
+    None,
+    Check,
+    Retype,
+    Next
+}
+
 /// <summary>
-/// UI-independent flow of one writing practice: generate a prompt, reveal tips, check an answer, retry on error.
-/// A newer request cancels the older one and a request counter ignores stale results.
+/// UI-independent flow of one writing practice: generate a prompt, reveal tips, check an answer (by AI when
+/// translating, locally in dictation), retype the corrected sentence, retry on error. Checked mistakes go to the
+/// <see cref="History"/> notebook. A newer request cancels the older one and a request counter ignores stale results.
 /// Not thread-safe: call it from the UI thread.
 /// </summary>
 public sealed class WritingSession : IDisposable
@@ -49,6 +59,37 @@ public sealed class WritingSession : IDisposable
 
     public event Action? StateChanged;
 
+    /// <summary>How the next answer is checked. Dictation compares with the English reference without AI.</summary>
+    public WritingPracticeMode Mode { get; set; } = WritingPracticeMode.Translate;
+
+    /// <summary>When true, a check with mistakes asks the learner to type the corrected sentence once.</summary>
+    public bool RetypeEnabled { get; set; } = true;
+
+    /// <summary>Notebook that receives the mistakes of each check; null keeps nothing.</summary>
+    public WritingHistoryBook? History { get; set; }
+
+    /// <summary>Mode used for the current feedback.</summary>
+    public WritingPracticeMode FeedbackMode { get; private set; }
+
+    /// <summary>Word-by-word result of the latest dictation check; null after a translation check.</summary>
+    public DictationResult? Dictation { get; private set; }
+
+    /// <summary>The corrected sentence to retype, or null when no retype is needed.</summary>
+    public string? RetypeTarget { get; private set; }
+
+    public bool RetypeDone { get; private set; }
+
+    public bool RetypeSkipped { get; private set; }
+
+    /// <summary>Result of the latest retype attempt.</summary>
+    public RetypeResult? LastRetype { get; private set; }
+
+    /// <summary>The learner's matching retype, kept so Enter on it moves to the next sentence.</summary>
+    public string? RetypedText { get; private set; }
+
+    /// <summary>True while the learner must type the corrected sentence before moving on.</summary>
+    public bool IsRetyping => State == WritingSessionState.Reviewed && RetypeTarget is not null && !RetypeDone;
+
     public WritingSessionState State { get; private set; } = WritingSessionState.Idle;
     public WritingPrompt? Prompt { get; private set; }
     public WritingFeedback? Feedback { get; private set; }
@@ -73,10 +114,15 @@ public sealed class WritingSession : IDisposable
 
     public bool CanRevealTip => Prompt is not null && TipsRevealed < AvailableTipTiers.Count;
 
-    public async Task GenerateAsync(IReadOnlyList<string> topicNames, WritingLevel level, WritingExplanationLanguage language)
+    public async Task GenerateAsync(
+        IReadOnlyList<string> topicNames,
+        WritingLevel level,
+        WritingExplanationLanguage language,
+        IReadOnlyList<WritingSkillTag>? focusTags = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var topics = (topicNames ?? []).ToList();
+        var focus = (focusTags ?? []).Distinct().ToList();
         var (request, generation) = BeginRequest();
         Prompt = null;
         Feedback = null;
@@ -85,10 +131,11 @@ public sealed class WritingSession : IDisposable
         TipsRevealed = 0;
         TipsUsedForFeedback = 0;
         PromptWasPrefetched = false;
+        ResetCheckResult();
         _retry = null;
         SetState(WritingSessionState.Generating);
 
-        var key = PrefetchKey(topics, level, language);
+        var key = PrefetchKey(topics, level, language, focus);
         var prefetched = TakePrefetch(key);
         try
         {
@@ -106,14 +153,14 @@ public sealed class WritingSession : IDisposable
                 }
             }
 
-            prompt ??= await _coach.GenerateAsync(new WritingRequest(topics, level, language, _recent.ToList()), request.Token);
+            prompt ??= await _coach.GenerateAsync(NewRequest(topics, level, language, focus), request.Token);
             if (!IsCurrent(generation))
                 return;
 
             Prompt = prompt;
             Remember(prompt.Vietnamese);
             SetState(WritingSessionState.Answering);
-            StartPrefetch(key, topics, level, language);
+            StartPrefetch(key, topics, level, language, focus);
         }
         catch (OperationCanceledException) when (request.IsCancellationRequested)
         {
@@ -125,7 +172,7 @@ public sealed class WritingSession : IDisposable
                 return;
 
             Error = MessageFor(error);
-            _retry = () => GenerateAsync(topics, level, language);
+            _retry = () => GenerateAsync(topics, level, language, focus);
             SetState(WritingSessionState.Idle);
         }
         finally
@@ -150,9 +197,25 @@ public sealed class WritingSession : IDisposable
             return;
         }
 
+        var mode = Mode;
+        if (mode == WritingPracticeMode.Dictation)
+        {
+            // Dictation is scored locally and instantly against the English reference.
+            ++_generation;
+            _request?.Cancel();
+            LastAnswer = trimmed;
+            Error = null;
+            _retry = null;
+            TipsUsedForFeedback = TipsRevealed;
+            var result = WritingTextMatch.ScoreDictation(prompt.ReferenceEnglish, trimmed);
+            Complete(prompt, trimmed, WritingTextMatch.DictationFeedback(prompt.ReferenceEnglish, result, language), mode, result);
+            return;
+        }
+
         var (request, generation) = BeginRequest();
         LastAnswer = trimmed;
         Feedback = null;
+        ResetCheckResult();
         Error = null;
         _retry = null;
         TipsUsedForFeedback = TipsRevealed;
@@ -164,8 +227,7 @@ public sealed class WritingSession : IDisposable
             if (!IsCurrent(generation))
                 return;
 
-            Feedback = feedback;
-            SetState(WritingSessionState.Reviewed);
+            Complete(prompt, trimmed, feedback, mode, null);
         }
         catch (OperationCanceledException) when (request.IsCancellationRequested)
         {
@@ -184,6 +246,91 @@ public sealed class WritingSession : IDisposable
             EndRequest(request);
         }
     }
+
+    private void Complete(WritingPrompt prompt, string answer, WritingFeedback feedback, WritingPracticeMode mode, DictationResult? dictation)
+    {
+        ResetCheckResult();
+        Feedback = feedback;
+        FeedbackMode = mode;
+        Dictation = dictation;
+        if (RetypeEnabled && NeedsRetype(answer, feedback))
+            RetypeTarget = feedback.CorrectedSentence;
+
+        History?.RecordCheck(mode, prompt, answer, feedback);
+        SetState(WritingSessionState.Reviewed);
+    }
+
+    /// <summary>A retype is useful when the answer had real mistakes and differs from the corrected sentence.</summary>
+    public static bool NeedsRetype(string? answer, WritingFeedback feedback) =>
+        !string.IsNullOrWhiteSpace(feedback.CorrectedSentence)
+        && (feedback.Issues ?? []).Any(issue => issue.Type != WritingIssueType.Punctuation)
+        && !WritingTextMatch.SameWords(answer, feedback.CorrectedSentence);
+
+    /// <summary>Compares the learner's retype with the corrected sentence; a match finishes the retype.</summary>
+    public RetypeResult? SubmitRetype(string? text)
+    {
+        if (_disposed || !IsRetyping)
+            return null;
+
+        var result = WritingTextMatch.CompareRetype(RetypeTarget, text);
+        LastRetype = result;
+        if (result.IsMatch)
+        {
+            RetypeDone = true;
+            RetypedText = (text ?? string.Empty).Trim();
+        }
+
+        StateChanged?.Invoke();
+        return result;
+    }
+
+    /// <summary>Ends the retype step without typing the sentence.</summary>
+    public void SkipRetype()
+    {
+        if (_disposed || !IsRetyping)
+            return;
+
+        RetypeDone = true;
+        RetypeSkipped = true;
+        LastRetype = null;
+        StateChanged?.Invoke();
+    }
+
+    /// <summary>What Enter does with <paramref name="currentText"/> in the answer box.</summary>
+    public WritingEnterAction EnterActionFor(string? currentText)
+    {
+        if (IsBusy || Prompt is null)
+            return WritingEnterAction.None;
+        if (State == WritingSessionState.Answering)
+            return WritingEnterAction.Check;
+        if (State != WritingSessionState.Reviewed)
+            return WritingEnterAction.None;
+        if (IsRetyping)
+            return WritingEnterAction.Retype;
+
+        var text = (currentText ?? string.Empty).Trim();
+        var unchanged = text.Length == 0
+            || string.Equals(text, (LastAnswer ?? string.Empty).Trim(), StringComparison.Ordinal)
+            || (RetypedText is not null && string.Equals(text, RetypedText, StringComparison.Ordinal));
+        return unchanged ? WritingEnterAction.Next : WritingEnterAction.Check;
+    }
+
+    private void ResetCheckResult()
+    {
+        Dictation = null;
+        RetypeTarget = null;
+        RetypeDone = false;
+        RetypeSkipped = false;
+        LastRetype = null;
+        RetypedText = null;
+    }
+
+    private WritingRequest NewRequest(
+        IReadOnlyList<string> topics,
+        WritingLevel level,
+        WritingExplanationLanguage language,
+        IReadOnlyList<WritingSkillTag> focus) =>
+        new(topics, level, language, _recent.ToList()) { FocusTags = focus };
 
     /// <summary>Repeats the last failed generate or check.</summary>
     public Task RetryAsync()
@@ -220,8 +367,12 @@ public sealed class WritingSession : IDisposable
 
     private sealed record Prefetch(string Key, Task<WritingPrompt> Task, CancellationTokenSource Cancellation);
 
-    private static string PrefetchKey(IReadOnlyList<string> topics, WritingLevel level, WritingExplanationLanguage language) =>
-        $"{level}|{language}|{string.Join("\u001f", topics)}";
+    private static string PrefetchKey(
+        IReadOnlyList<string> topics,
+        WritingLevel level,
+        WritingExplanationLanguage language,
+        IReadOnlyList<WritingSkillTag> focus) =>
+        $"{level}|{language}|{string.Join(",", focus)}|{string.Join("\u001f", topics)}";
 
     /// <summary>Hands over a prefetched request made with the same options, cancelling one made with other options.</summary>
     private Task<WritingPrompt>? TakePrefetch(string key)
@@ -237,7 +388,12 @@ public sealed class WritingSession : IDisposable
         return null;
     }
 
-    private void StartPrefetch(string key, IReadOnlyList<string> topics, WritingLevel level, WritingExplanationLanguage language)
+    private void StartPrefetch(
+        string key,
+        IReadOnlyList<string> topics,
+        WritingLevel level,
+        WritingExplanationLanguage language,
+        IReadOnlyList<WritingSkillTag> focus)
     {
         CancelPrefetch();
         if (!_prefetchNext || _disposed)
@@ -247,7 +403,7 @@ public sealed class WritingSession : IDisposable
         Task<WritingPrompt> task;
         try
         {
-            task = _coach.GenerateAsync(new WritingRequest(topics, level, language, _recent.ToList()), cancellation.Token);
+            task = _coach.GenerateAsync(NewRequest(topics, level, language, focus), cancellation.Token);
         }
         catch (Exception error)
         {

@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using PteFloatingSentence.Core;
 using PteFloatingSentence.Windows.Infrastructure;
+using ValidationResult = PteFloatingSentence.Core.ValidationResult;
 
 namespace PteFloatingSentence.Windows.Tests;
 
@@ -103,7 +104,7 @@ public sealed class FloatingWritingTests
             string? saved = null;
             string? played = null;
             panel.SaveSentence = text => { saved = text; return new ValidationResult(true, null); };
-            panel.AudioRequested += text => played = text;
+            panel.AudioRequested += request => played = request.Text;
             panel.ActivateAsync(AppSettings.Default).GetAwaiter().GetResult();
 
             Click(panel, "TipButton");

@@ -116,7 +116,7 @@ public partial class SettingsWindow : Window
     }
 
     public SettingsWindow(AppSettings initial, Action<AppSettings> save, ProtectedApiKeyStore? apiKeyStore = null, IVocabularyExplainer? explainer = null, ISentencePhraser? sentencePhraser = null, IWritingCoach? writingCoach = null,
-        ProtectedApiKeyStore? groqKeyStore = null, ProtectedApiKeyStore? claudeKeyStore = null)
+        ProtectedApiKeyStore? groqKeyStore = null, ProtectedApiKeyStore? claudeKeyStore = null, WritingHistoryBook? writingHistory = null)
     {
         InitializeComponent();
         _draft = new StudyListDraft(initial, save);
@@ -149,7 +149,7 @@ public partial class SettingsWindow : Window
             SetupPageControl.RefreshFromDraft(_draft);
             ReviewPageControl?.LoadData(new ReviewViewModel(_draft.Settings));
         });
-        WritingPageControl.Initialize(_draft, writingCoach, () => SetupPageControl.RefreshFromDraft(_draft));
+        WritingPageControl.Initialize(_draft, writingCoach, () => SetupPageControl.RefreshFromDraft(_draft), writingHistory);
         UpdateApiKeyStatus();
         SyncNavigationSelection();
         UpdatePageHeader();

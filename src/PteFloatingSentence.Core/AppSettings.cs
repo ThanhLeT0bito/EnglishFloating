@@ -30,5 +30,9 @@ public sealed record AppSettings
     public IReadOnlyList<string> SelectedWritingTopicKeys { get; init; } = [];
     public WritingLevel WritingLevel { get; init; } = WritingLevel.Medium;
     public WritingExplanationLanguage WritingExplanationLanguage { get; init; } = WritingExplanationLanguage.English;
+    public WritingPracticeMode WritingPracticeMode { get; init; } = WritingPracticeMode.Translate;
+    public bool WritingRetypeEnabled { get; init; } = true;
+    public bool WritingAutoPlayCorrected { get; init; } = false;
+    public bool WritingFocusWeakPoints { get; init; } = false;
     public static AppSettings Default => StudyListRules.CreateDefault("Right-click this sentence to open Settings.");
 }

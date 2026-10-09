@@ -26,9 +26,14 @@ namespace PteFloatingSentence.Windows;
 /// </summary>
 public partial class WritingPage : UserControl, IDisposable
 {
+    public const int RecentMistakeRows = 8;
+
     private readonly ISentenceAudioPlayback _audio;
     private StudyListDraft? _draft;
     private WritingSession? _session;
+    private WritingHistoryBook _history = WritingHistoryBook.InMemory();
+    private bool _mistakesCollapsed = true;
+    private bool _clearArmed;
     private Action? _onDraftChanged;
     private bool _rendering;
     private bool _disposed;
@@ -52,11 +57,17 @@ public partial class WritingPage : UserControl, IDisposable
     /// <summary>The practice flow, or null when no AI coach is available.</summary>
     public WritingSession? Session => _session;
 
-    public void Initialize(StudyListDraft draft, IWritingCoach? coach, Action? onDraftChanged = null)
+    /// <summary>The mistake notebook shown on this page.</summary>
+    public WritingHistoryBook History => _history;
+
+    public void Initialize(StudyListDraft draft, IWritingCoach? coach, Action? onDraftChanged = null, WritingHistoryBook? history = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _draft = draft ?? throw new ArgumentNullException(nameof(draft));
         _onDraftChanged = onDraftChanged;
+        _history.Changed -= History_Changed;
+        _history = history ?? WritingHistoryBook.InMemory();
+        _history.Changed += History_Changed;
         if (_session is not null)
         {
             _session.StateChanged -= Session_StateChanged;
@@ -66,13 +77,51 @@ public partial class WritingPage : UserControl, IDisposable
 
         if (coach is not null)
         {
-            _session = new WritingSession(coach, prefetchNext: true);
+            _session = new WritingSession(coach, prefetchNext: true) { History = _history };
             _session.StateChanged += Session_StateChanged;
         }
 
         RefreshFromDraft();
         RenderSession();
+        RenderMistakes();
     }
+
+    private void History_Changed()
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.InvokeAsync(History_Changed);
+            return;
+        }
+
+        if (_disposed)
+            return;
+
+        RenderMistakes();
+        var wasRendering = _rendering;
+        _rendering = true;
+        try
+        {
+            RenderWeakPoints();
+            RenderSetupCard();
+        }
+        finally
+        {
+            _rendering = wasRendering;
+        }
+    }
+
+    private void ApplySessionOptions()
+    {
+        if (_session is null || _draft is null)
+            return;
+
+        _session.Mode = _draft.Settings.WritingPracticeMode;
+        _session.RetypeEnabled = _draft.Settings.WritingRetypeEnabled;
+    }
+
+    private IReadOnlyList<WritingSkillTag> FocusTags() =>
+        _draft is { Settings.WritingFocusWeakPoints: true } && _history.CanPracticeWeakPoints ? _history.WeakTags() : [];
 
     /// <summary>Re-reads topics, level, language and study lists from the draft.</summary>
     public void RefreshFromDraft()
@@ -90,6 +139,11 @@ public partial class WritingPage : UserControl, IDisposable
             HardLevelButton.IsChecked = settings.WritingLevel == WritingLevel.Hard;
             EnglishExplanationButton.IsChecked = settings.WritingExplanationLanguage == WritingExplanationLanguage.English;
             VietnameseExplanationButton.IsChecked = settings.WritingExplanationLanguage == WritingExplanationLanguage.Vietnamese;
+            TranslateModeButton.IsChecked = settings.WritingPracticeMode == WritingPracticeMode.Translate;
+            DictationModeButton.IsChecked = settings.WritingPracticeMode == WritingPracticeMode.Dictation;
+            RetypeCheckBox.IsChecked = settings.WritingRetypeEnabled;
+            AutoPlayCheckBox.IsChecked = settings.WritingAutoPlayCorrected;
+            RenderWeakPoints();
             RenderSaveListSelector();
             RenderSetupCard();
         }
@@ -117,7 +171,50 @@ public partial class WritingPage : UserControl, IDisposable
         SetupSummaryText.Text = WritingPresentation.SetupSummary(
             WritingTopicRules.SelectedTopics(settings).Select(topic => topic.Name).ToList(),
             settings.WritingLevel,
-            settings.WritingExplanationLanguage);
+            settings.WritingExplanationLanguage,
+            settings.WritingPracticeMode,
+            settings.WritingFocusWeakPoints && _history.CanPracticeWeakPoints);
+    }
+
+    private void RenderWeakPoints()
+    {
+        if (_draft is null)
+            return;
+
+        var available = _history.CanPracticeWeakPoints;
+        WeakPointsCheckBox.IsEnabled = available;
+        WeakPointsCheckBox.IsChecked = available && _draft.Settings.WritingFocusWeakPoints;
+        WeakPointsText.Text = WritingPresentation.WeakPointsText(available, _history.WeakTags(), _history.RecentMistakeCount);
+    }
+
+    private void ModeButton_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_rendering || _draft is null)
+            return;
+
+        var mode = ReferenceEquals(sender, DictationModeButton) ? WritingPracticeMode.Dictation : WritingPracticeMode.Translate;
+        if (mode == _draft.Settings.WritingPracticeMode)
+            return;
+
+        _draft.SetWritingPracticeMode(mode);
+        ApplySessionOptions();
+        RenderSession();
+        if (mode == WritingPracticeMode.Dictation && _session is { State: WritingSessionState.Answering, Prompt: not null } session)
+            _ = PlayAsync(session.Prompt.ReferenceEnglish, restart: true);
+    }
+
+    private void PracticeOption_Click(object sender, RoutedEventArgs e)
+    {
+        if (_rendering || _draft is null)
+            return;
+
+        var settings = _draft.Settings;
+        _draft.SetWritingOptions(
+            RetypeCheckBox.IsChecked == true,
+            AutoPlayCheckBox.IsChecked == true,
+            WeakPointsCheckBox.IsEnabled ? WeakPointsCheckBox.IsChecked == true : settings.WritingFocusWeakPoints);
+        ApplySessionOptions();
+        RenderSetupCard();
     }
 
     /// <summary>True when the setup options are folded under the header.</summary>
@@ -269,7 +366,58 @@ public partial class WritingPage : UserControl, IDisposable
 
     private async void NextButton_Click(object sender, RoutedEventArgs e) => await GenerateAsync();
 
-    private async void CheckButton_Click(object sender, RoutedEventArgs e) => await CheckAsync();
+    private async void CheckButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_session is { IsRetyping: true })
+            SubmitRetype();
+        else
+            await CheckAsync();
+    }
+
+    private void SkipRetypeButton_Click(object sender, RoutedEventArgs e)
+    {
+        _session?.SkipRetype();
+        AnswerBox.Focus();
+    }
+
+    private async void ListenButton_Click(object sender, RoutedEventArgs e) => await PlayDictationAsync(slow: false);
+
+    private async void SlowListenButton_Click(object sender, RoutedEventArgs e) => await PlayDictationAsync(slow: true);
+
+    private async Task PlayDictationAsync(bool slow)
+    {
+        var reference = _session?.Prompt?.ReferenceEnglish;
+        AnswerBox.Focus();
+        if (!string.IsNullOrWhiteSpace(reference))
+            await PlayAsync(reference, restart: true, slow: slow);
+    }
+
+    /// <summary>Plays <paramref name="text"/>; with <paramref name="restart"/> it starts over instead of toggling.</summary>
+    private async Task PlayAsync(string text, bool restart = false, bool slow = false)
+    {
+        if (_disposed || _draft is null || string.IsNullOrWhiteSpace(text))
+            return;
+
+        var settings = _draft.Settings;
+        var voice = string.IsNullOrWhiteSpace(settings.TtsVoice) ? EdgeNeuralTtsService.DefaultVoice : settings.TtsVoice;
+        var normal = WritingPresentation.NormalSpeed(settings.TtsSpeed);
+        if (restart)
+            _audio.Stop();
+        await _audio.ToggleAsync(text, voice, slow ? WritingPresentation.SlowSpeed(normal) : normal);
+    }
+
+    /// <summary>Checks the retyped corrected sentence; a match plays it once more.</summary>
+    public void SubmitRetype()
+    {
+        var session = _session;
+        if (_disposed || session is null || !session.IsRetyping)
+            return;
+
+        var result = session.SubmitRetype(AnswerBox.Text);
+        if (result is { IsMatch: true } && session.Feedback is not null)
+            _ = PlayAsync(session.Feedback.CorrectedSentence, restart: true);
+        AnswerBox.Focus();
+    }
 
     private async void RetryButton_Click(object sender, RoutedEventArgs e)
     {
@@ -296,13 +444,16 @@ public partial class WritingPage : UserControl, IDisposable
         SaveStatusText.Visibility = Visibility.Collapsed;
         var settings = _draft.Settings;
         var topics = WritingTopicRules.SelectedTopics(settings).Select(topic => topic.Name).ToList();
-        await _session.GenerateAsync(topics, settings.WritingLevel, settings.WritingExplanationLanguage);
-        if (_session?.State == WritingSessionState.Answering)
+        ApplySessionOptions();
+        await _session.GenerateAsync(topics, settings.WritingLevel, settings.WritingExplanationLanguage, FocusTags());
+        if (_session is { State: WritingSessionState.Answering } session)
         {
             // Options are set; fold them away so the sentence and answer get the space.
             _setupCollapsed = true;
             RenderSetupCard();
             AnswerBox.Focus();
+            if (session.Mode == WritingPracticeMode.Dictation && session.Prompt is not null)
+                await PlayAsync(session.Prompt.ReferenceEnglish, restart: true);
         }
     }
 
@@ -313,7 +464,21 @@ public partial class WritingPage : UserControl, IDisposable
             return;
 
         _audio.Stop();
+        ApplySessionOptions();
         await _session.CheckAsync(AnswerBox.Text, _draft.Settings.WritingExplanationLanguage);
+        if (_session is not { State: WritingSessionState.Reviewed, Feedback: not null } session)
+            return;
+
+        if (session.IsRetyping)
+        {
+            // The answer stays highlighted in the result; the box is now for typing the corrected sentence.
+            AnswerBox.Text = string.Empty;
+            AnswerBox.Focus();
+        }
+        else if (_draft.Settings.WritingAutoPlayCorrected)
+        {
+            await PlayAsync(session.Feedback.CorrectedSentence, restart: true);
+        }
     }
 
     private void WritingPage_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -324,7 +489,15 @@ public partial class WritingPage : UserControl, IDisposable
         if (ctrl && e.Key == Key.H)
         {
             e.Handled = true;
-            _session?.RevealNextTip();
+            if (_session is { Mode: WritingPracticeMode.Translate })
+                _session.RevealNextTip();
+            return;
+        }
+
+        if (ctrl && e.Key == Key.Space && _session is { Mode: WritingPracticeMode.Dictation, Prompt: not null })
+        {
+            e.Handled = true;
+            _ = PlayDictationAsync(slow: shift);
             return;
         }
 
@@ -351,10 +524,18 @@ public partial class WritingPage : UserControl, IDisposable
         if (_session is null || _session.IsBusy)
             return;
 
-        if (WritingPresentation.EnterMeansNext(_session.State, _session.LastAnswer, AnswerBox.Text))
-            await GenerateAsync();
-        else
-            await CheckAsync();
+        switch (_session.EnterActionFor(AnswerBox.Text))
+        {
+            case WritingEnterAction.Next:
+                await GenerateAsync();
+                break;
+            case WritingEnterAction.Retype:
+                SubmitRetype();
+                break;
+            case WritingEnterAction.Check:
+                await CheckAsync();
+                break;
+        }
     }
 
     private void Session_StateChanged()
@@ -397,12 +578,150 @@ public partial class WritingPage : UserControl, IDisposable
         RenderPrompt(session);
 
         var hasPrompt = session.Prompt is not null;
+        var dictation = _draft?.Settings.WritingPracticeMode == WritingPracticeMode.Dictation;
         AnswerSection.Visibility = hasPrompt ? Visibility.Visible : Visibility.Collapsed;
         AnswerBox.IsReadOnly = session.State == WritingSessionState.Checking;
+        AnswerLabelText.Text = session.IsRetyping ? "Type the corrected sentence"
+            : dictation ? "What you hear" : "Your English translation";
+        AnswerHintText.Text = session.IsRetyping
+            ? "Enter to submit · Typing it once helps you remember it"
+            : dictation
+                ? "Enter to check · Shift+Enter for a new line · Replay with Ctrl+Space (slow: Ctrl+Shift+Space)"
+                : "Enter to check · Shift+Enter for a new line · Stuck? Press Tip (Ctrl+H)";
         CheckButton.IsEnabled = hasPrompt && session.State is WritingSessionState.Answering or WritingSessionState.Reviewed;
-        CheckButton.Content = session.State == WritingSessionState.Reviewed ? "Check again" : "Check";
+        CheckButton.Content = WritingPresentation.CheckButtonText(session.State, session.IsRetyping);
+        RenderRetype(session);
 
         RenderFeedback(session);
+    }
+
+    private void RenderRetype(WritingSession session)
+    {
+        var show = session.State == WritingSessionState.Reviewed && session.RetypeTarget is not null && !session.RetypeSkipped;
+        RetypePanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        if (!show)
+            return;
+
+        RetypeMessageText.Text = WritingPresentation.RetypeMessage(session.LastRetype);
+        RetypeMessageText.Foreground = session.LastRetype is { IsMatch: false }
+            ? new SolidColorBrush(Color.FromRgb(0xFC, 0xA5, 0xA5))
+            : session.RetypeDone
+                ? new SolidColorBrush(Color.FromRgb(0x34, 0xD3, 0x99))
+                : new SolidColorBrush(Color.FromRgb(0x93, 0xC5, 0xFD));
+        SkipRetypeButton.Visibility = session.IsRetyping ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // ---- Mistake notebook ----------------------------------------------------------------------
+
+    /// <summary>True when the "My mistakes" card is folded.</summary>
+    public bool IsMistakesCollapsed => MistakesBody.Visibility != Visibility.Visible;
+
+    private void MistakesToggleButton_Click(object sender, RoutedEventArgs e)
+    {
+        _mistakesCollapsed = !_mistakesCollapsed;
+        RenderMistakes();
+    }
+
+    private void ClearHistoryButton_Click(object sender, RoutedEventArgs e)
+    {
+        // Two clicks: the first arms the button so a stray click cannot wipe the notebook.
+        if (!_clearArmed)
+        {
+            _clearArmed = true;
+            ClearHistoryButton.Content = "Click again to clear";
+            return;
+        }
+
+        _clearArmed = false;
+        _history.Clear();
+    }
+
+    private void RenderMistakes()
+    {
+        if (_disposed)
+            return;
+
+        _clearArmed = false;
+        ClearHistoryButton.Content = "Clear history";
+        MistakesBody.Visibility = _mistakesCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        MistakesChevron.Text = _mistakesCollapsed ? "\uE76C" : "\uE70D";
+        MistakesToggleButton.ToolTip = _mistakesCollapsed ? "Show my mistakes" : "Hide my mistakes";
+
+        var now = _history.Now;
+        var stats = _history.TagStats();
+        var count = _history.RecentMistakeCount;
+        MistakesSummaryText.Text = count == 0
+            ? "No mistakes yet"
+            : $"{count} in 30 days · Most often: {WritingSkillTags.Label(stats[0].Tag)}";
+
+        TagStatsPanel.Children.Clear();
+        foreach (var stat in stats)
+        {
+            TagStatsPanel.Children.Add(new Border
+            {
+                Background = stat.Weight > 0 ? new SolidColorBrush(Color.FromArgb(0x26, 0xF8, 0x71, 0x71)) : new SolidColorBrush(Color.FromArgb(0x26, 0x34, 0xD3, 0x99)),
+                BorderBrush = stat.Weight > 0 ? new SolidColorBrush(Color.FromArgb(0x66, 0xF8, 0x71, 0x71)) : new SolidColorBrush(Color.FromArgb(0x66, 0x34, 0xD3, 0x99)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(10, 3, 10, 3),
+                Margin = new Thickness(0, 0, 8, 8),
+                Child = new TextBlock { Text = WritingPresentation.TagStatText(stat), FontSize = 12.5, Foreground = (Brush)FindResource("TextSecondaryBrush") }
+            });
+        }
+
+        var recent = WritingHistoryRules.RecentMistakes(_history.Current, RecentMistakeRows);
+        NoMistakesText.Visibility = recent.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        RecentMistakesLabel.Visibility = recent.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        ClearHistoryButton.Visibility = _history.Current.Mistakes.Count == 0 && _history.Current.Reviews.Count == 0
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        RecentMistakesPanel.Children.Clear();
+        foreach (var mistake in recent)
+            RecentMistakesPanel.Children.Add(CreateMistakeRow(mistake, now));
+    }
+
+    private UIElement CreateMistakeRow(WritingMistake mistake, DateTimeOffset now)
+    {
+        var color = BrushFromHex(WritingPresentation.IssueColor(mistake.Type));
+        var row = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.Children.Add(new Border
+        {
+            BorderBrush = color,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(8, 1, 8, 1),
+            Margin = new Thickness(0, 1, 10, 0),
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+            Child = new TextBlock { Text = WritingSkillTags.Label(mistake.Tag), FontSize = 11, Foreground = color }
+        });
+
+        var details = new StackPanel();
+        details.Children.Add(new TextBlock
+        {
+            Text = WritingPresentation.MistakeText(mistake),
+            FontSize = 13,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)FindResource("TextPrimaryBrush"),
+            TextWrapping = TextWrapping.Wrap
+        });
+        var context = string.IsNullOrWhiteSpace(mistake.Explanation)
+            ? WritingPresentation.RelativeDay(mistake.At, now)
+            : $"{mistake.Explanation} · {WritingPresentation.RelativeDay(mistake.At, now)}";
+        details.Children.Add(new TextBlock
+        {
+            Text = context,
+            FontSize = 12,
+            Foreground = (Brush)FindResource("TextMutedBrush"),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 2, 0, 0),
+            ToolTip = $"{mistake.Source}\n→ {mistake.Corrected}"
+        });
+        Grid.SetColumn(details, 1);
+        row.Children.Add(details);
+        return row;
     }
 
     private void ShowStatus(string text, bool isError, bool canRetry)
@@ -426,6 +745,14 @@ public partial class WritingPage : UserControl, IDisposable
 
         PromptCard.Visibility = Visibility.Visible;
         PromptMetaText.Text = WritingPresentation.PromptMeta(prompt);
+        var dictation = _draft?.Settings.WritingPracticeMode == WritingPracticeMode.Dictation;
+        // In dictation the Vietnamese meaning stays hidden until the answer is checked.
+        var hideMeaning = dictation && session.State != WritingSessionState.Reviewed;
+        PromptHeaderText.Text = dictation ? "Write what you hear" : "Translate into English";
+        DictationBar.Visibility = dictation ? Visibility.Visible : Visibility.Collapsed;
+        DictationHintText.Text = hideMeaning ? WritingPresentation.DictationPromptText : string.Empty;
+        VietnameseText.Visibility = hideMeaning ? Visibility.Collapsed : Visibility.Visible;
+        TipButton.Visibility = dictation ? Visibility.Collapsed : Visibility.Visible;
         VietnameseText.Text = prompt.Vietnamese;
         PromptCallText.Text = WritingPresentation.CallText(prompt.Call, session.PromptWasPrefetched);
 
@@ -564,13 +891,8 @@ public partial class WritingPage : UserControl, IDisposable
     {
         e.Handled = true;
         var text = _session?.Feedback?.CorrectedSentence;
-        if (string.IsNullOrWhiteSpace(text) || _draft is null)
-            return;
-
-        var settings = _draft.Settings;
-        var voice = string.IsNullOrWhiteSpace(settings.TtsVoice) ? EdgeNeuralTtsService.DefaultVoice : settings.TtsVoice;
-        var speed = settings.TtsSpeed is >= 0.8 and <= 1.2 ? settings.TtsSpeed : 1.0;
-        await _audio.ToggleAsync(text, voice, speed);
+        if (!string.IsNullOrWhiteSpace(text))
+            await PlayAsync(text);
     }
 
     private void SaveToListButton_Click(object sender, RoutedEventArgs e)
@@ -637,6 +959,7 @@ public partial class WritingPage : UserControl, IDisposable
 
         _disposed = true;
         PreviewKeyDown -= WritingPage_PreviewKeyDown;
+        _history.Changed -= History_Changed;
         IsVisibleChanged -= WritingPage_IsVisibleChanged;
         if (_session is not null)
         {
