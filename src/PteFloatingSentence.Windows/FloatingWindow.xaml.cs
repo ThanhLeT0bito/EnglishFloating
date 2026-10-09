@@ -12,6 +12,7 @@ using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using KeyEventHandler = System.Windows.Input.KeyEventHandler;
 using TextBox = System.Windows.Controls.TextBox;
 using UserControl = System.Windows.Controls.UserControl;
+using ValidationResult = PteFloatingSentence.Core.ValidationResult;
 using PteFloatingSentence.Core;
 using PteFloatingSentence.Windows.Infrastructure;
 

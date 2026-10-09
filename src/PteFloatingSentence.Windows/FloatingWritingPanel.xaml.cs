@@ -13,6 +13,7 @@ using ColorConverter = System.Windows.Media.ColorConverter;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using Orientation = System.Windows.Controls.Orientation;
 using UserControl = System.Windows.Controls.UserControl;
+using ValidationResult = PteFloatingSentence.Core.ValidationResult;
 
 namespace PteFloatingSentence.Windows;
 
