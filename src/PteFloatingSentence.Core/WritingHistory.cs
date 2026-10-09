@@ -54,3 +54,6 @@ public sealed record WritingHistory
 /// <param name="Passed">Weak-point sentences for this tag answered without that mistake inside the window.</param>
 /// <param name="Weight">How weak the learner still is: mistakes minus passes, never below zero.</param>
 public sealed record WritingTagStat(WritingSkillTag Tag, int Mistakes, int Passed, int Weight, DateTimeOffset LastSeen);
+
+/// <summary>The same mistake (tag, original and suggestion) made <see cref="Count"/> times; <see cref="Latest"/> is the newest.</summary>
+public sealed record WritingMistakeGroup(WritingMistake Latest, int Count);

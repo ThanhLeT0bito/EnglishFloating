@@ -208,9 +208,11 @@ public sealed class WritingPracticeFlowTests
     {
         var store = new InMemoryWritingHistoryStore();
         var book = new WritingHistoryBook(store, () => Now);
-        var prompt = new WritingPrompt("Câu", Reference, "Daily life", WritingLevel.Medium, WritingTips.Empty);
         for (var i = 0; i < 5; i++)
+        {
+            var prompt = new WritingPrompt($"Câu {i}", Reference, "Daily life", WritingLevel.Medium, WritingTips.Empty);
             book.RecordCheck(WritingPracticeMode.Translate, prompt, "She lives here.", FeedbackWith(TenseIssue));
+        }
 
         Assert.IsTrue(book.CanPracticeWeakPoints);
         CollectionAssert.AreEqual(new[] { WritingSkillTag.Tense }, book.WeakTags().ToArray());
@@ -270,6 +272,8 @@ public sealed class WritingPracticeFlowTests
     [TestMethod]
     public void Presentation_WeakPointsStatsAndDates()
     {
+        Assert.AreEqual("\"go\" → \"went\" ×3", WritingPresentation.MistakeGroupText(new WritingMistakeGroup(
+            new WritingMistake(Now, WritingPracticeMode.Translate, WritingIssueType.Grammar, WritingSkillTag.Tense, "go", "went", "", "", "", ""), 3)));
         Assert.AreEqual("Practice my weak points: Tense, Articles",
             WritingPresentation.WeakPointsText(true, [WritingSkillTag.Tense, WritingSkillTag.Article], 9));
         Assert.AreEqual("Practice my weak points (after 5 mistakes · 2 so far)", WritingPresentation.WeakPointsText(false, [], 2));

@@ -38,7 +38,7 @@ public static class WritingFeedbackRules
     public static WritingFeedback Normalize(WritingFeedback feedback)
     {
         ArgumentNullException.ThrowIfNull(feedback);
-        var issues = feedback.Issues ?? [];
+        var issues = (feedback.Issues ?? []).Where(issue => issue is not null).Select(ReclassifyFormatting).ToList();
         var score = ClampScore(feedback.Score);
         if (issues.Count > 0 && issues.All(issue => issue.Type == WritingIssueType.Punctuation))
             score = 100;
@@ -50,6 +50,20 @@ public static class WritingFeedbackRules
             Issues = issues
         };
     }
+
+    /// <summary>
+    /// True when the original and the suggestion have the same words and differ only in capitalization or
+    /// punctuation, e.g. "i" → "I". Such issues are formatting, whatever type the AI gave them.
+    /// </summary>
+    public static bool IsFormattingOnly(WritingIssue issue) =>
+        issue.Original.Trim().Length > 0
+        && issue.Suggestion.Trim().Length > 0
+        && WritingTextMatch.SameWords(issue.Original, issue.Suggestion);
+
+    private static WritingIssue ReclassifyFormatting(WritingIssue issue) =>
+        issue.Type != WritingIssueType.Punctuation && IsFormattingOnly(issue)
+            ? issue with { Type = WritingIssueType.Punctuation, Tag = WritingSkillTag.Other }
+            : issue;
 
     /// <summary>
     /// Finds each issue's <see cref="WritingIssue.Original"/> text in the answer, left to right, ignoring case.

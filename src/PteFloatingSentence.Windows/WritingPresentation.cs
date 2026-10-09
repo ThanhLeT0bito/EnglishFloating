@@ -191,6 +191,10 @@ public static class WritingPresentation
     public static string MistakeText(WritingMistake mistake) =>
         IssueText(new WritingIssue(mistake.Type, mistake.Original, mistake.Suggestion, mistake.Explanation));
 
+    /// <summary>Line for a group of the same mistake, e.g. "\"go\" → \"went\" ×3".</summary>
+    public static string MistakeGroupText(WritingMistakeGroup group) =>
+        group.Count > 1 ? $"{MistakeText(group.Latest)} ×{group.Count}" : MistakeText(group.Latest);
+
     public static string IssueText(WritingIssue issue)
     {
         if (issue.Original.Length == 0)

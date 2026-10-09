@@ -15,7 +15,7 @@ public sealed class WritingHistoryRulesTests
     {
         var result = history ?? WritingHistory.Empty;
         for (var i = 0; i < count; i++)
-            result = WritingHistoryRules.RecordFeedback(result, WritingPracticeMode.Translate, "Câu", "Answer", Feedback(Issue(WritingIssueType.Grammar, tag)), at);
+            result = WritingHistoryRules.RecordFeedback(result, WritingPracticeMode.Translate, $"Câu {tag} {at:O} {i}", "Answer", Feedback(Issue(WritingIssueType.Grammar, tag)), at);
         return result;
     }
 
@@ -180,6 +180,79 @@ public sealed class WritingHistoryRulesTests
         Assert.AreEqual("", normalized.Mistakes[0].Suggestion);
         Assert.AreEqual(0, normalized.Reviews.Count);
         Assert.AreSame(WritingHistory.Empty, WritingHistoryRules.Normalize(null));
+    }
+
+    [TestMethod]
+    public void RecordFeedback_SameSentenceCheckedAgainIsNotRecordedTwice()
+    {
+        var feedback = Feedback(Issue(WritingIssueType.Grammar, WritingSkillTag.Tense, "live"));
+        var history = WritingHistoryRules.RecordFeedback(WritingHistory.Empty, WritingPracticeMode.Translate, "Câu A", "I live", feedback, Now);
+        history = WritingHistoryRules.RecordFeedback(history, WritingPracticeMode.Translate, "Câu A", "I live here", feedback, Now);
+        Assert.AreEqual(1, history.Mistakes.Count);
+
+        history = WritingHistoryRules.RecordFeedback(history, WritingPracticeMode.Translate, "Câu B", "I live", feedback, Now);
+        Assert.AreEqual(2, history.Mistakes.Count, "the same mistake in another sentence still counts");
+    }
+
+    [TestMethod]
+    public void RecordFeedback_SkipsCapitalizationEvenWhenLabelledGrammar()
+    {
+        var history = WritingHistoryRules.RecordFeedback(
+            WritingHistory.Empty, WritingPracticeMode.Translate, "Câu", "i think so",
+            Feedback(new WritingIssue(WritingIssueType.Grammar, "i", "I", "Capitalize."), Issue(WritingIssueType.Grammar, WritingSkillTag.Tense, "think")),
+            Now);
+
+        Assert.AreEqual(1, history.Mistakes.Count);
+        Assert.AreEqual("think", history.Mistakes[0].Original);
+    }
+
+    [TestMethod]
+    public void RecentMistakeGroups_CountsRepeatsIgnoringCase()
+    {
+        var history = WritingHistory.Empty;
+        history = WritingHistoryRules.RecordFeedback(history, WritingPracticeMode.Translate, "A", "x",
+            Feedback(new WritingIssue(WritingIssueType.Grammar, "Go", "went", "past") { Tag = WritingSkillTag.Tense }), Now.AddDays(-1));
+        history = WritingHistoryRules.RecordFeedback(history, WritingPracticeMode.Translate, "B", "x",
+            Feedback(new WritingIssue(WritingIssueType.Grammar, "go", "went", "past") { Tag = WritingSkillTag.Tense }), Now);
+        history = WritingHistoryRules.RecordFeedback(history, WritingPracticeMode.Translate, "C", "x",
+            Feedback(new WritingIssue(WritingIssueType.Grammar, "a", "the", "article") { Tag = WritingSkillTag.Article }), Now.AddHours(-1));
+
+        var groups = WritingHistoryRules.RecentMistakeGroups(history, 8);
+
+        Assert.AreEqual(2, groups.Count);
+        Assert.AreEqual(2, groups[0].Count);
+        Assert.AreEqual("go", groups[0].Latest.Original);
+        Assert.AreEqual(1, groups[1].Count);
+    }
+
+    [TestMethod]
+    public void Normalize_DropsSavedCapitalizationMistakes()
+    {
+        var history = new WritingHistory
+        {
+            Mistakes =
+            [
+                new WritingMistake(Now, WritingPracticeMode.Translate, WritingIssueType.Grammar, WritingSkillTag.Other, "i", "I", "Capitalize I.", "s", "a", "c"),
+                new WritingMistake(Now, WritingPracticeMode.Translate, WritingIssueType.Grammar, WritingSkillTag.Tense, "go", "went", "Past.", "s", "a", "c")
+            ]
+        };
+
+        var normalized = WritingHistoryRules.Normalize(history);
+
+        Assert.AreEqual(1, normalized.Mistakes.Count);
+        Assert.AreEqual("go", normalized.Mistakes[0].Original);
+    }
+
+    [TestMethod]
+    public void FeedbackNormalize_TreatsCaseOnlyFixesAsPunctuation()
+    {
+        var feedback = WritingFeedbackRules.Normalize(new WritingFeedback(80, WritingVerdict.Almost, "I think so.", null, "", [
+            new WritingIssue(WritingIssueType.Grammar, "i", "I", "Capitalize."),
+            new WritingIssue(WritingIssueType.Grammar, "so", "so.", "Period.")
+        ]));
+
+        Assert.IsTrue(feedback.Issues.All(issue => issue.Type == WritingIssueType.Punctuation));
+        Assert.AreEqual(100, feedback.Score, "formatting never lowers the score");
     }
 
     [TestMethod]

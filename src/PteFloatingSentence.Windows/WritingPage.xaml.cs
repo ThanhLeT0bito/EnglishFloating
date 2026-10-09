@@ -669,19 +669,20 @@ public partial class WritingPage : UserControl, IDisposable
             });
         }
 
-        var recent = WritingHistoryRules.RecentMistakes(_history.Current, RecentMistakeRows);
+        var recent = WritingHistoryRules.RecentMistakeGroups(_history.Current, RecentMistakeRows);
         NoMistakesText.Visibility = recent.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         RecentMistakesLabel.Visibility = recent.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         ClearHistoryButton.Visibility = _history.Current.Mistakes.Count == 0 && _history.Current.Reviews.Count == 0
             ? Visibility.Collapsed
             : Visibility.Visible;
         RecentMistakesPanel.Children.Clear();
-        foreach (var mistake in recent)
-            RecentMistakesPanel.Children.Add(CreateMistakeRow(mistake, now));
+        foreach (var group in recent)
+            RecentMistakesPanel.Children.Add(CreateMistakeRow(group, now));
     }
 
-    private UIElement CreateMistakeRow(WritingMistake mistake, DateTimeOffset now)
+    private UIElement CreateMistakeRow(WritingMistakeGroup group, DateTimeOffset now)
     {
+        var mistake = group.Latest;
         var color = BrushFromHex(WritingPresentation.IssueColor(mistake.Type));
         var row = new Grid { Margin = new Thickness(0, 0, 0, 8) };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
@@ -701,7 +702,7 @@ public partial class WritingPage : UserControl, IDisposable
         var details = new StackPanel();
         details.Children.Add(new TextBlock
         {
-            Text = WritingPresentation.MistakeText(mistake),
+            Text = WritingPresentation.MistakeGroupText(group),
             FontSize = 13,
             FontWeight = FontWeights.SemiBold,
             Foreground = (Brush)FindResource("TextPrimaryBrush"),

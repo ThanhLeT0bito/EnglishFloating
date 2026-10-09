@@ -261,7 +261,7 @@ public sealed class WritingPracticeUiTests
     {
         var book = new WritingHistoryBook(new InMemoryWritingHistoryStore(), () => Now);
         for (var i = 0; i < count; i++)
-            book.RecordCheck(WritingPracticeMode.Translate, Prompt, "She lives here.", Feedback);
+            book.RecordCheck(WritingPracticeMode.Translate, Prompt with { Vietnamese = $"Câu {i}" }, "She lives here.", Feedback);
         return book;
     }
 

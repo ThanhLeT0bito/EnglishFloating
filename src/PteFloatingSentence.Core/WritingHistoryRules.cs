@@ -23,8 +23,13 @@ public static class WritingHistoryRules
     {
         ArgumentNullException.ThrowIfNull(history);
         ArgumentNullException.ThrowIfNull(feedback);
+        // Checking the same sentence again must not record the same mistake twice.
+        var known = history.Mistakes
+            .Where(mistake => string.Equals(mistake.Source, Clip(source), StringComparison.Ordinal))
+            .Select(SameMistakeKey)
+            .ToHashSet(StringComparer.Ordinal);
         var added = (feedback.Issues ?? [])
-            .Where(issue => issue is not null && issue.Type != WritingIssueType.Punctuation)
+            .Where(issue => issue is not null && issue.Type != WritingIssueType.Punctuation && !WritingFeedbackRules.IsFormattingOnly(issue))
             .Select(issue => new WritingMistake(
                 now,
                 mode,
@@ -36,6 +41,7 @@ public static class WritingHistoryRules
                 Clip(source),
                 Clip(answer),
                 Clip(feedback.CorrectedSentence)))
+            .Where(mistake => known.Add(SameMistakeKey(mistake)))
             .ToList();
         if (added.Count == 0)
             return history;
@@ -112,6 +118,20 @@ public static class WritingHistoryRules
     public static IReadOnlyList<WritingMistake> RecentMistakes(WritingHistory history, int count) =>
         history.Mistakes.OrderByDescending(mistake => mistake.At).Take(Math.Max(0, count)).ToList();
 
+    /// <summary>
+    /// Repeated mistakes grouped by tag, original and suggestion (ignoring case), the most recently made first.
+    /// </summary>
+    public static IReadOnlyList<WritingMistakeGroup> RecentMistakeGroups(WritingHistory history, int count) =>
+        history.Mistakes
+            .GroupBy(SameMistakeKey, StringComparer.Ordinal)
+            .Select(group => new WritingMistakeGroup(group.MaxBy(mistake => mistake.At)!, group.Count()))
+            .OrderByDescending(group => group.Latest.At)
+            .Take(Math.Max(0, count))
+            .ToList();
+
+    private static string SameMistakeKey(WritingMistake mistake) =>
+        $"{mistake.Tag}\u001f{mistake.Original.Trim().ToLowerInvariant()}\u001f{mistake.Suggestion.Trim().ToLowerInvariant()}";
+
     /// <summary>Drops broken entries and keeps the newest items within the caps.</summary>
     public static WritingHistory Normalize(WritingHistory? history)
     {
@@ -120,6 +140,9 @@ public static class WritingHistoryRules
 
         var mistakes = (history.Mistakes ?? [])
             .Where(mistake => mistake is not null && Enum.IsDefined(mistake.Tag) && Enum.IsDefined(mistake.Type) && Enum.IsDefined(mistake.Mode))
+            // Older versions saved capitalization-only fixes such as "i" → "I" as grammar mistakes.
+            .Where(mistake => mistake.Type != WritingIssueType.Punctuation
+                && !WritingFeedbackRules.IsFormattingOnly(new WritingIssue(mistake.Type, mistake.Original ?? string.Empty, mistake.Suggestion ?? string.Empty, string.Empty)))
             .Select(mistake => mistake with
             {
                 Original = Clip(mistake.Original),
