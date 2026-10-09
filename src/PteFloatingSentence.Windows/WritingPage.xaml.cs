@@ -66,7 +66,7 @@ public partial class WritingPage : UserControl, IDisposable
 
         if (coach is not null)
         {
-            _session = new WritingSession(coach);
+            _session = new WritingSession(coach, prefetchNext: true);
             _session.StateChanged += Session_StateChanged;
         }
 
@@ -427,6 +427,7 @@ public partial class WritingPage : UserControl, IDisposable
         PromptCard.Visibility = Visibility.Visible;
         PromptMetaText.Text = WritingPresentation.PromptMeta(prompt);
         VietnameseText.Text = prompt.Vietnamese;
+        PromptCallText.Text = WritingPresentation.CallText(prompt.Call, session.PromptWasPrefetched);
 
         var available = session.AvailableTipTiers;
         TipButtonText.Text = WritingPresentation.TipButtonText(session.TipsRevealed, available.Count);
@@ -499,6 +500,7 @@ public partial class WritingPage : UserControl, IDisposable
             IssuesPanel.Children.Add(CreateIssueRow(issue));
 
         CorrectedText.Text = feedback.CorrectedSentence;
+        ResultCallText.Text = WritingPresentation.CallText(feedback.Call);
         NaturalSection.Visibility = string.IsNullOrWhiteSpace(feedback.NaturalAlternative) ? Visibility.Collapsed : Visibility.Visible;
         NaturalText.Text = feedback.NaturalAlternative ?? string.Empty;
     }

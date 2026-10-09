@@ -226,6 +226,46 @@ public sealed class AiProviderClientsTests
         Assert.AreEqual(1, groq.Calls);
     }
 
+    [TestMethod]
+    public async Task WithInfo_ReportsModelThatAnsweredAndAttempts()
+    {
+        var handler = new GeminiTestHandler((_, attempt) => Task.FromResult(attempt == 0
+            ? GeminiTestHandler.Status(HttpStatusCode.ServiceUnavailable)
+            : GeminiTestHandler.Ok("{}")));
+        using var client = new GeminiJsonClient(() => "k", new HttpClient(handler), ["model-a", "model-b"]);
+
+        var result = await client.GenerateJsonWithInfoAsync("s", "u", Schema);
+
+        Assert.AreEqual("{}", result.Text);
+        Assert.AreEqual("Gemini", result.Info.Provider);
+        Assert.AreEqual("model-b", result.Info.Model);
+        Assert.AreEqual(2, result.Info.Attempts);
+        Assert.IsTrue(result.Info.Elapsed >= TimeSpan.Zero);
+    }
+
+    [TestMethod]
+    public async Task Groq_GptOss_ExcludesReasoningFromResponse()
+    {
+        var handler = new GeminiTestHandler((_, _) => Task.FromResult(OpenAiOk("{}")));
+        using var client = OpenAiCompatibleJsonClient.ForGroq(() => "k", new HttpClient(handler));
+
+        await client.GenerateJsonAsync("s", "u", Schema);
+
+        using var body = JsonDocument.Parse(handler.RequestBodies[0]);
+        Assert.IsFalse(body.RootElement.GetProperty("include_reasoning").GetBoolean());
+    }
+
+    [TestMethod]
+    public async Task InterfaceDefault_WithInfoWrapsPlainClients()
+    {
+        IJsonLlmClient stub = new StubClient("Stub");
+
+        var result = await stub.GenerateJsonWithInfoAsync("s", "u", Schema);
+
+        Assert.AreEqual("{}", result.Text);
+        Assert.AreEqual("Stub", result.Info.Provider);
+    }
+
     private sealed class StubClient(string name) : IJsonLlmClient
     {
         public int Calls { get; private set; }

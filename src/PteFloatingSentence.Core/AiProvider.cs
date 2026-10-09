@@ -8,6 +8,9 @@ public enum AiProvider
     Claude = 2
 }
 
+/// <summary>How one AI request was answered: which provider and model, how long it took, how many HTTP attempts.</summary>
+public sealed record AiCallInfo(string Provider, string Model, TimeSpan Elapsed, int Attempts);
+
 public static class AiProviderRules
 {
     public static AiProvider Normalize(AiProvider provider) =>

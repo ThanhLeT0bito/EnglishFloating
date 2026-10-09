@@ -23,16 +23,29 @@ public sealed class WritingSession : IDisposable
     public const string UnexpectedErrorMessage = "Something went wrong. Please try again.";
 
     private readonly IWritingCoach _coach;
+    private readonly bool _prefetchNext;
     private readonly List<string> _recent = [];
+    private Prefetch? _prefetch;
     private CancellationTokenSource? _request;
     private long _generation;
     private Func<Task>? _retry;
     private bool _disposed;
 
-    public WritingSession(IWritingCoach coach)
+    /// <param name="prefetchNext">
+    /// When true, the next sentence is requested in the background as soon as one is shown, so Next/Skip with the
+    /// same topics, level and language is instant.
+    /// </param>
+    public WritingSession(IWritingCoach coach, bool prefetchNext = false)
     {
         _coach = coach ?? throw new ArgumentNullException(nameof(coach));
+        _prefetchNext = prefetchNext;
     }
+
+    /// <summary>True when the current prompt came from the background prefetch.</summary>
+    public bool PromptWasPrefetched { get; private set; }
+
+    /// <summary>True while a prefetched next sentence is being prepared or waiting to be used.</summary>
+    public bool HasPrefetch => _prefetch is not null;
 
     public event Action? StateChanged;
 
@@ -71,18 +84,36 @@ public sealed class WritingSession : IDisposable
         Error = null;
         TipsRevealed = 0;
         TipsUsedForFeedback = 0;
+        PromptWasPrefetched = false;
         _retry = null;
         SetState(WritingSessionState.Generating);
 
+        var key = PrefetchKey(topics, level, language);
+        var prefetched = TakePrefetch(key);
         try
         {
-            var prompt = await _coach.GenerateAsync(new WritingRequest(topics, level, language, _recent.ToList()), request.Token);
+            WritingPrompt? prompt = null;
+            if (prefetched is not null)
+            {
+                try
+                {
+                    prompt = await prefetched;
+                    PromptWasPrefetched = true;
+                }
+                catch (Exception) when (IsCurrent(generation) && !request.IsCancellationRequested)
+                {
+                    // The background request failed; ask again in the foreground.
+                }
+            }
+
+            prompt ??= await _coach.GenerateAsync(new WritingRequest(topics, level, language, _recent.ToList()), request.Token);
             if (!IsCurrent(generation))
                 return;
 
             Prompt = prompt;
             Remember(prompt.Vietnamese);
             SetState(WritingSessionState.Answering);
+            StartPrefetch(key, topics, level, language);
         }
         catch (OperationCanceledException) when (request.IsCancellationRequested)
         {
@@ -187,6 +218,74 @@ public sealed class WritingSession : IDisposable
         return true;
     }
 
+    private sealed record Prefetch(string Key, Task<WritingPrompt> Task, CancellationTokenSource Cancellation);
+
+    private static string PrefetchKey(IReadOnlyList<string> topics, WritingLevel level, WritingExplanationLanguage language) =>
+        $"{level}|{language}|{string.Join("\u001f", topics)}";
+
+    /// <summary>Hands over a prefetched request made with the same options, cancelling one made with other options.</summary>
+    private Task<WritingPrompt>? TakePrefetch(string key)
+    {
+        var prefetch = _prefetch;
+        _prefetch = null;
+        if (prefetch is null)
+            return null;
+        if (prefetch.Key == key && !prefetch.Task.IsCanceled)
+            return prefetch.Task;
+
+        Cancel(prefetch);
+        return null;
+    }
+
+    private void StartPrefetch(string key, IReadOnlyList<string> topics, WritingLevel level, WritingExplanationLanguage language)
+    {
+        CancelPrefetch();
+        if (!_prefetchNext || _disposed)
+            return;
+
+        var cancellation = new CancellationTokenSource();
+        Task<WritingPrompt> task;
+        try
+        {
+            task = _coach.GenerateAsync(new WritingRequest(topics, level, language, _recent.ToList()), cancellation.Token);
+        }
+        catch (Exception error)
+        {
+            task = Task.FromException<WritingPrompt>(error);
+        }
+
+        // The source is only disposed once the request is over, so cancelling it is always safe.
+        // Reading Exception marks a failure as observed; GenerateAsync retries in the foreground.
+        _ = task.ContinueWith(completed =>
+        {
+            _ = completed.Exception;
+            cancellation.Dispose();
+        }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        _prefetch = new Prefetch(key, task, cancellation);
+    }
+
+    private void CancelPrefetch()
+    {
+        var prefetch = _prefetch;
+        _prefetch = null;
+        if (prefetch is not null)
+            Cancel(prefetch);
+    }
+
+    private static void Cancel(Prefetch prefetch)
+    {
+        if (prefetch.Task.IsCompleted)
+            return;
+        try
+        {
+            prefetch.Cancellation.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The request finished (and released its source) at the same moment.
+        }
+    }
+
     private (CancellationTokenSource Request, long Generation) BeginRequest()
     {
         _request?.Cancel();
@@ -229,6 +328,7 @@ public sealed class WritingSession : IDisposable
         _disposed = true;
         ++_generation;
         _request?.Cancel();
+        CancelPrefetch();
         _retry = null;
         StateChanged = null;
     }

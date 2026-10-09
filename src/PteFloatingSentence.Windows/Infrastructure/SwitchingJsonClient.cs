@@ -30,4 +30,12 @@ public sealed class SwitchingJsonClient : IJsonLlmClient
         double? temperature = null,
         CancellationToken cancellationToken = default) =>
         Current.GenerateJsonAsync(systemInstruction, userText, responseSchema, temperature, cancellationToken);
+
+    public Task<JsonLlmResult> GenerateJsonWithInfoAsync(
+        string systemInstruction,
+        string userText,
+        object responseSchema,
+        double? temperature = null,
+        CancellationToken cancellationToken = default) =>
+        Current.GenerateJsonWithInfoAsync(systemInstruction, userText, responseSchema, temperature, cancellationToken);
 }

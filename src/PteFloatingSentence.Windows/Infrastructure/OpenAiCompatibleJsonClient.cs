@@ -71,7 +71,10 @@ public sealed class OpenAiCompatibleJsonClient : JsonLlmClientBase
         if (temperature is not null)
             payload["temperature"] = temperature.Value;
         if (!relaxed && model.StartsWith("openai/gpt-oss", StringComparison.OrdinalIgnoreCase))
+        {
             payload["reasoning_effort"] = "low";
+            payload["include_reasoning"] = false;
+        }
 
         var request = new HttpRequestMessage(HttpMethod.Post, _endpoint) { Content = JsonContent(payload) };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);

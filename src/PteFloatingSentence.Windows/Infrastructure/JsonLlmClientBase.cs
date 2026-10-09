@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using PteFloatingSentence.Core;
 
 namespace PteFloatingSentence.Windows.Infrastructure;
 
@@ -58,8 +60,18 @@ public abstract class JsonLlmClientBase : IJsonLlmClient, IDisposable
         string userText,
         object responseSchema,
         double? temperature = null,
+        CancellationToken cancellationToken = default) =>
+        (await GenerateJsonWithInfoAsync(systemInstruction, userText, responseSchema, temperature, cancellationToken)).Text;
+
+    public async Task<JsonLlmResult> GenerateJsonWithInfoAsync(
+        string systemInstruction,
+        string userText,
+        object responseSchema,
+        double? temperature = null,
         CancellationToken cancellationToken = default)
     {
+        var watch = Stopwatch.StartNew();
+        var attempts = 0;
         var key = _keyProvider()?.Trim();
         if (string.IsNullOrEmpty(key))
             throw new InvalidOperationException(MissingKeyText(ProviderName));
@@ -80,6 +92,7 @@ public abstract class JsonLlmClientBase : IJsonLlmClient, IDisposable
 
                     HttpStatusCode status;
                     string? body;
+                    attempts++;
                     try
                     {
                         using var request = CreateRequest(model, key, systemInstruction, userText, responseSchema, temperature, relaxed);
@@ -108,7 +121,7 @@ public abstract class JsonLlmClientBase : IJsonLlmClient, IDisposable
                             : $"{ProviderName} request failed (HTTP {(int)status}). Try again later.");
                     }
 
-                    return ExtractJson(body);
+                    return new JsonLlmResult(ExtractJson(body), new AiCallInfo(ProviderName, model, watch.Elapsed, attempts));
                 }
             }
 

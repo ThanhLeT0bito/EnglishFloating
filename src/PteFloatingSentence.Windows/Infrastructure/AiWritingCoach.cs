@@ -62,8 +62,8 @@ public sealed class AiWritingCoach : IWritingCoach
             recentSentences = (request.RecentVietnamese ?? []).TakeLast(20).ToArray()
         }, DataJson);
 
-        var text = await _client.GenerateJsonAsync(system, data, GenerateSchema, temperature: 1.0, cancellationToken);
-        return ParsePrompt(text, request.Level, topics, requestedTopics.Count);
+        var result = await _client.GenerateJsonWithInfoAsync(system, data, GenerateSchema, temperature: 1.0, cancellationToken);
+        return ParsePrompt(result.Text, request.Level, topics, requestedTopics.Count) with { Call = result.Info };
     }
 
     public async Task<WritingFeedback> CheckAsync(
@@ -101,8 +101,8 @@ public sealed class AiWritingCoach : IWritingCoach
             learnerAnswer = answer
         }, DataJson);
 
-        var text = await _client.GenerateJsonAsync(system, data, CheckSchema, temperature: 0.2, cancellationToken);
-        return ParseFeedback(text);
+        var result = await _client.GenerateJsonWithInfoAsync(system, data, CheckSchema, temperature: 0.2, cancellationToken);
+        return ParseFeedback(result.Text) with { Call = result.Info };
     }
 
     internal static WritingPrompt ParsePrompt(string json, WritingLevel level, IReadOnlyList<string> topics, int requestedTopicCount)

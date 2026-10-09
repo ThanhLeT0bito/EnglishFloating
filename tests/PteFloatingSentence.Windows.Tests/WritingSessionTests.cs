@@ -243,6 +243,87 @@ public sealed class WritingSessionTests
             session.GenerateAsync(Topics, WritingLevel.Medium, WritingExplanationLanguage.English));
     }
 
+    [TestMethod]
+    public async Task Prefetch_PreparesNextSentenceAndUsesItInstantly()
+    {
+        var coach = new FakeCoach();
+        using var session = new WritingSession(coach, prefetchNext: true);
+
+        await session.GenerateAsync(Topics, WritingLevel.Medium, WritingExplanationLanguage.English);
+        Assert.AreEqual(2, coach.Requests.Count, "the next sentence is requested right after the first is shown");
+        Assert.IsTrue(session.HasPrefetch);
+        CollectionAssert.AreEqual(new[] { "Câu 1" }, coach.Requests[1].RecentVietnamese.ToArray(), "the prefetch avoids the shown sentence");
+        Assert.IsFalse(session.PromptWasPrefetched);
+
+        await session.GenerateAsync(Topics, WritingLevel.Medium, WritingExplanationLanguage.English);
+
+        Assert.AreEqual("Câu 2", session.Prompt!.Vietnamese);
+        Assert.IsTrue(session.PromptWasPrefetched);
+        Assert.AreEqual(3, coach.Requests.Count, "using the prefetch starts the next one");
+    }
+
+    [TestMethod]
+    public async Task Prefetch_ChangedOptionsCancelItAndAskAgain()
+    {
+        var coach = new FakeCoach { HoldGenerate = true };
+        using var session = new WritingSession(coach, prefetchNext: true);
+        var first = session.GenerateAsync(Topics, WritingLevel.Medium, WritingExplanationLanguage.English);
+        coach.CompleteGenerate(0, PromptFor("Câu đầu"));
+        await first;
+        Assert.AreEqual(2, coach.Requests.Count);
+
+        var second = session.GenerateAsync(Topics, WritingLevel.Hard, WritingExplanationLanguage.English);
+
+        Assert.IsTrue(coach.GenerateTokens[1].IsCancellationRequested, "the Medium prefetch is dropped");
+        Assert.AreEqual(WritingLevel.Hard, coach.Requests[2].Level);
+        coach.CompleteGenerate(2, PromptFor("Câu khó"));
+        await second;
+        Assert.AreEqual("Câu khó", session.Prompt!.Vietnamese);
+        Assert.IsFalse(session.PromptWasPrefetched);
+    }
+
+    [TestMethod]
+    public async Task Prefetch_FailureFallsBackToForegroundRequest()
+    {
+        var coach = new FakeCoach { FailOnCalls = [2] };
+        using var session = new WritingSession(coach, prefetchNext: true);
+        await session.GenerateAsync(Topics, WritingLevel.Medium, WritingExplanationLanguage.English);
+
+        await session.GenerateAsync(Topics, WritingLevel.Medium, WritingExplanationLanguage.English);
+
+        Assert.AreEqual(WritingSessionState.Answering, session.State);
+        Assert.IsNull(session.Error);
+        Assert.IsFalse(session.PromptWasPrefetched);
+        Assert.AreEqual("Câu 2", session.Prompt!.Vietnamese);
+        Assert.AreEqual(4, coach.Requests.Count, "failed prefetch, foreground retry, then a new prefetch");
+    }
+
+    [TestMethod]
+    public async Task Prefetch_IsCancelledOnDispose()
+    {
+        var coach = new FakeCoach { HoldGenerate = true };
+        var session = new WritingSession(coach, prefetchNext: true);
+        var first = session.GenerateAsync(Topics, WritingLevel.Medium, WritingExplanationLanguage.English);
+        coach.CompleteGenerate(0, PromptFor("Câu"));
+        await first;
+
+        session.Dispose();
+
+        Assert.IsTrue(coach.GenerateTokens[1].IsCancellationRequested);
+    }
+
+    [TestMethod]
+    public async Task WithoutPrefetch_OnlyOneRequestPerSentence()
+    {
+        var coach = new FakeCoach();
+        using var session = new WritingSession(coach);
+
+        await session.GenerateAsync(Topics, WritingLevel.Medium, WritingExplanationLanguage.English);
+
+        Assert.AreEqual(1, coach.Requests.Count);
+        Assert.IsFalse(session.HasPrefetch);
+    }
+
     private sealed class FakeCoach : IWritingCoach
     {
         private readonly List<TaskCompletionSource<WritingPrompt>> _pendingGenerates = [];
@@ -253,6 +334,7 @@ public sealed class WritingSessionTests
         public bool HoldCheck { get; set; }
         public Exception? GenerateFailure { get; set; }
         public Exception? CheckFailure { get; set; }
+        public HashSet<int> FailOnCalls { get; set; } = [];
         public WritingPrompt? NextPrompt { get; set; }
         public List<WritingRequest> Requests { get; } = [];
         public List<CancellationToken> GenerateTokens { get; } = [];
@@ -266,6 +348,8 @@ public sealed class WritingSessionTests
             GenerateTokens.Add(cancellationToken);
             if (GenerateFailure is not null)
                 return Task.FromException<WritingPrompt>(GenerateFailure);
+            if (FailOnCalls.Contains(Requests.Count))
+                return Task.FromException<WritingPrompt>(new InvalidOperationException("request failed"));
             if (HoldGenerate)
             {
                 var completion = new TaskCompletionSource<WritingPrompt>(TaskCreationOptions.RunContinuationsAsynchronously);

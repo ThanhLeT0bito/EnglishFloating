@@ -107,4 +107,16 @@ public sealed class WritingPresentationTests
             "A, B, C +2 more · Easy · Explain in English",
             WritingPresentation.SetupSummary(["A", "B", "C", "D", "E"], WritingLevel.Easy, WritingExplanationLanguage.English));
     }
+    [TestMethod]
+    public void CallText_ShowsProviderModelTimeAndRetries()
+    {
+        Assert.AreEqual("Groq · openai/gpt-oss-120b · 1.3 s",
+            WritingPresentation.CallText(new AiCallInfo("Groq", "openai/gpt-oss-120b", TimeSpan.FromMilliseconds(1260), 1)));
+        Assert.AreEqual("Gemini · gemini-3.8-flash · 4.0 s · 2 attempts",
+            WritingPresentation.CallText(new AiCallInfo("Gemini", "gemini-3.8-flash", TimeSpan.FromSeconds(4), 2)));
+        Assert.AreEqual("Claude · 0.5 s", WritingPresentation.CallText(new AiCallInfo("Claude", "", TimeSpan.FromSeconds(0.5), 1)));
+        Assert.AreEqual("Groq · prepared in advance · ready instantly",
+            WritingPresentation.CallText(new AiCallInfo("Groq", "m", TimeSpan.FromSeconds(1), 1), prefetched: true));
+        Assert.AreEqual(string.Empty, WritingPresentation.CallText(null));
+    }
 }

@@ -87,6 +87,20 @@ public static class WritingPresentation
         return $"{topics} · {LevelLabel(level)} · Explain in {explain}";
     }
 
+    /// <summary>Timing line such as "Groq · openai/gpt-oss-120b · 1.3 s", or "ready instantly" for a prepared sentence.</summary>
+    public static string CallText(AiCallInfo? call, bool prefetched = false)
+    {
+        if (prefetched)
+            return call is null ? "Prepared in advance · ready instantly" : $"{call.Provider} · prepared in advance · ready instantly";
+        if (call is null)
+            return string.Empty;
+
+        var model = string.IsNullOrWhiteSpace(call.Model) ? call.Provider : $"{call.Provider} · {call.Model}";
+        var seconds = call.Elapsed.TotalSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+        var retries = call.Attempts > 1 ? $" · {call.Attempts} attempts" : string.Empty;
+        return $"{model} · {seconds} s{retries}";
+    }
+
     public static string PromptMeta(WritingPrompt prompt) => $"{prompt.Topic} · {LevelLabel(prompt.Level)}";
 
     public static string IssueText(WritingIssue issue)

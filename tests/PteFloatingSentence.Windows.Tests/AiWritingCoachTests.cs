@@ -244,4 +244,16 @@ public sealed class AiWritingCoachTests
     {
         StringAssert.Contains(AiWritingCoach.LevelRules(level), expected);
     }
+    [TestMethod]
+    public async Task GenerateAndCheck_ReportHowTheyWereAnswered()
+    {
+        var (coach, _) = CoachReturning(ValidExercise);
+        var prompt = await coach.GenerateAsync(Request("Traffic & transport"));
+        var (checker, _) = CoachReturning("{\"score\":80,\"correctedSentence\":\"Fine.\",\"naturalAlternative\":\"\",\"summary\":\"\",\"issues\":[]}");
+        var feedback = await checker.CheckAsync(Prompt, "Fine.", WritingExplanationLanguage.English);
+
+        Assert.AreEqual("Gemini", prompt.Call!.Provider);
+        Assert.AreEqual("model-a", prompt.Call.Model);
+        Assert.AreEqual("model-a", feedback.Call!.Model);
+    }
 }

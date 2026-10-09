@@ -50,7 +50,11 @@ public sealed record WritingTips(IReadOnlyList<WritingVocabularyHint> Vocabulary
 }
 
 /// <summary>A generated exercise. <see cref="ReferenceEnglish"/> stays hidden from the learner until checking.</summary>
-public sealed record WritingPrompt(string Vietnamese, string ReferenceEnglish, string Topic, WritingLevel Level, WritingTips Tips);
+public sealed record WritingPrompt(string Vietnamese, string ReferenceEnglish, string Topic, WritingLevel Level, WritingTips Tips)
+{
+    /// <summary>How the prompt was generated, for the timing line on the Writing page.</summary>
+    public AiCallInfo? Call { get; init; }
+}
 
 /// <summary>One problem in the learner's answer. <see cref="Original"/> is copied from the answer and is empty for missing meaning.</summary>
 public sealed record WritingIssue(WritingIssueType Type, string Original, string Suggestion, string Explanation);
@@ -61,7 +65,11 @@ public sealed record WritingFeedback(
     string CorrectedSentence,
     string? NaturalAlternative,
     string Summary,
-    IReadOnlyList<WritingIssue> Issues);
+    IReadOnlyList<WritingIssue> Issues)
+{
+    /// <summary>How the check was answered, for the timing line on the Writing page.</summary>
+    public AiCallInfo? Call { get; init; }
+}
 
 /// <summary>A highlighted span of the learner's answer that belongs to <c>Issues[IssueIndex]</c>.</summary>
 public readonly record struct WritingHighlight(int Start, int Length, int IssueIndex);
