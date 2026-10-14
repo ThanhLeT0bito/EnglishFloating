@@ -11,7 +11,7 @@ public sealed class AnthropicJsonClient : JsonLlmClientBase
 {
     public const string Endpoint = "https://api.anthropic.com/v1/messages";
     public const string ApiVersion = "2023-06-01";
-    public const int MaxTokens = 2048;
+    public const int MaxTokens = 4096;
 
     /// <summary>Haiku is the fastest and cheapest Claude model.</summary>
     public static readonly IReadOnlyList<string> DefaultModels = ["claude-haiku-5-5", "claude-haiku-4-5"];

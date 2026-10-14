@@ -515,6 +515,13 @@
         </Button>
         <StackPanel x:Name="ResultBody" Margin="6,6,0,4" Visibility="Collapsed">
             <TextBlock x:Name="SummaryText" FontSize="12.5" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
+            <Button x:Name="GrammarHintButton" Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" HorizontalAlignment="Left" Margin="0,0,0,8" Visibility="Collapsed"
+                    ToolTip="Open a lesson about this grammar point in Settings" Click="GrammarHintButton_Click">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE82D;" Foreground="#FFFBBF24" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBlock x:Name="GrammarHintText" VerticalAlignment="Center" TextWrapping="Wrap" />
+                </StackPanel>
+            </Button>
             <TextBlock x:Name="AnswerHighlightText" FontSize="14.5" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
             <TextBlock x:Name="NoIssuesText" FontSize="12.5" Foreground="#FF34D399" Margin="0,8,0,0" Text="No mistakes found. Well done!" Visibility="Collapsed" />
             <StackPanel x:Name="IssuesPanel" Margin="0,8,0,0" />

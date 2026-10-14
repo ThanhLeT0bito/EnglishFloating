@@ -397,6 +397,9 @@
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Writing}">
                         <TextBlock Text="Writing" FontSize="14" />
                     </ListBoxItem>
+                    <ListBoxItem Tag="{x:Static local:SettingsPageId.Grammar}">
+                        <TextBlock Text="Grammar" FontSize="14" />
+                    </ListBoxItem>
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Gemini}">
                         <TextBlock Text="AI" FontSize="14" />
                     </ListBoxItem>
@@ -452,6 +455,11 @@
                             <!-- Writing Section -->
                             <Grid x:Name="WritingSection" Visibility="Collapsed">
                                 <local:WritingPage x:Name="WritingPageControl" />
+                            </Grid>
+
+                            <!-- Grammar Section -->
+                            <Grid x:Name="GrammarSection" Visibility="Collapsed">
+                                <local:GrammarPage x:Name="GrammarPageControl" />
                             </Grid>
 
                             <!-- Gemini Section -->

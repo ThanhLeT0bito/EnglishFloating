@@ -69,6 +69,9 @@ public sealed record WritingPrompt(string Vietnamese, string ReferenceEnglish, s
 
     /// <summary>Instruction shown with the prompt, e.g. the connector to use when combining.</summary>
     public string Instruction { get; init; } = string.Empty;
+
+    /// <summary>Grammar topic this sentence drills (<see cref="GrammarTopic.Key"/>); null for a normal sentence.</summary>
+    public string? FocusTopicKey { get; init; }
 }
 
 /// <summary>One problem in the learner's answer. <see cref="Original"/> is copied from the answer and is empty for missing meaning.</summary>
@@ -82,6 +85,9 @@ public sealed record WritingIssue(WritingIssueType Type, string Original, string
         get => _tag ?? WritingSkillTags.DefaultFor(Type);
         init => _tag = value;
     }
+
+    /// <summary>The <see cref="GrammarTopic"/> key this mistake belongs to, e.g. "present-simple"; null when none fits.</summary>
+    public string? TopicKey { get; init; }
 }
 
 public sealed record WritingFeedback(

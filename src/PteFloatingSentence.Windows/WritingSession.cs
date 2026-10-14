@@ -128,7 +128,8 @@ public sealed class WritingSession : IDisposable
         IReadOnlyList<string> topicNames,
         WritingLevel level,
         WritingExplanationLanguage language,
-        IReadOnlyList<WritingSkillTag>? focusTags = null)
+        IReadOnlyList<WritingSkillTag>? focusTags = null,
+        GrammarTopic? focusTopic = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var topics = (topicNames ?? []).ToList();
@@ -146,7 +147,7 @@ public sealed class WritingSession : IDisposable
         _retry = null;
         SetState(WritingSessionState.Generating);
 
-        var key = PrefetchKey(mode, topics, level, language, focus);
+        var key = PrefetchKey(mode, topics, level, language, focus, focusTopic);
         var prefetched = TakePrefetch(key);
         try
         {
@@ -164,14 +165,14 @@ public sealed class WritingSession : IDisposable
                 }
             }
 
-            prompt ??= await _coach.GenerateAsync(NewRequest(mode, topics, level, language, focus), request.Token);
+            prompt ??= await _coach.GenerateAsync(NewRequest(mode, topics, level, language, focus, focusTopic), request.Token);
             if (!IsCurrent(generation))
                 return;
 
             Prompt = prompt;
             Remember(prompt.Vietnamese);
             SetState(WritingSessionState.Answering);
-            StartPrefetch(key, mode, topics, level, language, focus);
+            StartPrefetch(key, mode, topics, level, language, focus, focusTopic);
         }
         catch (OperationCanceledException) when (request.IsCancellationRequested)
         {
@@ -183,7 +184,7 @@ public sealed class WritingSession : IDisposable
                 return;
 
             Error = MessageFor(error);
-            _retry = () => GenerateAsync(topics, level, language, focus);
+            _retry = () => GenerateAsync(topics, level, language, focus, focusTopic);
             SetState(WritingSessionState.Idle);
         }
         finally
@@ -349,8 +350,9 @@ public sealed class WritingSession : IDisposable
         IReadOnlyList<string> topics,
         WritingLevel level,
         WritingExplanationLanguage language,
-        IReadOnlyList<WritingSkillTag> focus) =>
-        new(topics, level, language, _recent.ToList()) { FocusTags = focus, Mode = mode };
+        IReadOnlyList<WritingSkillTag> focus,
+        GrammarTopic? focusTopic) =>
+        new(topics, level, language, _recent.ToList()) { FocusTags = focus, Mode = mode, FocusTopic = focusTopic };
 
     /// <summary>Repeats the last failed generate or check.</summary>
     public Task RetryAsync()
@@ -392,8 +394,9 @@ public sealed class WritingSession : IDisposable
         IReadOnlyList<string> topics,
         WritingLevel level,
         WritingExplanationLanguage language,
-        IReadOnlyList<WritingSkillTag> focus) =>
-        $"{mode}|{level}|{language}|{string.Join(",", focus)}|{string.Join("\u001f", topics)}";
+        IReadOnlyList<WritingSkillTag> focus,
+        GrammarTopic? focusTopic) =>
+        $"{mode}|{level}|{language}|{string.Join(",", focus)}|{focusTopic?.Key}|{string.Join("\u001f", topics)}";
 
     /// <summary>Hands over a prefetched request made with the same options, cancelling one made with other options.</summary>
     private Task<WritingPrompt>? TakePrefetch(string key)
@@ -415,7 +418,8 @@ public sealed class WritingSession : IDisposable
         IReadOnlyList<string> topics,
         WritingLevel level,
         WritingExplanationLanguage language,
-        IReadOnlyList<WritingSkillTag> focus)
+        IReadOnlyList<WritingSkillTag> focus,
+        GrammarTopic? focusTopic)
     {
         CancelPrefetch();
         if (!_prefetchNext || _disposed)
@@ -425,7 +429,7 @@ public sealed class WritingSession : IDisposable
         Task<WritingPrompt> task;
         try
         {
-            task = _coach.GenerateAsync(NewRequest(mode, topics, level, language, focus), cancellation.Token);
+            task = _coach.GenerateAsync(NewRequest(mode, topics, level, language, focus, focusTopic), cancellation.Token);
         }
         catch (Exception error)
         {

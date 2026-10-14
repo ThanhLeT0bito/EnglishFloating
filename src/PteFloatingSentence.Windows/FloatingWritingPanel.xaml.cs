@@ -55,6 +55,9 @@ public partial class FloatingWritingPanel : UserControl, IDisposable
     /// <summary>Asks the host to play (or stop) audio: the corrected sentence, or the dictation sentence.</summary>
     public event Action<WritingAudioRequest>? AudioRequested;
 
+    /// <summary>Asks the host to open the lesson for a grammar topic key (the learner keeps making that mistake).</summary>
+    public event Action<string>? GrammarTopicRequested;
+
     /// <summary>Adds the corrected sentence to the active study list; supplied by the host.</summary>
     public Func<string, ValidationResult>? SaveSentence { get; set; }
 
@@ -756,6 +759,17 @@ public partial class FloatingWritingPanel : UserControl, IDisposable
         NaturalText.Text = string.IsNullOrWhiteSpace(feedback.NaturalAlternative) ? string.Empty : "Natural: " + feedback.NaturalAlternative;
         NaturalText.Visibility = string.IsNullOrWhiteSpace(feedback.NaturalAlternative) ? Visibility.Collapsed : Visibility.Visible;
         ResultCallText.Text = WritingPresentation.CallText(feedback.Call);
+
+        var repeated = _history?.RepeatedTopics(feedback.Issues).FirstOrDefault();
+        GrammarHintButton.Visibility = repeated is null ? Visibility.Collapsed : Visibility.Visible;
+        GrammarHintButton.Tag = repeated?.Topic.Key;
+        GrammarHintText.Text = repeated is null ? string.Empty : GrammarPresentation.RepeatHint(repeated);
+    }
+
+    private void GrammarHintButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string key })
+            GrammarTopicRequested?.Invoke(key);
     }
 
     private UIElement CreateIssueRow(WritingIssue issue)

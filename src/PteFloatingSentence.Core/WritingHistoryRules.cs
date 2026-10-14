@@ -40,7 +40,10 @@ public static class WritingHistoryRules
                 Clip(issue.Explanation),
                 Clip(source),
                 Clip(answer),
-                Clip(feedback.CorrectedSentence)))
+                Clip(feedback.CorrectedSentence))
+            {
+                TopicKey = GrammarTopics.Find(issue.TopicKey)?.Key
+            })
             .Where(mistake => known.Add(SameMistakeKey(mistake)))
             .ToList();
         if (added.Count == 0)
@@ -150,13 +153,18 @@ public static class WritingHistoryRules
                 Explanation = Clip(mistake.Explanation),
                 Source = Clip(mistake.Source),
                 Answer = Clip(mistake.Answer),
-                Corrected = Clip(mistake.Corrected)
+                Corrected = Clip(mistake.Corrected),
+                TopicKey = GrammarTopics.Find(mistake.TopicKey)?.Key
             });
         var reviews = (history.Reviews ?? []).Where(review => review is not null && Enum.IsDefined(review.Tag));
+        var drills = (history.Drills ?? [])
+            .Where(drill => drill is not null && !string.IsNullOrWhiteSpace(drill.TopicKey) && drill.Total is > 0 and <= 50 && drill.Passed >= 0 && drill.Passed <= drill.Total)
+            .ToList();
         return new WritingHistory
         {
             Mistakes = KeepNewest(mistakes, MaxMistakes),
-            Reviews = KeepNewest(reviews, MaxReviews)
+            Reviews = KeepNewest(reviews, MaxReviews),
+            Drills = drills.Count <= GrammarProgressRules.MaxDrills ? drills : drills.Skip(drills.Count - GrammarProgressRules.MaxDrills).ToList()
         };
     }
 

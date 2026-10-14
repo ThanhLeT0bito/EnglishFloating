@@ -1,0 +1,366 @@
+<UserControl x:Class="PteFloatingSentence.Windows.GrammarPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Foreground="#FFE2E8F0">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#FF111827" />
+        <SolidColorBrush x:Key="CardSubtleBrush" Color="#FF161F30" />
+        <SolidColorBrush x:Key="PanelBorderBrush" Color="#FF334155" />
+        <SolidColorBrush x:Key="InputBorderBrush" Color="#FF475569" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFF8FAFC" />
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FFE2E8F0" />
+        <SolidColorBrush x:Key="TextMutedBrush" Color="#FF94A3B8" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#FF2563EB" />
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="#FF1D4ED8" />
+
+        <Style x:Key="SectionLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+
+        <!-- Same look as the Settings window buttons: rounded corners, hover, pressed and disabled states. -->
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.8" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.4" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource AccentHoverBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="12,7" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Background" Value="#FF1E293B" />
+            <Setter Property="Foreground" Value="#FFD8E2F0" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.8" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.4" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FF2B3A52" />
+                    <Setter Property="BorderBrush" Value="#FF3B82F6" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="HeaderToggleStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="6,6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="HeaderBorder" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="HeaderBorder" Property="Background" Value="#FF1E293B" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+
+
+
+
+
+
+        <Style x:Key="AudioButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Content" Value="&#xE767;" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}" CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FF1E293B" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Background" Value="#FF1E293B" />
+            <Setter Property="Foreground" Value="#FFF8FAFC" />
+            <Setter Property="BorderBrush" Value="{StaticResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CaretBrush" Value="#FFF8FAFC" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                SnapsToDevicePixels="True">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Focusable="False"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Stretch"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Auto" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="BorderBrush" Value="#FF64748B" />
+                            </Trigger>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="Border" Property="BorderBrush" Value="#FF3B82F6" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="LessonHeadingStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="Margin" Value="0,20,0,8" />
+        </Style>
+
+        <Style x:Key="TopicButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Margin" Value="0,0,8,8" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <Style x:Key="QuizOptionStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Margin" Value="0,0,8,8" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="FontSize" Value="13.5" />
+        </Style>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <!-- ===== Browse: search, weak topics, all topics ===== -->
+        <StackPanel x:Name="BrowseView">
+            <Border Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionLabelStyle}" Text="Search a grammar topic" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid>
+                            <TextBox x:Name="SearchInput" FontSize="14" MinHeight="36" MaxLength="60" VerticalContentAlignment="Center" TextChanged="SearchInput_TextChanged" />
+                            <TextBlock x:Name="SearchPlaceholder" Text="e.g. hiện tại đơn, passive voice, used to…" FontSize="13.5" Foreground="#FF64748B"
+                                       VerticalAlignment="Center" Margin="12,0,0,0" IsHitTestVisible="False" />
+                        </Grid>
+                        <Button x:Name="SearchButton" Grid.Column="1" Content="Learn" Style="{StaticResource PrimaryButtonStyle}" Margin="8,0,0,0" Click="SearchButton_Click" />
+                    </Grid>
+                    <TextBlock x:Name="SearchHintText" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="2,6,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+                    <WrapPanel x:Name="SearchResultsPanel" Margin="0,8,0,0" Visibility="Collapsed" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="WeakCard" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="Your weak grammar" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
+                    <TextBlock Text="From the mistakes in your Writing notebook in the last 30 days. Learn the basics first, then practice." FontSize="12"
+                               Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                    <StackPanel x:Name="WeakTopicsPanel" Margin="0,10,0,0" />
+                    <TextBlock x:Name="NoWeakTopicsText" FontSize="13" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,10,0,0"
+                               Text="No repeated grammar mistakes yet. Check a few sentences on the Writing page and the grammar you keep missing shows up here." />
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="All topics" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="2,0,0,8" />
+            <StackPanel x:Name="CategoriesPanel" />
+        </StackPanel>
+
+        <!-- ===== Lesson ===== -->
+        <StackPanel x:Name="LessonView" Visibility="Collapsed">
+            <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Button x:Name="BackButton" Style="{StaticResource SecondaryButtonStyle}" ToolTip="Back to all topics" Click="BackButton_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE72B;" FontSize="11" VerticalAlignment="Center" />
+                        <TextBlock Text="All topics" Margin="6,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="RegenerateButton" Grid.Column="2" Content="Rewrite lesson" Style="{StaticResource SecondaryButtonStyle}" Margin="0"
+                        ToolTip="Ask the AI for a new version of this lesson" Click="RegenerateButton_Click" />
+            </Grid>
+
+            <TextBlock x:Name="LessonTitleText" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                <Border x:Name="StatusChip" CornerRadius="10" BorderThickness="1" Padding="8,1" VerticalAlignment="Center">
+                    <TextBlock x:Name="StatusChipText" FontSize="11.5" />
+                </Border>
+                <TextBlock x:Name="LessonStatLine" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <StackPanel x:Name="LessonStatusPanel" Orientation="Horizontal" Margin="0,16,0,0" Visibility="Collapsed">
+                <TextBlock x:Name="LessonStatusText" FontSize="13" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" MaxWidth="560" VerticalAlignment="Center" />
+                <Button x:Name="LessonRetryButton" Content="Retry" Style="{StaticResource SecondaryButtonStyle}" Margin="12,0,0,0" Visibility="Collapsed" Click="LessonRetryButton_Click" />
+            </StackPanel>
+
+            <StackPanel x:Name="LessonBody" Margin="0,16,0,0" Visibility="Collapsed">
+                <Border Background="#1A2563EB" BorderBrush="#663B82F6" BorderThickness="1" CornerRadius="8" Padding="16,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE82F;" Foreground="#FF93C5FD" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBlock x:Name="EssenceHeading" FontSize="13.5" FontWeight="SemiBold" Foreground="#FF93C5FD" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <TextBlock x:Name="EssenceText" FontSize="15" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" LineHeight="23" Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <StackPanel x:Name="FormSection">
+                    <TextBlock x:Name="FormHeading" Style="{StaticResource LessonHeadingStyle}" />
+                    <StackPanel x:Name="FormPanel" />
+                </StackPanel>
+
+                <StackPanel x:Name="UsesSection">
+                    <TextBlock x:Name="UsesHeading" Style="{StaticResource LessonHeadingStyle}" />
+                    <StackPanel x:Name="UsesPanel" />
+                </StackPanel>
+
+                <StackPanel x:Name="SignalSection">
+                    <TextBlock x:Name="SignalHeading" Style="{StaticResource LessonHeadingStyle}" />
+                    <WrapPanel x:Name="SignalPanel" />
+                </StackPanel>
+
+                <StackPanel x:Name="ContrastSection">
+                    <TextBlock x:Name="ContrastHeading" Style="{StaticResource LessonHeadingStyle}" />
+                    <TextBlock x:Name="ContrastText" FontSize="13.5" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                </StackPanel>
+
+                <StackPanel x:Name="CommonMistakesSection">
+                    <TextBlock x:Name="CommonMistakesHeading" Style="{StaticResource LessonHeadingStyle}" />
+                    <StackPanel x:Name="CommonMistakesPanel" />
+                </StackPanel>
+
+                <TextBlock x:Name="YourMistakesHeading" Style="{StaticResource LessonHeadingStyle}" />
+                <StackPanel x:Name="YourMistakesPanel" />
+                <TextBlock x:Name="NoYourMistakesText" FontSize="13" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" />
+
+                <TextBlock x:Name="ExamplesHeading" Style="{StaticResource LessonHeadingStyle}" />
+                <StackPanel x:Name="ExamplesPanel" />
+
+                <StackPanel x:Name="QuizSection">
+                    <TextBlock x:Name="QuizHeading" Style="{StaticResource LessonHeadingStyle}" />
+                    <StackPanel x:Name="QuizPanel" />
+                </StackPanel>
+
+                <Border Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="0,22,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Ready? Use it in real sentences." FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock x:Name="LastDrillText" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <Button x:Name="PracticeButton" Grid.Column="1" Style="{StaticResource PrimaryButtonStyle}" Margin="12,0,0,0" Click="PracticeButton_Click" />
+                    </Grid>
+                </Border>
+                <TextBlock x:Name="LessonCallText" FontSize="11" Foreground="#FF64748B" Margin="0,8,0,0" />
+            </StackPanel>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

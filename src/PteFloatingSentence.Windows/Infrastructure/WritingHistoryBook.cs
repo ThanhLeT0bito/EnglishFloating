@@ -123,6 +123,23 @@ public sealed class WritingHistoryBook
         Replace(updated);
     }
 
+    /// <summary>Saves the result of a grammar drill.</summary>
+    public void RecordDrill(GrammarDrillResult result) => Replace(GrammarProgressRules.RecordDrill(Current, result));
+
+    public GrammarTopicStat StatFor(GrammarTopic topic) => GrammarProgressRules.StatFor(Current, topic, Now);
+
+    /// <summary>Grammar topics to study next (see <see cref="GrammarProgressRules.Recommendations"/>).</summary>
+    public IReadOnlyList<GrammarTopicStat> GrammarRecommendations() => GrammarProgressRules.Recommendations(Current, Now);
+
+    public IReadOnlyList<GrammarTopicStat> GrammarStats() => GrammarProgressRules.Stats(Current, Now);
+
+    /// <summary>Topics of <paramref name="issues"/> the learner keeps getting wrong.</summary>
+    public IReadOnlyList<GrammarTopicStat> RepeatedTopics(IEnumerable<WritingIssue>? issues) =>
+        GrammarProgressRules.RepeatedTopics(Current, issues, Now);
+
+    public IReadOnlyList<WritingMistakeGroup> MistakesFor(string topicKey, int count) =>
+        GrammarProgressRules.MistakesFor(Current, topicKey, count);
+
     public void Clear() => Replace(WritingHistory.Empty);
 
     private void Replace(WritingHistory updated)

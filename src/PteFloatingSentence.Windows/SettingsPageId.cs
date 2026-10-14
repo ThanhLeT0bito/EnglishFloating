@@ -8,6 +8,7 @@ public enum SettingsPageId
     ReviewPractice,
     Gemini,
     Flashcards,
-    Writing
+    Writing,
+    Grammar
 }
 

@@ -35,6 +35,7 @@ public partial class WritingPage : UserControl, IDisposable
     private bool _mistakesCollapsed = true;
     private bool _tipsCollapsed;
     private bool _clearArmed;
+    private GrammarDrill? _drill;
     private Action? _onDraftChanged;
     private bool _rendering;
     private bool _disposed;
@@ -63,6 +64,15 @@ public partial class WritingPage : UserControl, IDisposable
 
     /// <summary>The mistake notebook shown on this page.</summary>
     public WritingHistoryBook History => _history;
+
+    /// <summary>The grammar drill in progress (or just finished), or null.</summary>
+    public GrammarDrill? Drill => _drill;
+
+    /// <summary>Asks the host to open the lesson for a grammar topic key.</summary>
+    public event Action<string>? GrammarTopicRequested;
+
+    /// <summary>Asks the host to open the lesson of the drill topic (custom topics included).</summary>
+    public event Action<GrammarTopic>? GrammarLessonRequested;
 
     public void Initialize(StudyListDraft draft, IWritingCoach? coach, Action? onDraftChanged = null, WritingHistoryBook? history = null)
     {
@@ -120,7 +130,9 @@ public partial class WritingPage : UserControl, IDisposable
         if (_session is null || _draft is null)
             return;
 
-        _session.Mode = _draft.Settings.WritingPracticeMode;
+        var mode = _draft.Settings.WritingPracticeMode;
+        // A drill needs English answers checked by the AI.
+        _session.Mode = _drill is { IsComplete: false } ? GrammarDrill.ModeFor(mode) : mode;
         _session.RetypeEnabled = _draft.Settings.WritingRetypeEnabled;
     }
 
@@ -500,8 +512,16 @@ public partial class WritingPage : UserControl, IDisposable
         SaveStatusText.Visibility = Visibility.Collapsed;
         var settings = _draft.Settings;
         var topics = WritingTopicRules.SelectedTopics(settings).Select(topic => topic.Name).ToList();
+        if (_drill is { IsComplete: true })
+        {
+            // The next sentence after a finished drill is a normal one.
+            _drill = null;
+            RenderDrill();
+        }
+
         ApplySessionOptions();
-        await _session.GenerateAsync(topics, settings.WritingLevel, settings.WritingExplanationLanguage, FocusTags());
+        var drillTopic = _drill?.Topic;
+        await _session.GenerateAsync(topics, settings.WritingLevel, settings.WritingExplanationLanguage, drillTopic is null ? FocusTags() : [], drillTopic);
         if (_session is { State: WritingSessionState.Answering } session)
         {
             // Options are set; fold them away so the sentence and answer get the space.
@@ -525,6 +545,7 @@ public partial class WritingPage : UserControl, IDisposable
         if (_session is not { State: WritingSessionState.Reviewed, Feedback: not null } session)
             return;
 
+        RecordDrillCheck(session);
         if (session.IsRetyping)
         {
             // The answer stays highlighted in the result; the box is now for typing the corrected sentence.
@@ -535,6 +556,84 @@ public partial class WritingPage : UserControl, IDisposable
         {
             await PlayAsync(english, restart: true);
         }
+    }
+
+    // ---- Grammar drill ---------------------------------------------------------------------------
+
+    /// <summary>Starts a drill of <see cref="GrammarProgressRules.DrillLength"/> sentences on <paramref name="topic"/>.</summary>
+    public async Task StartDrillAsync(GrammarTopic topic)
+    {
+        ArgumentNullException.ThrowIfNull(topic);
+        if (_disposed)
+            return;
+
+        _drill = new GrammarDrill(topic);
+        RenderDrill();
+        await GenerateAsync();
+    }
+
+    /// <summary>Stops the drill; the next sentence is a normal one.</summary>
+    public void EndDrill()
+    {
+        _drill = null;
+        ApplySessionOptions();
+        RenderDrill();
+        RenderSession();
+    }
+
+    private void RecordDrillCheck(WritingSession session)
+    {
+        if (_drill is not { IsComplete: false } drill || session.Prompt is not { } prompt || session.Feedback is not { } feedback)
+            return;
+        // Only sentences written for this drill count.
+        if (!string.Equals(prompt.FocusTopicKey, drill.Topic.Key, StringComparison.Ordinal))
+            return;
+
+        if (drill.Record(prompt, feedback))
+            _history.RecordDrill(drill.ToResult(_history.Now));
+        RenderDrill();
+    }
+
+    private void RenderDrill()
+    {
+        if (_disposed)
+            return;
+
+        var drill = _drill;
+        DrillBanner.Visibility = drill is null ? Visibility.Collapsed : Visibility.Visible;
+        if (drill is null)
+            return;
+
+        DrillProgressText.Text = drill.IsComplete ? $"Drill · {drill.Topic.Name}" : GrammarPresentation.DrillProgress(drill);
+        DrillSummaryPanel.Visibility = drill.IsComplete ? Visibility.Visible : Visibility.Collapsed;
+        DrillSummaryText.Text = drill.IsComplete ? GrammarPresentation.DrillSummary(drill) : string.Empty;
+        EndDrillButton.Content = drill.IsComplete ? "Close" : "End drill";
+    }
+
+    private void EndDrillButton_Click(object sender, RoutedEventArgs e) => EndDrill();
+
+    private async void DrillAgainButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_drill is not null)
+            await StartDrillAsync(_drill.Topic);
+    }
+
+    private void DrillLessonButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_drill is not null)
+            GrammarLessonRequested?.Invoke(_drill.Topic);
+    }
+
+    private void GrammarHintButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string key })
+            GrammarTopicRequested?.Invoke(key);
+    }
+
+    private void GrammarReviewButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string key })
+            GrammarTopicRequested?.Invoke(key);
     }
 
     private void WritingPage_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -641,6 +740,7 @@ public partial class WritingPage : UserControl, IDisposable
         CheckButton.IsEnabled = hasPrompt && session.State is WritingSessionState.Answering or WritingSessionState.Reviewed;
         CheckButton.Content = WritingPresentation.CheckButtonText(session.State, session.IsRetyping);
         RenderRetype(session);
+        RenderDrill();
 
         RenderFeedback(session);
     }
@@ -719,6 +819,14 @@ public partial class WritingPage : UserControl, IDisposable
             });
         }
 
+        GrammarReviewPanel.Children.Clear();
+        var review = _history.GrammarRecommendations();
+        GrammarReviewLabel.Visibility = review.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        foreach (var stat in review)
+            GrammarReviewPanel.Children.Add(CreateGrammarReviewRow(stat));
+        if (review.Count > 0)
+            MistakesSummaryText.Text += $" · Review: {review[0].Topic.Name}";
+
         var recent = WritingHistoryRules.RecentMistakeGroups(_history.Current, RecentMistakeRows);
         NoMistakesText.Visibility = recent.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         RecentMistakesLabel.Visibility = recent.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
@@ -728,6 +836,44 @@ public partial class WritingPage : UserControl, IDisposable
         RecentMistakesPanel.Children.Clear();
         foreach (var group in recent)
             RecentMistakesPanel.Children.Add(CreateMistakeRow(group, now));
+    }
+
+    private UIElement CreateGrammarReviewRow(GrammarTopicStat stat)
+    {
+        var row = new Grid { Margin = new Thickness(0, 0, 0, 6) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var color = BrushFromHex(GrammarPresentation.StatusColor(stat.Status));
+        var text = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        text.Children.Add(new TextBlock
+        {
+            Text = GrammarPresentation.TopicTitle(stat.Topic),
+            FontSize = 13,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)FindResource("TextPrimaryBrush"),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        text.Children.Add(new TextBlock
+        {
+            Text = $"  {GrammarPresentation.StatusLabel(stat.Status)} · {GrammarPresentation.StatLine(stat)}",
+            FontSize = 12,
+            Foreground = color,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        row.Children.Add(text);
+
+        var learn = new Button
+        {
+            Content = GrammarPresentation.LearnButtonText(stat.Topic),
+            Tag = stat.Topic.Key,
+            Style = (Style)FindResource("SecondaryButtonStyle"),
+            Padding = new Thickness(10, 4, 10, 4),
+            Margin = new Thickness(10, 0, 0, 0)
+        };
+        learn.Click += GrammarReviewButton_Click;
+        Grid.SetColumn(learn, 1);
+        row.Children.Add(learn);
+        return row;
     }
 
     private UIElement CreateMistakeRow(WritingMistakeGroup group, DateTimeOffset now)
@@ -890,6 +1036,12 @@ public partial class WritingPage : UserControl, IDisposable
         ResultCallText.Text = WritingPresentation.CallText(feedback.Call);
         NaturalSection.Visibility = string.IsNullOrWhiteSpace(feedback.NaturalAlternative) ? Visibility.Collapsed : Visibility.Visible;
         NaturalText.Text = feedback.NaturalAlternative ?? string.Empty;
+
+        // Point to the lesson when this check repeats a grammar mistake the learner keeps making.
+        var repeated = _history.RepeatedTopics(feedback.Issues).FirstOrDefault(stat => stat.Topic.Key != _drill?.Topic.Key);
+        GrammarHintButton.Visibility = repeated is null ? Visibility.Collapsed : Visibility.Visible;
+        GrammarHintButton.Tag = repeated?.Topic.Key;
+        GrammarHintText.Text = repeated is null ? string.Empty : GrammarPresentation.RepeatHint(repeated);
     }
 
     private UIElement CreateIssueRow(WritingIssue issue)

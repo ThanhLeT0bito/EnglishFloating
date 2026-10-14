@@ -16,6 +16,9 @@ public sealed record WritingRequest(
 
     /// <summary>Kind of exercise to create; dictation uses a translate exercise.</summary>
     public WritingPracticeMode Mode { get; init; } = WritingPracticeMode.Translate;
+
+    /// <summary>Grammar topic the sentence must drill; when set, <see cref="FocusTags"/> is ignored.</summary>
+    public GrammarTopic? FocusTopic { get; init; }
 }
 
 public interface IWritingCoach

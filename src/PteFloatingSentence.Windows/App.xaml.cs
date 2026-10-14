@@ -22,6 +22,7 @@ public partial class App : System.Windows.Application
     private AiSentencePhraser? _sentencePhraser;
     private AiWritingCoach? _writingCoach;
     private readonly WritingHistoryBook _writingHistory = new(new JsonWritingHistoryStore());
+    private GrammarLessonLibrary? _grammarLibrary;
     private VocabularyWorkflow? _vocabularyWorkflow;
     private Core.AppSettings _settings = Core.AppSettings.Default;
     private FloatingWindow? _floatingWindow;
@@ -30,6 +31,9 @@ public partial class App : System.Windows.Application
     private readonly WindowsStartupRegistration _startupRegistration = new();
     private SingleInstanceGuard? _singleInstanceGuard;
     private bool _isShuttingDown;
+
+    private static readonly TimeSpan LessonTimeout = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan LessonAttemptTimeout = TimeSpan.FromSeconds(45);
 
     public App()
     {
@@ -72,6 +76,19 @@ public partial class App : System.Windows.Application
         _explainer = new AiVocabularyExplainer(_aiClient);
         _sentencePhraser = new AiSentencePhraser(_aiClient);
         _writingCoach = new AiWritingCoach(_aiClient);
+
+        // Lessons are long answers: give them their own clients with more time per request.
+        var lessonGemini = new GeminiJsonClient(() => _apiKeyStore.Load(), timeout: LessonTimeout, attemptTimeout: LessonAttemptTimeout);
+        var lessonGroq = OpenAiCompatibleJsonClient.ForGroq(() => _groqKeyStore.Load(), timeout: LessonTimeout, attemptTimeout: LessonAttemptTimeout);
+        var lessonClaude = new AnthropicJsonClient(() => _claudeKeyStore.Load(), timeout: LessonTimeout, attemptTimeout: LessonAttemptTimeout);
+        _aiClients.AddRange([lessonGemini, lessonGroq, lessonClaude]);
+        var lessonClient = new SwitchingJsonClient(() => _settings.AiProvider, new Dictionary<Core.AiProvider, IJsonLlmClient>
+        {
+            [Core.AiProvider.Gemini] = lessonGemini,
+            [Core.AiProvider.Groq] = lessonGroq,
+            [Core.AiProvider.Claude] = lessonClaude
+        });
+        _grammarLibrary = new GrammarLessonLibrary(new AiGrammarTutor(lessonClient), new JsonGrammarLessonStore());
         _vocabularyWorkflow = new VocabularyWorkflow(_explainer, () => _settings, SaveSettings);
 
         _floatingWindow = new FloatingWindow { Left = position.Left, Top = position.Top };
@@ -107,6 +124,12 @@ public partial class App : System.Windows.Application
 
         _floatingWindow.WritingCoach = _writingCoach;
         _floatingWindow.WritingHistory = _writingHistory;
+        _floatingWindow.GrammarTopicRequested += (_, topicKey) =>
+        {
+            if (_isShuttingDown) return;
+            OpenSettings(SettingsPageId.Grammar);
+            _settingsWindow?.OpenGrammarTopic(topicKey);
+        };
         _floatingWindow.WritingPreferencesChanged += (_, updated) =>
         {
             if (_isShuttingDown) return;
@@ -205,7 +228,7 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore, _explainer, _sentencePhraser, _writingCoach, _groqKeyStore, _claudeKeyStore, _writingHistory);
+        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore, _explainer, _sentencePhraser, _writingCoach, _groqKeyStore, _claudeKeyStore, _writingHistory, _grammarLibrary);
         void OnStartPractice(object? sender, Guid listId) => _floatingWindow?.StartPractice(listId);
         _settingsWindow.StartPracticeRequested += OnStartPractice;
         _settingsWindow.Closed += (_, _) =>

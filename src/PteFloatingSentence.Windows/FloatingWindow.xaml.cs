@@ -54,6 +54,9 @@ public partial class FloatingWindow : Window
     /// <summary>Raised with updated settings when topics, level or language change in floating writing.</summary>
     public event EventHandler<AppSettings>? WritingPreferencesChanged;
 
+    /// <summary>Raised with a grammar topic key when the learner asks for its lesson from floating writing.</summary>
+    public event EventHandler<string>? GrammarTopicRequested;
+
     /// <summary>Adds a corrected writing sentence to the active study list; supplied by the app.</summary>
     public Func<string, ValidationResult>? SaveWritingSentence { get; set; }
 
@@ -145,6 +148,7 @@ public partial class FloatingWindow : Window
         WritingPanel.ExitRequested += ExitWriting;
         WritingPanel.AudioRequested += WritingPanel_AudioRequested;
         WritingPanel.SaveSentence = text => SaveWritingSentence?.Invoke(text) ?? new ValidationResult(false, "Saving is not available.");
+        WritingPanel.GrammarTopicRequested += WritingPanel_GrammarTopicRequested;
     }
 
     public event EventHandler? SettingsRequested;
@@ -774,6 +778,8 @@ public partial class FloatingWindow : Window
         WritingPreferencesChanged?.Invoke(this, _settings);
     }
 
+    private void WritingPanel_GrammarTopicRequested(string topicKey) => GrammarTopicRequested?.Invoke(this, topicKey);
+
     private async void WritingPanel_AudioRequested(WritingAudioRequest request)
     {
         var voice = string.IsNullOrWhiteSpace(_settings.TtsVoice) ? EdgeNeuralTtsService.DefaultVoice : _settings.TtsVoice;
@@ -1356,6 +1362,7 @@ public partial class FloatingWindow : Window
         WritingPanel.PreferencesChanged -= WritingPanel_PreferencesChanged;
         WritingPanel.ExitRequested -= ExitWriting;
         WritingPanel.AudioRequested -= WritingPanel_AudioRequested;
+        WritingPanel.GrammarTopicRequested -= WritingPanel_GrammarTopicRequested;
         WritingPanel.Dispose();
         DetachPracticeEventHandlers();
         _audioPlayback.StateChanged -= AudioPlayback_StateChanged;

@@ -48,7 +48,11 @@ public sealed record WritingMistake(
     string Explanation,
     string Source,
     string Answer,
-    string Corrected);
+    string Corrected)
+{
+    /// <summary>The grammar topic of the mistake (see <see cref="GrammarTopics"/>); null for older entries or when none fits.</summary>
+    public string? TopicKey { get; init; }
+}
 
 /// <summary>Result of a sentence that targeted <see cref="Tag"/> in weak-point practice.</summary>
 public sealed record WritingTagReview(DateTimeOffset At, WritingSkillTag Tag, bool Passed);
@@ -59,6 +63,7 @@ public sealed record WritingHistory
     public int Version { get; init; } = 1;
     public IReadOnlyList<WritingMistake> Mistakes { get; init; } = [];
     public IReadOnlyList<WritingTagReview> Reviews { get; init; } = [];
+    public IReadOnlyList<GrammarDrillResult> Drills { get; init; } = [];
 
     public static WritingHistory Empty { get; } = new();
 }

@@ -568,6 +568,32 @@
             <Button x:Name="RetryButton" Content="Retry" Style="{StaticResource SecondaryButtonStyle}" Margin="12,0,0,0" Visibility="Collapsed" Click="RetryButton_Click" />
         </StackPanel>
 
+        <!-- Grammar drill: progress, then a summary -->
+        <Border x:Name="DrillBanner" Background="#1A2563EB" BorderBrush="#663B82F6" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,12" Visibility="Collapsed">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE7BE;" Foreground="#FF93C5FD" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBlock x:Name="DrillProgressText" Grid.Column="1" FontSize="13" FontWeight="SemiBold" Foreground="#FF93C5FD" TextWrapping="Wrap" VerticalAlignment="Center" />
+                    <Button x:Name="DrillLessonButton" Grid.Column="2" Content="Lesson" Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" Margin="10,0,0,0"
+                            ToolTip="Open the lesson for this topic" Click="DrillLessonButton_Click" />
+                    <Button x:Name="EndDrillButton" Grid.Column="3" Content="End drill" Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" Margin="8,0,0,0"
+                            ToolTip="Stop the drill and practice normally" Click="EndDrillButton_Click" />
+                </Grid>
+                <StackPanel x:Name="DrillSummaryPanel" Margin="0,10,0,0" Visibility="Collapsed">
+                    <TextBlock x:Name="DrillSummaryText" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button x:Name="DrillAgainButton" Content="Practice again" Style="{StaticResource PrimaryButtonStyle}" Click="DrillAgainButton_Click" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
         <!-- Prompt card with progressive tips -->
         <Border x:Name="PromptCard" Background="{StaticResource CardSubtleBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="18,14" Margin="0,0,0,12" Visibility="Collapsed">
             <StackPanel>
@@ -682,6 +708,13 @@
                     </StackPanel>
                 </StackPanel>
                 <TextBlock x:Name="SummaryText" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                <Button x:Name="GrammarHintButton" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,10,0,0" Visibility="Collapsed"
+                        ToolTip="Open a lesson about this grammar point" Click="GrammarHintButton_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE82D;" Foreground="#FFFBBF24" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock x:Name="GrammarHintText" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
 
                 <TextBlock Style="{StaticResource SectionLabelStyle}" Text="Your answer" Margin="0,14,0,6" />
                 <TextBlock x:Name="AnswerHighlightText" FontSize="15" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
@@ -741,6 +774,8 @@
                     <WrapPanel x:Name="TagStatsPanel" Orientation="Horizontal" />
                     <TextBlock x:Name="NoMistakesText" FontSize="13" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"
                                Text="No mistakes yet. Checked sentences are collected here so you can practice your weak points." />
+                    <TextBlock x:Name="GrammarReviewLabel" Style="{StaticResource SectionLabelStyle}" Text="Grammar to review" Margin="0,12,0,6" />
+                    <StackPanel x:Name="GrammarReviewPanel" />
                     <TextBlock x:Name="RecentMistakesLabel" Style="{StaticResource SectionLabelStyle}" Text="Recent mistakes" Margin="0,12,0,6" />
                     <StackPanel x:Name="RecentMistakesPanel" />
                     <Button x:Name="ClearHistoryButton" Content="Clear history" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,8,0,0" Click="ClearHistoryButton_Click" />

@@ -52,6 +52,8 @@ public partial class SettingsWindow : Window
             FlashcardsSection.Visibility = SelectedPage == SettingsPageId.Flashcards ? Visibility.Visible : Visibility.Collapsed;
         if (WritingSection is not null)
             WritingSection.Visibility = SelectedPage == SettingsPageId.Writing ? Visibility.Visible : Visibility.Collapsed;
+        if (GrammarSection is not null)
+            GrammarSection.Visibility = SelectedPage == SettingsPageId.Grammar ? Visibility.Visible : Visibility.Collapsed;
 
         if (PageScrollViewer is not null)
         {
@@ -111,12 +113,14 @@ public partial class SettingsWindow : Window
             SettingsPageId.ReviewPractice => ("Practice", "Practice sentences with masked hidden words"),
             SettingsPageId.Gemini => ("AI", "Choose the AI provider and manage API keys"),
             SettingsPageId.Writing => ("Writing", "Translate Vietnamese sentences into English and get AI feedback"),
+            SettingsPageId.Grammar => ("Grammar", "Understand the grammar you get wrong, then practice it"),
             _ => ("Settings", string.Empty)
         };
     }
 
     public SettingsWindow(AppSettings initial, Action<AppSettings> save, ProtectedApiKeyStore? apiKeyStore = null, IVocabularyExplainer? explainer = null, ISentencePhraser? sentencePhraser = null, IWritingCoach? writingCoach = null,
-        ProtectedApiKeyStore? groqKeyStore = null, ProtectedApiKeyStore? claudeKeyStore = null, WritingHistoryBook? writingHistory = null)
+        ProtectedApiKeyStore? groqKeyStore = null, ProtectedApiKeyStore? claudeKeyStore = null, WritingHistoryBook? writingHistory = null,
+        GrammarLessonLibrary? grammarLibrary = null)
     {
         InitializeComponent();
         _draft = new StudyListDraft(initial, save);
@@ -149,7 +153,13 @@ public partial class SettingsWindow : Window
             SetupPageControl.RefreshFromDraft(_draft);
             ReviewPageControl?.LoadData(new ReviewViewModel(_draft.Settings));
         });
-        WritingPageControl.Initialize(_draft, writingCoach, () => SetupPageControl.RefreshFromDraft(_draft), writingHistory);
+        // Both pages read the same notebook so a check on the Writing page updates the Grammar page.
+        var history = writingHistory ?? WritingHistoryBook.InMemory();
+        WritingPageControl.Initialize(_draft, writingCoach, () => SetupPageControl.RefreshFromDraft(_draft), history);
+        WritingPageControl.GrammarTopicRequested += OnGrammarTopicRequested;
+        WritingPageControl.GrammarLessonRequested += OnGrammarLessonRequested;
+        GrammarPageControl.Initialize(_draft, grammarLibrary, history);
+        GrammarPageControl.PracticeRequested += OnGrammarPracticeRequested;
         UpdateApiKeyStatus();
         SyncNavigationSelection();
         UpdatePageHeader();
@@ -237,7 +247,38 @@ public partial class SettingsWindow : Window
         ReviewPracticePageControl.PracticeModeChanged -= OnPracticeModeChanged;
         ReviewPracticePageControl?.Dispose();
         FlashcardsPageControl?.Dispose();
-        WritingPageControl?.Dispose();
+        if (WritingPageControl is not null)
+        {
+            WritingPageControl.GrammarTopicRequested -= OnGrammarTopicRequested;
+            WritingPageControl.GrammarLessonRequested -= OnGrammarLessonRequested;
+            WritingPageControl.Dispose();
+        }
+        if (GrammarPageControl is not null)
+        {
+            GrammarPageControl.PracticeRequested -= OnGrammarPracticeRequested;
+            GrammarPageControl.Dispose();
+        }
+    }
+
+    /// <summary>Opens the Grammar page at the lesson for <paramref name="topicKey"/>.</summary>
+    public void OpenGrammarTopic(string topicKey)
+    {
+        NavigateTo(SettingsPageId.Grammar);
+        _ = GrammarPageControl.OpenTopicAsync(topicKey);
+    }
+
+    private void OnGrammarTopicRequested(string topicKey) => OpenGrammarTopic(topicKey);
+
+    private void OnGrammarLessonRequested(GrammarTopic topic)
+    {
+        NavigateTo(SettingsPageId.Grammar);
+        _ = GrammarPageControl.OpenTopicAsync(topic);
+    }
+
+    private void OnGrammarPracticeRequested(GrammarTopic topic)
+    {
+        NavigateTo(SettingsPageId.Writing);
+        _ = WritingPageControl.StartDrillAsync(topic);
     }
 
     private void NewListButton_Click(object sender, RoutedEventArgs e)
