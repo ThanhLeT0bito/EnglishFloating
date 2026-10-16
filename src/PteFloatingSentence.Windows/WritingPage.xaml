@@ -568,7 +568,7 @@
             <Button x:Name="RetryButton" Content="Retry" Style="{StaticResource SecondaryButtonStyle}" Margin="12,0,0,0" Visibility="Collapsed" Click="RetryButton_Click" />
         </StackPanel>
 
-        <!-- Grammar drill: progress, then a summary -->
+        <!-- Grammar drill or roadmap run: progress, then a summary -->
         <Border x:Name="DrillBanner" Background="#1A2563EB" BorderBrush="#663B82F6" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,12" Visibility="Collapsed">
             <StackPanel>
                 <Grid>
@@ -578,7 +578,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE7BE;" Foreground="#FF93C5FD" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBlock x:Name="DrillGlyph" FontFamily="Segoe MDL2 Assets" Text="&#xE7BE;" Foreground="#FF93C5FD" VerticalAlignment="Center" Margin="0,0,10,0" />
                     <TextBlock x:Name="DrillProgressText" Grid.Column="1" FontSize="13" FontWeight="SemiBold" Foreground="#FF93C5FD" TextWrapping="Wrap" VerticalAlignment="Center" />
                     <Button x:Name="DrillLessonButton" Grid.Column="2" Content="Lesson" Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" Margin="10,0,0,0"
                             ToolTip="Open the lesson for this topic" Click="DrillLessonButton_Click" />

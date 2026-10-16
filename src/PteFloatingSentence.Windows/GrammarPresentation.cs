@@ -78,6 +78,20 @@ public static class GrammarPresentation
     public static string QuizResult(bool correct, string explanation) =>
         (correct ? "✓ Correct. " : "✗ Not quite. ") + explanation;
 
+    /// <summary>Score line under a finished quick check; two thirds right marks the lesson learned on the roadmap.</summary>
+    public static string QuizSummary(int correct, int total, WritingExplanationLanguage language)
+    {
+        var passed = new GrammarQuizResult(DateTimeOffset.MinValue, "quiz", correct, total).IsPass;
+        var needed = (int)Math.Ceiling(total * 2 / 3.0);
+        return passed
+            ? Pick(language, $"Quick check: {correct}/{total} ✓ Lesson learned — it counts on your roadmap.",
+                $"Kiểm tra nhanh: {correct}/{total} ✓ Đã học xong bài — được tính vào lộ trình.")
+            : Pick(language, $"Quick check: {correct}/{total}. Re-read the core idea and try again (need {needed}/{total}).",
+                $"Kiểm tra nhanh: {correct}/{total}. Đọc lại phần bản chất rồi làm lại (cần {needed}/{total}).");
+    }
+
+    public static string QuizRetryText(WritingExplanationLanguage language) => Pick(language, "Try the quick check again", "Làm lại bài kiểm tra");
+
     private static string Pick(WritingExplanationLanguage language, string english, string vietnamese) =>
         language == WritingExplanationLanguage.Vietnamese ? vietnamese : english;
 }

@@ -120,8 +120,32 @@ public sealed class WritingHistoryBook
         var source = WritingModes.HistorySource(prompt, mode);
         var updated = WritingHistoryRules.RecordFeedback(Current, mode, source, answer, feedback, now);
         updated = WritingHistoryRules.RecordFocusResult(updated, prompt.FocusTags, feedback, now);
+        updated = WritingHistoryRules.RecordCheckScore(updated, new WritingCheckRecord(now, mode, prompt.Level, feedback.Score)
+        {
+            FocusTopicKey = prompt.FocusTopicKey
+        });
         Replace(updated);
     }
+
+    /// <summary>Saves a finished quick check of a lesson.</summary>
+    public void RecordQuiz(string topicKey, int correct, int total) =>
+        Replace(WritingHistoryRules.RecordQuiz(Current, new GrammarQuizResult(Now, topicKey, correct, total)));
+
+    /// <summary>Makes <paramref name="stageKey"/> the current roadmap stage; null follows progress again.</summary>
+    public void ChooseRoadmapStage(string? stageKey) => Replace(RoadmapRules.ChooseStage(Current, stageKey));
+
+    public IReadOnlyList<(RoadmapStageProgress Progress, RoadmapStageState State)> RoadmapOverview() => RoadmapRules.Overview(Current, Now);
+
+    public RoadmapStage CurrentRoadmapStage() => RoadmapRules.CurrentStage(Current, Now);
+
+    public RoadmapStageProgress RoadmapProgress(RoadmapStage stage) => RoadmapRules.Progress(Current, stage, Now);
+
+    /// <summary>Today's session plan for the current stage.</summary>
+    public IReadOnlyList<RoadmapStep> TodayPlan() => RoadmapRules.TodayPlan(Current, RoadmapProgress(CurrentRoadmapStage()), Now);
+
+    public int Streak => RoadmapRules.Streak(Current, Now);
+
+    public int ChecksToday => RoadmapRules.ChecksToday(Current, Now);
 
     /// <summary>Saves the result of a grammar drill.</summary>
     public void RecordDrill(GrammarDrillResult result) => Replace(GrammarProgressRules.RecordDrill(Current, result));

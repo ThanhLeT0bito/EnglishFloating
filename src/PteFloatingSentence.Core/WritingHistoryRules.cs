@@ -160,13 +160,49 @@ public static class WritingHistoryRules
         var drills = (history.Drills ?? [])
             .Where(drill => drill is not null && !string.IsNullOrWhiteSpace(drill.TopicKey) && drill.Total is > 0 and <= 50 && drill.Passed >= 0 && drill.Passed <= drill.Total)
             .ToList();
+        var checks = (history.Checks ?? [])
+            .Where(check => check is not null && Enum.IsDefined(check.Mode) && Enum.IsDefined(check.Level) && check.Score is >= 0 and <= 100)
+            .Select(check => check with { FocusTopicKey = GrammarTopics.Resolve(check.FocusTopicKey)?.Key })
+            .ToList();
+        var quizzes = (history.Quizzes ?? [])
+            .Where(quiz => quiz is not null && !string.IsNullOrWhiteSpace(quiz.TopicKey) && quiz.Total is > 0 and <= 20 && quiz.Correct >= 0 && quiz.Correct <= quiz.Total)
+            .ToList();
         return new WritingHistory
         {
             Mistakes = KeepNewest(mistakes, MaxMistakes),
             Reviews = KeepNewest(reviews, MaxReviews),
-            Drills = drills.Count <= GrammarProgressRules.MaxDrills ? drills : drills.Skip(drills.Count - GrammarProgressRules.MaxDrills).ToList()
+            Drills = Newest(drills, GrammarProgressRules.MaxDrills),
+            Checks = Newest(checks, MaxChecks),
+            Quizzes = Newest(quizzes, MaxQuizzes),
+            RoadmapStageKey = WritingRoadmap.Find(history.RoadmapStageKey) is { IsAvailable: true } stage ? stage.Key : null
         };
     }
+
+    public const int MaxChecks = 1000;
+    public const int MaxQuizzes = 300;
+
+    /// <summary>Logs the score of a checked answer (kept for progress, newest <see cref="MaxChecks"/>).</summary>
+    public static WritingHistory RecordCheckScore(WritingHistory history, WritingCheckRecord check)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+        ArgumentNullException.ThrowIfNull(check);
+        var record = check with { Score = Math.Clamp(check.Score, 0, 100) };
+        return history with { Checks = Newest(history.Checks.Append(record).ToList(), MaxChecks) };
+    }
+
+    /// <summary>Logs a finished quick check of a lesson.</summary>
+    public static WritingHistory RecordQuiz(WritingHistory history, GrammarQuizResult result)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+        ArgumentNullException.ThrowIfNull(result);
+        if (string.IsNullOrWhiteSpace(result.TopicKey) || result.Total <= 0)
+            return history;
+        var clamped = result with { Correct = Math.Clamp(result.Correct, 0, result.Total) };
+        return history with { Quizzes = Newest(history.Quizzes.Append(clamped).ToList(), MaxQuizzes) };
+    }
+
+    private static IReadOnlyList<T> Newest<T>(List<T> items, int max) =>
+        items.Count <= max ? items : items.Skip(items.Count - max).ToList();
 
     private static IReadOnlyList<WritingMistake> KeepNewest(IEnumerable<WritingMistake> items, int max)
     {

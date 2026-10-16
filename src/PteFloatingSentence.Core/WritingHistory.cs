@@ -64,6 +64,11 @@ public sealed record WritingHistory
     public IReadOnlyList<WritingMistake> Mistakes { get; init; } = [];
     public IReadOnlyList<WritingTagReview> Reviews { get; init; } = [];
     public IReadOnlyList<GrammarDrillResult> Drills { get; init; } = [];
+    public IReadOnlyList<WritingCheckRecord> Checks { get; init; } = [];
+    public IReadOnlyList<GrammarQuizResult> Quizzes { get; init; } = [];
+
+    /// <summary>Roadmap stage the learner chose; null follows their progress.</summary>
+    public string? RoadmapStageKey { get; init; }
 
     public static WritingHistory Empty { get; } = new();
 }
@@ -75,3 +80,17 @@ public sealed record WritingTagStat(WritingSkillTag Tag, int Mistakes, int Passe
 
 /// <summary>The same mistake (tag, original and suggestion) made <see cref="Count"/> times; <see cref="Latest"/> is the newest.</summary>
 public sealed record WritingMistakeGroup(WritingMistake Latest, int Count);
+
+/// <summary>The score of one checked answer, for progress and the roadmap.</summary>
+public sealed record WritingCheckRecord(DateTimeOffset At, WritingPracticeMode Mode, WritingLevel Level, int Score)
+{
+    /// <summary>Grammar topic the sentence drilled, if any.</summary>
+    public string? FocusTopicKey { get; init; }
+}
+
+/// <summary>Result of a lesson's quick check: <see cref="Correct"/> of <see cref="Total"/> questions.</summary>
+public sealed record GrammarQuizResult(DateTimeOffset At, string TopicKey, int Correct, int Total)
+{
+    /// <summary>Passed with at least two thirds right.</summary>
+    public bool IsPass => Total > 0 && Correct * 3 >= Total * 2;
+}

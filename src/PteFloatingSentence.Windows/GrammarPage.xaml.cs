@@ -52,6 +52,9 @@ public partial class GrammarPage : UserControl, IDisposable
     /// <summary>Raised when the learner wants to practice <see cref="GrammarTopic"/> on the Writing page.</summary>
     public event Action<GrammarTopic>? PracticeRequested;
 
+    /// <summary>Raised when every quick-check question of the open lesson is answered: topic, correct answers, questions.</summary>
+    public event Action<GrammarTopic, int, int>? QuizCompleted;
+
     public GrammarTopic? CurrentTopic => _topic;
     public GrammarLesson? CurrentLesson => _lesson;
     public bool IsLessonOpen => LessonView.Visibility == Visibility.Visible;
@@ -299,7 +302,7 @@ public partial class GrammarPage : UserControl, IDisposable
         LessonBody.Visibility = Visibility.Collapsed;
         RenderLessonHeader(topic);
         // The page sits in the Settings scroll view: start the lesson at its title.
-        Dispatcher.InvokeAsync(() => BackButton.BringIntoView());
+        _ = Dispatcher.InvokeAsync(() => BackButton.BringIntoView());
 
         var language = ExplanationLanguage;
         if (!refresh && _library.Cached(topic, language) is { } cached)
@@ -678,15 +681,79 @@ public partial class GrammarPage : UserControl, IDisposable
 
             QuizPanel.Children.Add(panel);
         }
+
+        if (_lesson.Quiz.Count == 0 || _quizAnswers.Count < _lesson.Quiz.Count)
+            return;
+
+        var (rightAnswers, questions) = QuizScore();
+        var passed = new GrammarQuizResult(_history.Now, "quiz", rightAnswers, questions).IsPass;
+        var summary = new Border
+        {
+            Background = passed ? new SolidColorBrush(Color.FromArgb(0x26, 0x34, 0xD3, 0x99)) : new SolidColorBrush(Color.FromArgb(0x26, 0xFB, 0xBF, 0x24)),
+            BorderBrush = passed ? new SolidColorBrush(Color.FromArgb(0x80, 0x34, 0xD3, 0x99)) : new SolidColorBrush(Color.FromArgb(0x80, 0xFB, 0xBF, 0x24)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(12, 10, 12, 10)
+        };
+        var content = new StackPanel();
+        content.Children.Add(new TextBlock
+        {
+            Text = GrammarPresentation.QuizSummary(rightAnswers, questions, ExplanationLanguage),
+            FontSize = 13,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)FindResource("TextPrimaryBrush"),
+            TextWrapping = TextWrapping.Wrap
+        });
+        if (!passed)
+        {
+            var retry = new Button
+            {
+                Content = GrammarPresentation.QuizRetryText(ExplanationLanguage),
+                Style = (Style)FindResource("SecondaryButtonStyle"),
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            retry.Click += (_, _) => RetryQuiz();
+            content.Children.Add(retry);
+        }
+
+        summary.Child = content;
+        QuizPanel.Children.Add(summary);
+    }
+
+    /// <summary>Correct answers and questions of the open lesson's quick check.</summary>
+    public (int Correct, int Total) QuizScore() =>
+        _lesson is null ? (0, 0) : (_quizAnswers.Count(answer => answer.Key < _lesson.Quiz.Count && _lesson.Quiz[answer.Key].AnswerIndex == answer.Value), _lesson.Quiz.Count);
+
+    /// <summary>Answers question <paramref name="index"/> with <paramref name="option"/>; each question is answered once.</summary>
+    public void AnswerQuiz(int index, int option)
+    {
+        if (_lesson is null || _topic is null || index < 0 || index >= _lesson.Quiz.Count || _quizAnswers.ContainsKey(index))
+            return;
+
+        _quizAnswers[index] = option;
+        RenderQuiz();
+        if (_quizAnswers.Count < _lesson.Quiz.Count)
+            return;
+
+        var (correct, total) = QuizScore();
+        var topic = _topic;
+        if (!topic.IsCustom)
+            _history.RecordQuiz(topic.Key, correct, total);
+        QuizCompleted?.Invoke(topic, correct, total);
+    }
+
+    /// <summary>Clears the answers so the quick check can be taken again.</summary>
+    public void RetryQuiz()
+    {
+        _quizAnswers.Clear();
+        RenderQuiz();
     }
 
     private void QuizOption_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: ValueTuple<int, int> choice } || _quizAnswers.ContainsKey(choice.Item1))
-            return;
-
-        _quizAnswers[choice.Item1] = choice.Item2;
-        RenderQuiz();
+        if (sender is Button { Tag: ValueTuple<int, int> choice })
+            AnswerQuiz(choice.Item1, choice.Item2);
     }
 
     // ---- Buttons ----------------------------------------------------------------------------------

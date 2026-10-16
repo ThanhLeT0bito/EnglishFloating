@@ -9,6 +9,7 @@ public enum SettingsPageId
     Gemini,
     Flashcards,
     Writing,
-    Grammar
+    Grammar,
+    Roadmap
 }
 

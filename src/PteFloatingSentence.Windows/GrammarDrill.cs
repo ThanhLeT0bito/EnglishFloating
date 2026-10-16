@@ -18,6 +18,9 @@ public sealed class GrammarDrill
     }
 
     public GrammarTopic Topic { get; }
+
+    /// <summary>Exercise and level for a roadmap drill; null uses the learner's own settings.</summary>
+    public RoadmapPractice? Practice { get; init; }
     public int Length { get; }
     public IReadOnlyList<bool> Results => _results;
     public int Done => _results.Count;

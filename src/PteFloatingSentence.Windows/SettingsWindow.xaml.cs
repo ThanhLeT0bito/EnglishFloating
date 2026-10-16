@@ -22,11 +22,16 @@ public partial class SettingsWindow : Window
     private bool _apiKeyConfigured;
     private bool _apiKeyCleared;
     private readonly EventHandler<Guid> _setupPageStartPracticeHandler;
+    private readonly WritingHistoryBook _writingHistory;
+    private RoadmapSession? _roadmapSession;
 
     public event EventHandler<Guid>? StartPracticeRequested;
 
     public SettingsPageId SelectedPage { get; private set; } = SettingsPageId.Setup;
     public FrameworkElement SectionFlashcards => FlashcardsSection;
+
+    /// <summary>Today's roadmap session while it runs, otherwise null.</summary>
+    public RoadmapSession? RoadmapSession => _roadmapSession;
 
     public void NavigateTo(SettingsPageId page)
     {
@@ -54,6 +59,8 @@ public partial class SettingsWindow : Window
             WritingSection.Visibility = SelectedPage == SettingsPageId.Writing ? Visibility.Visible : Visibility.Collapsed;
         if (GrammarSection is not null)
             GrammarSection.Visibility = SelectedPage == SettingsPageId.Grammar ? Visibility.Visible : Visibility.Collapsed;
+        if (RoadmapSection is not null)
+            RoadmapSection.Visibility = SelectedPage == SettingsPageId.Roadmap ? Visibility.Visible : Visibility.Collapsed;
 
         if (PageScrollViewer is not null)
         {
@@ -114,6 +121,7 @@ public partial class SettingsWindow : Window
             SettingsPageId.Gemini => ("AI", "Choose the AI provider and manage API keys"),
             SettingsPageId.Writing => ("Writing", "Translate Vietnamese sentences into English and get AI feedback"),
             SettingsPageId.Grammar => ("Grammar", "Understand the grammar you get wrong, then practice it"),
+            SettingsPageId.Roadmap => ("Roadmap", "Your writing and grammar path, one stage at a time, with a short session each day"),
             _ => ("Settings", string.Empty)
         };
     }
@@ -155,11 +163,19 @@ public partial class SettingsWindow : Window
         });
         // Both pages read the same notebook so a check on the Writing page updates the Grammar page.
         var history = writingHistory ?? WritingHistoryBook.InMemory();
+        _writingHistory = history;
         WritingPageControl.Initialize(_draft, writingCoach, () => SetupPageControl.RefreshFromDraft(_draft), history);
         WritingPageControl.GrammarTopicRequested += OnGrammarTopicRequested;
         WritingPageControl.GrammarLessonRequested += OnGrammarLessonRequested;
+        WritingPageControl.DrillCompleted += OnDrillCompleted;
+        WritingPageControl.GuidedCompleted += OnGuidedCompleted;
         GrammarPageControl.Initialize(_draft, grammarLibrary, history);
         GrammarPageControl.PracticeRequested += OnGrammarPracticeRequested;
+        GrammarPageControl.QuizCompleted += OnQuizCompleted;
+        RoadmapPageControl.Initialize(history);
+        RoadmapPageControl.StartSessionRequested += OnStartSessionRequested;
+        RoadmapPageControl.TopicRequested += OnGrammarLessonRequested;
+        RoadmapPageControl.PracticeRequested += OnRoadmapPracticeRequested;
         UpdateApiKeyStatus();
         SyncNavigationSelection();
         UpdatePageHeader();
@@ -251,13 +267,25 @@ public partial class SettingsWindow : Window
         {
             WritingPageControl.GrammarTopicRequested -= OnGrammarTopicRequested;
             WritingPageControl.GrammarLessonRequested -= OnGrammarLessonRequested;
+            WritingPageControl.DrillCompleted -= OnDrillCompleted;
+            WritingPageControl.GuidedCompleted -= OnGuidedCompleted;
             WritingPageControl.Dispose();
         }
         if (GrammarPageControl is not null)
         {
             GrammarPageControl.PracticeRequested -= OnGrammarPracticeRequested;
+            GrammarPageControl.QuizCompleted -= OnQuizCompleted;
             GrammarPageControl.Dispose();
         }
+        if (RoadmapPageControl is not null)
+        {
+            RoadmapPageControl.StartSessionRequested -= OnStartSessionRequested;
+            RoadmapPageControl.TopicRequested -= OnGrammarLessonRequested;
+            RoadmapPageControl.PracticeRequested -= OnRoadmapPracticeRequested;
+            RoadmapPageControl.Dispose();
+        }
+        if (_roadmapSession is not null)
+            _roadmapSession.Changed -= RenderSessionBanner;
     }
 
     /// <summary>Opens the Grammar page at the lesson for <paramref name="topicKey"/>.</summary>
@@ -277,9 +305,146 @@ public partial class SettingsWindow : Window
 
     private void OnGrammarPracticeRequested(GrammarTopic topic)
     {
+        // During today's session a drill of a planned topic uses the stage's exercise.
+        var planned = _roadmapSession?.Steps.FirstOrDefault(step => step.Kind == RoadmapStepKind.Drill && step.Topic?.Key == topic.Key);
         NavigateTo(SettingsPageId.Writing);
-        _ = WritingPageControl.StartDrillAsync(topic);
+        _ = WritingPageControl.StartDrillAsync(topic, planned?.Practice);
     }
+
+    // ---- Roadmap session ------------------------------------------------------------------------
+
+    /// <summary>Starts today's roadmap session, or resumes the one that is running.</summary>
+    public void StartRoadmapSession()
+    {
+        if (_roadmapSession is { IsFinished: false })
+        {
+            RunCurrentStep();
+            return;
+        }
+
+        var plan = _writingHistory.TodayPlan();
+        if (plan.Count == 0)
+            return;
+
+        _roadmapSession = new RoadmapSession(_writingHistory.CurrentRoadmapStage(), plan, _writingHistory.Now);
+        _roadmapSession.Changed += RenderSessionBanner;
+        RoadmapPageControl.HideSummary();
+        RoadmapPageControl.IsSessionActive = true;
+        RunCurrentStep();
+    }
+
+    /// <summary>Moves to the next step of today's session, or finishes it after the last step.</summary>
+    public void NextRoadmapStep()
+    {
+        if (_roadmapSession is not { IsFinished: false } session)
+            return;
+
+        var left = session.Current;
+        var leftDone = session.IsCurrentDone;
+        if (!session.Advance())
+        {
+            FinishRoadmapSession();
+            return;
+        }
+
+        // A skipped writing step should not keep counting sentences on the Writing page.
+        if (!leftDone && left.Kind != RoadmapStepKind.Learn)
+            WritingPageControl.EndDrill();
+        RunCurrentStep();
+    }
+
+    /// <summary>Ends today's session and shows its summary on the Roadmap page.</summary>
+    public void FinishRoadmapSession()
+    {
+        if (_roadmapSession is not { } session)
+            return;
+
+        session.Changed -= RenderSessionBanner;
+        session.Finish();
+        _roadmapSession = null;
+        RoadmapPageControl.IsSessionActive = false;
+        RoadmapPageControl.ShowSummary(session.Summarize(_writingHistory.Current, _writingHistory.Now));
+        RenderSessionBanner();
+        NavigateTo(SettingsPageId.Roadmap);
+    }
+
+    /// <summary>Opens the page of the current step and starts it, unless it is done or already running.</summary>
+    private void RunCurrentStep()
+    {
+        if (_roadmapSession is not { IsFinished: false } session)
+            return;
+
+        var step = session.Current;
+        RenderSessionBanner();
+        var running = step.Kind switch
+        {
+            RoadmapStepKind.Learn => GrammarPageControl.CurrentTopic?.Key == step.Topic?.Key && GrammarPageControl.IsLessonOpen,
+            RoadmapStepKind.Drill => WritingPageControl.Drill is { IsComplete: false } drill && drill.Topic.Key == step.Topic?.Key,
+            _ => WritingPageControl.Guided is { IsComplete: false } run && run.Kind == step.Kind
+        };
+
+        NavigateTo(step.Kind == RoadmapStepKind.Learn ? SettingsPageId.Grammar : SettingsPageId.Writing);
+        if (session.IsCurrentDone || running)
+            return;
+
+        switch (step.Kind)
+        {
+            case RoadmapStepKind.Learn when step.Topic is not null:
+                _ = GrammarPageControl.OpenTopicAsync(step.Topic);
+                break;
+            case RoadmapStepKind.Drill when step.Topic is not null:
+                _ = WritingPageControl.StartDrillAsync(step.Topic, step.Practice);
+                break;
+            case RoadmapStepKind.Review or RoadmapStepKind.Apply:
+                _ = WritingPageControl.StartGuidedAsync(GuidedPractice.ForStep(step));
+                break;
+        }
+    }
+
+    private void RenderSessionBanner()
+    {
+        if (SessionBanner is null)
+            return;
+
+        if (_roadmapSession is not { IsFinished: false } session)
+        {
+            SessionBanner.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        SessionBanner.Visibility = Visibility.Visible;
+        SessionGlyph.Text = RoadmapPresentation.StepGlyph(session.Current.Kind);
+        SessionBannerText.Text = RoadmapPresentation.BannerText(session);
+        SessionNextButton.Content = RoadmapPresentation.NextButtonText(session);
+        // The next step stands out once the current one is done.
+        if (session.IsCurrentDone)
+            SessionNextButton.ClearValue(StyleProperty);
+        else
+            SessionNextButton.Style = (Style)FindResource("SecondaryButton");
+    }
+
+    private void OnStartSessionRequested() => StartRoadmapSession();
+
+    private void OnDrillCompleted(GrammarDrill drill) => _roadmapSession?.Complete(RoadmapStepKind.Drill, drill.Topic.Key);
+
+    private void OnGuidedCompleted(GuidedPractice run) => _roadmapSession?.Complete(run.Kind, run.Topic?.Key);
+
+    private void OnQuizCompleted(GrammarTopic topic, int correct, int total) => _roadmapSession?.Complete(RoadmapStepKind.Learn, topic.Key);
+
+    private void OnRoadmapPracticeRequested(RoadmapStage stage, RoadmapPractice practice)
+    {
+        NavigateTo(SettingsPageId.Writing);
+        _ = WritingPageControl.StartGuidedAsync(new GuidedPractice(
+            $"Stage {stage.Number} practice",
+            practice,
+            RoadmapRules.ApplySentences));
+    }
+
+    private void SessionNextButton_Click(object sender, RoutedEventArgs e) => NextRoadmapStep();
+
+    private void SessionEndButton_Click(object sender, RoutedEventArgs e) => FinishRoadmapSession();
+
+    private void SessionRoadmapButton_Click(object sender, RoutedEventArgs e) => NavigateTo(SettingsPageId.Roadmap);
 
     private void NewListButton_Click(object sender, RoutedEventArgs e)
     {

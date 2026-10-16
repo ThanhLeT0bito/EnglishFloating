@@ -36,6 +36,7 @@ public partial class WritingPage : UserControl, IDisposable
     private bool _tipsCollapsed;
     private bool _clearArmed;
     private GrammarDrill? _drill;
+    private GuidedPractice? _guided;
     private Action? _onDraftChanged;
     private bool _rendering;
     private bool _disposed;
@@ -67,6 +68,15 @@ public partial class WritingPage : UserControl, IDisposable
 
     /// <summary>The grammar drill in progress (or just finished), or null.</summary>
     public GrammarDrill? Drill => _drill;
+
+    /// <summary>The roadmap review or apply run in progress (or just finished), or null.</summary>
+    public GuidedPractice? Guided => _guided;
+
+    /// <summary>Raised when the last sentence of a drill is checked.</summary>
+    public event Action<GrammarDrill>? DrillCompleted;
+
+    /// <summary>Raised when the last sentence of a guided roadmap run is checked.</summary>
+    public event Action<GuidedPractice>? GuidedCompleted;
 
     /// <summary>Asks the host to open the lesson for a grammar topic key.</summary>
     public event Action<string>? GrammarTopicRequested;
@@ -131,10 +141,17 @@ public partial class WritingPage : UserControl, IDisposable
             return;
 
         var mode = _draft.Settings.WritingPracticeMode;
-        // A drill needs English answers checked by the AI.
-        _session.Mode = _drill is { IsComplete: false } ? GrammarDrill.ModeFor(mode) : mode;
+        // A drill needs English answers checked by the AI; a roadmap run uses its own exercise.
+        // Both keep their exercise until the next sentence, so a finished run's last sentence can still be re-checked.
+        _session.Mode = _drill is not null ? _drill.Practice?.Mode ?? GrammarDrill.ModeFor(mode)
+            : _guided is not null ? _guided.Practice.Mode
+            : mode;
         _session.RetypeEnabled = _draft.Settings.WritingRetypeEnabled;
     }
+
+    /// <summary>Level of the next sentence: the drill's or roadmap run's, otherwise the learner's own.</summary>
+    private WritingLevel PracticeLevel() =>
+        _drill?.Practice?.Level ?? _guided?.Practice.Level ?? _draft?.Settings.WritingLevel ?? WritingLevel.Easy;
 
     private IReadOnlyList<WritingSkillTag> FocusTags() =>
         _draft is { Settings.WritingFocusWeakPoints: true } && _history.CanPracticeWeakPoints ? _history.WeakTags() : [];
@@ -512,16 +529,18 @@ public partial class WritingPage : UserControl, IDisposable
         SaveStatusText.Visibility = Visibility.Collapsed;
         var settings = _draft.Settings;
         var topics = WritingTopicRules.SelectedTopics(settings).Select(topic => topic.Name).ToList();
-        if (_drill is { IsComplete: true })
+        if (_drill is { IsComplete: true } || _guided is { IsComplete: true })
         {
-            // The next sentence after a finished drill is a normal one.
+            // The next sentence after a finished drill or roadmap run is a normal one.
             _drill = null;
+            _guided = null;
             RenderDrill();
         }
 
         ApplySessionOptions();
-        var drillTopic = _drill?.Topic;
-        await _session.GenerateAsync(topics, settings.WritingLevel, settings.WritingExplanationLanguage, drillTopic is null ? FocusTags() : [], drillTopic);
+        var focusTopic = _drill?.Topic ?? _guided?.Topic;
+        var focusTags = _drill is not null ? [] : _guided is not null ? _guided.FocusTags : FocusTags();
+        await _session.GenerateAsync(topics, PracticeLevel(), settings.WritingExplanationLanguage, focusTopic is null ? focusTags : [], focusTopic);
         if (_session is { State: WritingSessionState.Answering } session)
         {
             // Options are set; fold them away so the sentence and answer get the space.
@@ -546,6 +565,7 @@ public partial class WritingPage : UserControl, IDisposable
             return;
 
         RecordDrillCheck(session);
+        RecordGuidedCheck(session);
         if (session.IsRetyping)
         {
             // The answer stays highlighted in the result; the box is now for typing the corrected sentence.
@@ -560,22 +580,40 @@ public partial class WritingPage : UserControl, IDisposable
 
     // ---- Grammar drill ---------------------------------------------------------------------------
 
-    /// <summary>Starts a drill of <see cref="GrammarProgressRules.DrillLength"/> sentences on <paramref name="topic"/>.</summary>
-    public async Task StartDrillAsync(GrammarTopic topic)
+    /// <summary>
+    /// Starts a drill of <see cref="GrammarProgressRules.DrillLength"/> sentences on <paramref name="topic"/>,
+    /// in <paramref name="practice"/> (a roadmap stage's exercise) or the learner's own exercise and level.
+    /// </summary>
+    public async Task StartDrillAsync(GrammarTopic topic, RoadmapPractice? practice = null)
     {
         ArgumentNullException.ThrowIfNull(topic);
         if (_disposed)
             return;
 
-        _drill = new GrammarDrill(topic);
+        _guided = null;
+        _drill = new GrammarDrill(topic) { Practice = practice };
         RenderDrill();
         await GenerateAsync();
     }
 
-    /// <summary>Stops the drill; the next sentence is a normal one.</summary>
+    /// <summary>Starts a roadmap review or apply run: a fixed exercise and level for a number of sentences.</summary>
+    public async Task StartGuidedAsync(GuidedPractice run)
+    {
+        ArgumentNullException.ThrowIfNull(run);
+        if (_disposed)
+            return;
+
+        _drill = null;
+        _guided = run;
+        RenderDrill();
+        await GenerateAsync();
+    }
+
+    /// <summary>Stops the drill (or roadmap run); the next sentence is a normal one.</summary>
     public void EndDrill()
     {
         _drill = null;
+        _guided = null;
         ApplySessionOptions();
         RenderDrill();
         RenderSession();
@@ -589,9 +627,26 @@ public partial class WritingPage : UserControl, IDisposable
         if (!string.Equals(prompt.FocusTopicKey, drill.Topic.Key, StringComparison.Ordinal))
             return;
 
-        if (drill.Record(prompt, feedback))
+        var completed = drill.Record(prompt, feedback);
+        if (completed)
             _history.RecordDrill(drill.ToResult(_history.Now));
         RenderDrill();
+        if (completed)
+            DrillCompleted?.Invoke(drill);
+    }
+
+    private void RecordGuidedCheck(WritingSession session)
+    {
+        if (_guided is not { IsComplete: false } run || session.Prompt is not { } prompt || session.Feedback is not { } feedback)
+            return;
+        // Only sentences written for this run count.
+        if (prompt.Level != run.Practice.Level || !string.Equals(prompt.FocusTopicKey, run.Topic?.Key, StringComparison.Ordinal))
+            return;
+
+        var completed = run.Record(prompt, feedback);
+        RenderDrill();
+        if (completed)
+            GuidedCompleted?.Invoke(run);
     }
 
     private void RenderDrill()
@@ -600,14 +655,30 @@ public partial class WritingPage : UserControl, IDisposable
             return;
 
         var drill = _drill;
-        DrillBanner.Visibility = drill is null ? Visibility.Collapsed : Visibility.Visible;
-        if (drill is null)
-            return;
-
-        DrillProgressText.Text = drill.IsComplete ? $"Drill · {drill.Topic.Name}" : GrammarPresentation.DrillProgress(drill);
-        DrillSummaryPanel.Visibility = drill.IsComplete ? Visibility.Visible : Visibility.Collapsed;
-        DrillSummaryText.Text = drill.IsComplete ? GrammarPresentation.DrillSummary(drill) : string.Empty;
-        EndDrillButton.Content = drill.IsComplete ? "Close" : "End drill";
+        var run = _guided;
+        DrillBanner.Visibility = drill is null && run is null ? Visibility.Collapsed : Visibility.Visible;
+        if (drill is not null)
+        {
+            DrillGlyph.Text = RoadmapPresentation.StepGlyph(RoadmapStepKind.Drill);
+            DrillProgressText.Text = drill.IsComplete ? $"Drill · {drill.Topic.Name}" : GrammarPresentation.DrillProgress(drill);
+            DrillLessonButton.Visibility = Visibility.Visible;
+            DrillSummaryPanel.Visibility = drill.IsComplete ? Visibility.Visible : Visibility.Collapsed;
+            DrillSummaryText.Text = drill.IsComplete ? GrammarPresentation.DrillSummary(drill) : string.Empty;
+            DrillAgainButton.Visibility = Visibility.Visible;
+            EndDrillButton.Content = drill.IsComplete ? "Close" : "End drill";
+            EndDrillButton.ToolTip = "Stop the drill and practice normally";
+        }
+        else if (run is not null)
+        {
+            DrillGlyph.Text = RoadmapPresentation.StepGlyph(run.Kind);
+            DrillProgressText.Text = run.IsComplete ? run.Title : RoadmapPresentation.GuidedProgress(run);
+            DrillLessonButton.Visibility = run.Topic is null ? Visibility.Collapsed : Visibility.Visible;
+            DrillSummaryPanel.Visibility = run.IsComplete ? Visibility.Visible : Visibility.Collapsed;
+            DrillSummaryText.Text = run.IsComplete ? RoadmapPresentation.GuidedSummary(run) : string.Empty;
+            DrillAgainButton.Visibility = Visibility.Collapsed;
+            EndDrillButton.Content = run.IsComplete ? "Close" : "End practice";
+            EndDrillButton.ToolTip = "Stop this roadmap practice and practice normally";
+        }
     }
 
     private void EndDrillButton_Click(object sender, RoutedEventArgs e) => EndDrill();
@@ -615,13 +686,13 @@ public partial class WritingPage : UserControl, IDisposable
     private async void DrillAgainButton_Click(object sender, RoutedEventArgs e)
     {
         if (_drill is not null)
-            await StartDrillAsync(_drill.Topic);
+            await StartDrillAsync(_drill.Topic, _drill.Practice);
     }
 
     private void DrillLessonButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_drill is not null)
-            GrammarLessonRequested?.Invoke(_drill.Topic);
+        if ((_drill?.Topic ?? _guided?.Topic) is { } topic)
+            GrammarLessonRequested?.Invoke(topic);
     }
 
     private void GrammarHintButton_Click(object sender, RoutedEventArgs e)
@@ -1038,7 +1109,7 @@ public partial class WritingPage : UserControl, IDisposable
         NaturalText.Text = feedback.NaturalAlternative ?? string.Empty;
 
         // Point to the lesson when this check repeats a grammar mistake the learner keeps making.
-        var repeated = _history.RepeatedTopics(feedback.Issues).FirstOrDefault(stat => stat.Topic.Key != _drill?.Topic.Key);
+        var repeated = _history.RepeatedTopics(feedback.Issues).FirstOrDefault(stat => stat.Topic.Key != (_drill?.Topic ?? _guided?.Topic)?.Key);
         GrammarHintButton.Visibility = repeated is null ? Visibility.Collapsed : Visibility.Visible;
         GrammarHintButton.Tag = repeated?.Topic.Key;
         GrammarHintText.Text = repeated is null ? string.Empty : GrammarPresentation.RepeatHint(repeated);
