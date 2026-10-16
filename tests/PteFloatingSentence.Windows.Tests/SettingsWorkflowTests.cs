@@ -673,6 +673,33 @@ public class SettingsWorkflowTests
     }
 
     [TestMethod]
+    public void SettingsNavigation_GroupsPagesByPurpose()
+    {
+        RunOnSta(() =>
+        {
+            var window = CreateWindowWithTwoSentences();
+            var items = Named<ListBox>(window, "SettingsNavigation").Items.OfType<ListBoxItem>().ToList();
+
+            CollectionAssert.AreEqual(
+                new object?[]
+                {
+                    null, SettingsPageId.Setup, SettingsPageId.ReviewPractice, SettingsPageId.Flashcards, SettingsPageId.Review,
+                    null, SettingsPageId.Roadmap, SettingsPageId.Writing, SettingsPageId.Grammar,
+                    null, SettingsPageId.Display, SettingsPageId.Gemini
+                },
+                items.Select(item => item.Tag).ToArray());
+            CollectionAssert.AreEqual(
+                new[] { "SENTENCES & VOCABULARY", "WRITING & GRAMMAR", "APP" },
+                items.Where(item => item.Tag is null).Select(item => ((TextBlock)item.Content).Text).ToArray());
+            Assert.IsTrue(items.Where(item => item.Tag is null).All(item => !item.IsEnabled && !item.Focusable), "group captions cannot be selected");
+            Assert.IsTrue(Enum.GetValues<SettingsPageId>().All(page => items.Any(item => page.Equals(item.Tag))), "every page is in the menu");
+
+            window.NavigateTo(SettingsPageId.Roadmap);
+            Assert.AreEqual(SettingsPageId.Roadmap, ((ListBoxItem)Named<ListBox>(window, "SettingsNavigation").SelectedItem).Tag);
+        });
+    }
+
+    [TestMethod]
     public void SettingsNavigation_NavigateTo_ChangesSelectedPage()
     {
         RunOnSta(() =>

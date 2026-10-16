@@ -295,9 +295,23 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <!-- Small caption above a group of pages; it cannot be selected or focused. -->
+        <Style x:Key="NavGroupHeaderStyle" TargetType="ListBoxItem">
+            <Setter Property="IsEnabled" Value="False" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Margin" Value="0,14,0,2" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <ContentPresenter Margin="14,0,0,0" TextElement.FontSize="11" TextElement.FontWeight="Bold" TextElement.Foreground="#FF64748B" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="NavRailItemStyle" TargetType="ListBoxItem">
-            <Setter Property="Padding" Value="14,10" />
-            <Setter Property="Margin" Value="0,3" />
+            <Setter Property="Padding" Value="14,9" />
+            <Setter Property="Margin" Value="0,2" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
@@ -379,20 +393,25 @@
                          BorderThickness="0"
                          ItemContainerStyle="{StaticResource NavRailItemStyle}"
                          SelectionChanged="SettingsNavigation_SelectionChanged">
+                    <!-- Grouped by purpose; inside a group, in the order you use the pages. -->
+                    <ListBoxItem Style="{StaticResource NavGroupHeaderStyle}" Margin="0,0,0,2">
+                        <TextBlock Text="SENTENCES &amp; VOCABULARY" />
+                    </ListBoxItem>
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Setup}">
                         <TextBlock Text="Sentences" FontSize="14" />
+                    </ListBoxItem>
+                    <ListBoxItem Tag="{x:Static local:SettingsPageId.ReviewPractice}">
+                        <TextBlock Text="Practice" FontSize="14" />
                     </ListBoxItem>
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Flashcards}">
                         <TextBlock Text="Flashcards" FontSize="14" />
                     </ListBoxItem>
-                    <ListBoxItem Tag="{x:Static local:SettingsPageId.Display}">
-                        <TextBlock Text="Display" FontSize="14" />
-                    </ListBoxItem>
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Review}">
                         <TextBlock Text="Review" FontSize="14" />
                     </ListBoxItem>
-                    <ListBoxItem Tag="{x:Static local:SettingsPageId.ReviewPractice}">
-                        <TextBlock Text="Practice" FontSize="14" />
+
+                    <ListBoxItem Style="{StaticResource NavGroupHeaderStyle}">
+                        <TextBlock Text="WRITING &amp; GRAMMAR" />
                     </ListBoxItem>
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Roadmap}">
                         <TextBlock Text="Roadmap" FontSize="14" />
@@ -402,6 +421,13 @@
                     </ListBoxItem>
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Grammar}">
                         <TextBlock Text="Grammar" FontSize="14" />
+                    </ListBoxItem>
+
+                    <ListBoxItem Style="{StaticResource NavGroupHeaderStyle}">
+                        <TextBlock Text="APP" />
+                    </ListBoxItem>
+                    <ListBoxItem Tag="{x:Static local:SettingsPageId.Display}">
+                        <TextBlock Text="Display" FontSize="14" />
                     </ListBoxItem>
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Gemini}">
                         <TextBlock Text="AI" FontSize="14" />
