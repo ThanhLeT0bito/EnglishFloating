@@ -8,6 +8,7 @@
         MinWidth="860"
         MinHeight="600"
         WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
         Topmost="True"
         Background="#FF0F172A"
         Foreground="#FFE2E8F0">

@@ -673,6 +673,18 @@ public class SettingsWorkflowTests
     }
 
     [TestMethod]
+    public void SettingsWindow_OpensMaximized()
+    {
+        RunOnSta(() =>
+        {
+            var window = CreateWindowWithTwoSentences();
+            Assert.AreEqual(WindowState.Maximized, window.WindowState);
+            Assert.AreEqual(WindowState.Maximized, window.RestoreState);
+            Assert.IsFalse(window.Topmost, "maximized, it is on top only while active, so other apps can come forward");
+        });
+    }
+
+    [TestMethod]
     public void SettingsNavigation_GroupsPagesByPurpose()
     {
         RunOnSta(() =>

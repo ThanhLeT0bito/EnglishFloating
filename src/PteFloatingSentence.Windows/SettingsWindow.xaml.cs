@@ -24,11 +24,41 @@ public partial class SettingsWindow : Window
     private readonly EventHandler<Guid> _setupPageStartPracticeHandler;
     private readonly WritingHistoryBook _writingHistory;
     private RoadmapSession? _roadmapSession;
+    private WindowState _restoreState = WindowState.Maximized;
 
     public event EventHandler<Guid>? StartPracticeRequested;
 
     public SettingsPageId SelectedPage { get; private set; } = SettingsPageId.Setup;
     public FrameworkElement SectionFlashcards => FlashcardsSection;
+
+    /// <summary>The size to come back to after being minimized: maximized, unless the learner made the window smaller.</summary>
+    public WindowState RestoreState => _restoreState;
+
+    protected override void OnStateChanged(EventArgs e)
+    {
+        base.OnStateChanged(e);
+        if (WindowState != WindowState.Minimized)
+            _restoreState = WindowState;
+        ApplyTopmost();
+    }
+
+    protected override void OnActivated(EventArgs e)
+    {
+        base.OnActivated(e);
+        ApplyTopmost();
+    }
+
+    protected override void OnDeactivated(EventArgs e)
+    {
+        base.OnDeactivated(e);
+        ApplyTopmost();
+    }
+
+    /// <summary>
+    /// Settings sits above the floating sentence and flashcard windows. Maximized and always on top would also hide
+    /// every other app, so a maximized window is on top only while it is the active window.
+    /// </summary>
+    private void ApplyTopmost() => Topmost = WindowState != WindowState.Maximized || IsActive;
 
     /// <summary>Today's roadmap session while it runs, otherwise null.</summary>
     public RoadmapSession? RoadmapSession => _roadmapSession;
@@ -131,6 +161,7 @@ public partial class SettingsWindow : Window
         GrammarLessonLibrary? grammarLibrary = null)
     {
         InitializeComponent();
+        ApplyTopmost();
         _draft = new StudyListDraft(initial, save);
         _apiKeyStore = apiKeyStore;
         _explainer = explainer;

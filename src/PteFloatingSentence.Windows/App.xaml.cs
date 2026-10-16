@@ -218,9 +218,10 @@ public partial class App : System.Windows.Application
     {
         if (_settingsWindow is not null)
         {
+            // Settings opens maximized; a minimized window comes back at the size it had before.
             if (_settingsWindow.WindowState == WindowState.Minimized)
             {
-                _settingsWindow.WindowState = WindowState.Normal;
+                _settingsWindow.WindowState = _settingsWindow.RestoreState;
             }
             _settingsWindow.UpdateSettingsFromApp(_settings);
             _settingsWindow.NavigateTo(page);
