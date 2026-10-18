@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using PteFloatingSentence.Core;
 
@@ -31,10 +32,20 @@ public sealed class InMemoryWritingHistoryStore : IWritingHistoryStore
     }
 }
 
-/// <summary>Stores the history as writing-history.json next to settings.json. Read and write errors are ignored.</summary>
+/// <summary>
+/// Stores the history as writing-history.json next to settings.json. A file that cannot be read is never overwritten:
+/// a broken one is kept as writing-history.bad-*.json, and one that is locked makes this run read-only.
+/// </summary>
 public sealed class JsonWritingHistoryStore : IWritingHistoryStore
 {
-    private static readonly JsonSerializerOptions Options = new() { WriteIndented = false };
+    private static readonly JsonSerializerOptions Options = new()
+    {
+        WriteIndented = false,
+        // A number saved as text (e.g. edited by hand) should not make the whole notebook unreadable.
+        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
+    };
+
+    private bool _readOnly;
 
     public JsonWritingHistoryStore(string? filePath = null)
     {
@@ -46,22 +57,70 @@ public sealed class JsonWritingHistoryStore : IWritingHistoryStore
 
     public string FilePath { get; }
 
+    /// <summary>The copy of a broken file kept by the last load, or null.</summary>
+    public string? BackupPath { get; private set; }
+
+    /// <summary>True when the file could not be read (e.g. locked), so this run does not write over it.</summary>
+    public bool IsReadOnly => _readOnly;
+
     public WritingHistory Load()
     {
         try
         {
             if (!File.Exists(FilePath))
                 return WritingHistory.Empty;
-            return WritingHistoryRules.Normalize(JsonSerializer.Deserialize<WritingHistory>(File.ReadAllText(FilePath), Options));
+            return WritingHistoryRules.Normalize(JsonSerializer.Deserialize<WritingHistory>(ReadWithRetry(), Options));
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
+        catch (Exception error) when (error is JsonException or NotSupportedException or ArgumentException)
         {
+            // Broken content: keep it aside so starting over does not destroy the learner's notebook.
+            KeepBrokenFile();
             return WritingHistory.Empty;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            _readOnly = true;
+            return WritingHistory.Empty;
+        }
+    }
+
+    /// <summary>Reads the file, waiting a little when another program (antivirus, OneDrive) briefly holds it.</summary>
+    private string ReadWithRetry()
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return File.ReadAllText(FilePath);
+            }
+            catch (IOException) when (attempt < 4)
+            {
+                Thread.Sleep(150 * attempt);
+            }
+        }
+    }
+
+    private void KeepBrokenFile()
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(FilePath) ?? string.Empty;
+            var backup = Path.Combine(directory, $"{Path.GetFileNameWithoutExtension(FilePath)}.bad-{DateTime.Now:yyyyMMdd-HHmmss}{Path.GetExtension(FilePath)}");
+            File.Move(FilePath, backup, overwrite: false);
+            BackupPath = backup;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            // Could not move it: do not write over it either.
+            _readOnly = true;
         }
     }
 
     public void Save(WritingHistory history)
     {
+        if (_readOnly)
+            return;
+
         try
         {
             var directory = Path.GetDirectoryName(FilePath);
@@ -88,6 +147,9 @@ public sealed class WritingHistoryBook
     private readonly IWritingHistoryStore _store;
     private readonly Func<DateTimeOffset> _clock;
 
+    /// <summary>Prompts already counted as a sentence: checking one again records only its new mistakes.</summary>
+    private readonly ConditionalWeakTable<WritingPrompt, object> _countedPrompts = new();
+
     public WritingHistoryBook(IWritingHistoryStore store, Func<DateTimeOffset>? clock = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
@@ -111,7 +173,11 @@ public sealed class WritingHistoryBook
 
     public int RecentMistakeCount => WritingHistoryRules.RecentMistakeCount(Current, Now);
 
-    /// <summary>Records the mistakes of a check and, for a weak-point sentence, whether each focus tag was passed.</summary>
+    /// <summary>
+    /// Records the mistakes of a check. The first check of a prompt also counts as a sentence (its score, for the
+    /// roadmap and streak) and, for a weak-point sentence, records whether each focus tag was passed; checking the same
+    /// prompt again only adds new mistakes. Dictation never records focus results: it cannot test grammar tags.
+    /// </summary>
     public void RecordCheck(WritingPracticeMode mode, WritingPrompt prompt, string answer, WritingFeedback feedback)
     {
         ArgumentNullException.ThrowIfNull(prompt);
@@ -119,11 +185,16 @@ public sealed class WritingHistoryBook
         var now = Now;
         var source = WritingModes.HistorySource(prompt, mode);
         var updated = WritingHistoryRules.RecordFeedback(Current, mode, source, answer, feedback, now);
-        updated = WritingHistoryRules.RecordFocusResult(updated, prompt.FocusTags, feedback, now);
-        updated = WritingHistoryRules.RecordCheckScore(updated, new WritingCheckRecord(now, mode, prompt.Level, feedback.Score)
+        if (_countedPrompts.TryAdd(prompt, new object()))
         {
-            FocusTopicKey = prompt.FocusTopicKey
-        });
+            if (mode != WritingPracticeMode.Dictation)
+                updated = WritingHistoryRules.RecordFocusResult(updated, prompt.FocusTags, feedback, now);
+            updated = WritingHistoryRules.RecordCheckScore(updated, new WritingCheckRecord(now, mode, prompt.Level, feedback.Score)
+            {
+                FocusTopicKey = prompt.FocusTopicKey
+            });
+        }
+
         Replace(updated);
     }
 
@@ -164,13 +235,18 @@ public sealed class WritingHistoryBook
     public IReadOnlyList<WritingMistakeGroup> MistakesFor(string topicKey, int count) =>
         GrammarProgressRules.MistakesFor(Current, topicKey, count);
 
-    public void Clear() => Replace(WritingHistory.Empty);
+    /// <summary>Empties the mistake notebook; lessons, drills and roadmap progress stay.</summary>
+    /// <remarks>Clearing mistakes must not count as finishing a stage ("no grammar that needs review").</remarks>
+    public void Clear() => Replace(WritingHistoryRules.ClearMistakes(Current), recordCompletions: false);
 
-    private void Replace(WritingHistory updated)
+    private void Replace(WritingHistory updated, bool recordCompletions = true)
     {
         if (ReferenceEquals(updated, Current))
             return;
 
+        // A stage that is done now is saved as done, so it does not reopen later.
+        if (recordCompletions)
+            updated = RoadmapRules.RecordCompletions(updated, Now);
         Current = updated;
         _store.Save(updated);
         Changed?.Invoke();

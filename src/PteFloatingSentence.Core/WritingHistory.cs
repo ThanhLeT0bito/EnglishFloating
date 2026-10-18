@@ -70,6 +70,12 @@ public sealed record WritingHistory
     /// <summary>Roadmap stage the learner chose; null follows their progress.</summary>
     public string? RoadmapStageKey { get; init; }
 
+    /// <summary>Roadmap stages finished, saved so they stay done when old entries leave the capped logs.</summary>
+    public IReadOnlyList<RoadmapStageCompletion> CompletedStages { get; init; } = [];
+
+    /// <summary>Days with at least one checked sentence (local dates), for the streak; newest kept.</summary>
+    public IReadOnlyList<DateOnly> ActiveDays { get; init; } = [];
+
     public static WritingHistory Empty { get; } = new();
 }
 
@@ -87,6 +93,9 @@ public sealed record WritingCheckRecord(DateTimeOffset At, WritingPracticeMode M
     /// <summary>Grammar topic the sentence drilled, if any.</summary>
     public string? FocusTopicKey { get; init; }
 }
+
+/// <summary>A roadmap stage the learner finished, and when.</summary>
+public sealed record RoadmapStageCompletion(string StageKey, DateTimeOffset At);
 
 /// <summary>Result of a lesson's quick check: <see cref="Correct"/> of <see cref="Total"/> questions.</summary>
 public sealed record GrammarQuizResult(DateTimeOffset At, string TopicKey, int Correct, int Total)

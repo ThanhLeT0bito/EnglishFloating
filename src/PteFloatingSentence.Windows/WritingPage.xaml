@@ -778,7 +778,8 @@
                     <StackPanel x:Name="GrammarReviewPanel" />
                     <TextBlock x:Name="RecentMistakesLabel" Style="{StaticResource SectionLabelStyle}" Text="Recent mistakes" Margin="0,12,0,6" />
                     <StackPanel x:Name="RecentMistakesPanel" />
-                    <Button x:Name="ClearHistoryButton" Content="Clear history" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,8,0,0" Click="ClearHistoryButton_Click" />
+                    <Button x:Name="ClearHistoryButton" Content="Clear mistakes" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,8,0,0"
+                            ToolTip="Empty this notebook. Lessons, drills and roadmap progress stay." Click="ClearHistoryButton_Click" />
                 </StackPanel>
             </StackPanel>
         </Border>

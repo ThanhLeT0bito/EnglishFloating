@@ -744,6 +744,9 @@ public partial class FloatingWindow : Window
         WritingPanel.Visibility = Visibility.Collapsed;
         if (WritingMenuItem is not null)
             WritingMenuItem.Header = "Start Writing";
+        // Writing hid the vocabulary cards; render them again even if the sentence has not changed.
+        _vocabularyRenderSignature = null;
+        _vocabularyRenderVisibility = null;
         ApplySettings(_settings);
     }
 

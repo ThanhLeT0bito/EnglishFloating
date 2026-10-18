@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Net.WebSockets;
 using System.Security;
@@ -17,6 +18,12 @@ public interface IWebSocketClient : IDisposable
     Task<WebSocketReceiveResult> ReceiveAsync(ArraySegment<byte> buffer, CancellationToken cancellationToken);
 
     Task CloseAsync(WebSocketCloseStatus closeStatus, string? statusDescription, CancellationToken cancellationToken);
+
+    /// <summary>HTTP status of a refused handshake (e.g. 403), when known.</summary>
+    int? HandshakeStatusCode => null;
+
+    /// <summary>The server's Date header from the handshake response, when known.</summary>
+    DateTimeOffset? ServerDate => null;
 }
 
 public sealed class EdgeNeuralTtsService : ITtsService
@@ -47,20 +54,41 @@ public sealed class EdgeNeuralTtsService : ITtsService
     public const string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0";
     public const string TrustedClientToken = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
     public const string SecMsGecVersion = "1-143.0.3650.75";
-    private const string BaseEndpoint = "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=" + TrustedClientToken;
+
+    /// <summary>
+    /// Read Aloud endpoints, newest first. Since October 2026 the Bing host refuses the handshake (HTTP 403) in many
+    /// regions; Edge now uses api.msedgeservices.com, which takes the same token as Ocp-Apim-Subscription-Key.
+    /// </summary>
+    public static readonly IReadOnlyList<string> Endpoints =
+    [
+        "wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1?Ocp-Apim-Subscription-Key=" + TrustedClientToken,
+        "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=" + TrustedClientToken
+    ];
+
+    private static readonly TimeSpan MaxClockError = TimeSpan.FromMinutes(1);
 
     private readonly Func<IWebSocketClient> _webSocketFactory;
     private readonly TimeSpan _timeout;
+
+    /// <summary>Time one endpoint gets to accept the connection, so a host that hangs still leaves time for the next.</summary>
+    private readonly TimeSpan _connectTimeout;
+
+    /// <summary>The endpoint that answered last; later requests start there.</summary>
+    private int _preferredEndpoint;
+
+    /// <summary>Server time minus this PC's time, learned from a refused handshake. The token depends on the time.</summary>
+    private TimeSpan _clockSkew;
 
     public EdgeNeuralTtsService()
         : this(() => new DefaultWebSocketClient())
     {
     }
 
-    internal EdgeNeuralTtsService(Func<IWebSocketClient> webSocketFactory, TimeSpan? timeout = null)
+    internal EdgeNeuralTtsService(Func<IWebSocketClient> webSocketFactory, TimeSpan? timeout = null, TimeSpan? connectTimeout = null)
     {
         _webSocketFactory = webSocketFactory ?? throw new ArgumentNullException(nameof(webSocketFactory));
         _timeout = timeout ?? TimeSpan.FromSeconds(20);
+        _connectTimeout = connectTimeout ?? TimeSpan.FromSeconds(7);
     }
 
     public static string FormatRate(double speed)
@@ -88,9 +116,12 @@ public sealed class EdgeNeuralTtsService : ITtsService
         return $"<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='{selectedVoice}'><prosody rate='{rateString}'>{escapedText}</prosody></voice></speak>";
     }
 
-    public static string GenerateSecMsGec()
+    public static string GenerateSecMsGec() => GenerateSecMsGec(DateTimeOffset.UtcNow);
+
+    /// <summary>The Sec-MS-GEC token for <paramref name="now"/>: SHA-256 of the 5-minute Windows tick count and the client token.</summary>
+    public static string GenerateSecMsGec(DateTimeOffset now)
     {
-        var unixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var unixSeconds = now.ToUnixTimeSeconds();
         var ticks = unixSeconds + 11644473600L;
         ticks -= ticks % 300L;
         ticks *= 10000000L;
@@ -130,12 +161,7 @@ public sealed class EdgeNeuralTtsService : ITtsService
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var connectionId = Guid.NewGuid().ToString("N");
-        var secMsGec = GenerateSecMsGec();
-        var uri = new Uri($"{BaseEndpoint}&ConnectionId={connectionId}&Sec-MS-GEC={secMsGec}&Sec-MS-GEC-Version={SecMsGecVersion}");
-
-        using var ws = _webSocketFactory();
-        await ws.ConnectAsync(uri, cancellationToken);
+        using var ws = await ConnectAsync(cancellationToken);
 
         // 1. Send speech.config message
         var configMessage = "Content-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n" +
@@ -239,12 +265,84 @@ public sealed class EdgeNeuralTtsService : ITtsService
         }
     }
 
+    public static Uri BuildUri(string endpoint, string connectionId, DateTimeOffset now) =>
+        new($"{endpoint}&ConnectionId={connectionId}&Sec-MS-GEC={GenerateSecMsGec(now)}&Sec-MS-GEC-Version={SecMsGecVersion}");
+
+    /// <summary>
+    /// Opens a socket on the first endpoint that accepts the handshake, starting with the one that worked last.
+    /// A refused handshake with a server time far from this PC's clock is retried once with the corrected time.
+    /// </summary>
+    private async Task<IWebSocketClient> ConnectAsync(CancellationToken cancellationToken)
+    {
+        WebSocketException? lastError = null;
+        var timedOut = false;
+        var start = _preferredEndpoint;
+        for (var offset = 0; offset < Endpoints.Count; offset++)
+        {
+            var index = (start + offset) % Endpoints.Count;
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                var ws = _webSocketFactory();
+                using var connect = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                connect.CancelAfter(_connectTimeout);
+                try
+                {
+                    var uri = BuildUri(Endpoints[index], Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow + _clockSkew);
+                    await ws.ConnectAsync(uri, connect.Token);
+                    _preferredEndpoint = index;
+                    return ws;
+                }
+                catch (OperationCanceledException) when (connect.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+                {
+                    // This host does not answer: try the next one.
+                    ws.Dispose();
+                    timedOut = true;
+                    break;
+                }
+                catch (WebSocketException error) when (!cancellationToken.IsCancellationRequested)
+                {
+                    lastError = error;
+                    var refused = ws.HandshakeStatusCode is 401 or 403;
+                    var serverDate = ws.ServerDate;
+                    ws.Dispose();
+                    if (attempt == 0 && refused && serverDate is { } date && LearnClockSkew(date))
+                        continue;
+                    break;
+                }
+                catch
+                {
+                    ws.Dispose();
+                    throw;
+                }
+            }
+        }
+
+        if (lastError is not null)
+            throw lastError;
+        if (timedOut)
+            throw new TimeoutException("Audio request timed out. Click to retry.");
+        throw new WebSocketException("Could not connect to the text-to-speech service.");
+    }
+
+    /// <summary>Remembers how far this PC's clock is from <paramref name="serverDate"/>; true when that changed the token time.</summary>
+    private bool LearnClockSkew(DateTimeOffset serverDate)
+    {
+        var skew = serverDate - DateTimeOffset.UtcNow;
+        if ((skew - _clockSkew).Duration() < MaxClockError)
+            return false;
+
+        _clockSkew = skew;
+        return true;
+    }
+
     private sealed class DefaultWebSocketClient : IWebSocketClient
     {
         private readonly ClientWebSocket _ws = new();
 
         public DefaultWebSocketClient()
         {
+            // Keeps the status and headers of a refused handshake (for the clock check).
+            _ws.Options.CollectHttpResponseDetails = true;
             _ws.Options.SetRequestHeader("User-Agent", UserAgent);
             _ws.Options.SetRequestHeader("Pragma", "no-cache");
             _ws.Options.SetRequestHeader("Cache-Control", "no-cache");
@@ -256,6 +354,15 @@ public sealed class EdgeNeuralTtsService : ITtsService
         }
 
         public WebSocketState State => _ws.State;
+
+        public int? HandshakeStatusCode => _ws.HttpStatusCode == 0 ? null : (int)_ws.HttpStatusCode;
+
+        public DateTimeOffset? ServerDate =>
+            _ws.HttpResponseHeaders is { } headers
+            && headers.TryGetValue("Date", out var values)
+            && DateTimeOffset.TryParse(values.FirstOrDefault(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var date)
+                ? date
+                : null;
 
         public Task ConnectAsync(Uri uri, CancellationToken cancellationToken) =>
             _ws.ConnectAsync(uri, cancellationToken);

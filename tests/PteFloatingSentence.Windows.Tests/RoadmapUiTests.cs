@@ -250,6 +250,85 @@ public sealed class RoadmapUiTests
         });
     }
 
+    // ---- Review fixes: keyboard, quick check, dictation --------------------------------------
+
+    [TestMethod]
+    public void WritingPage_EnterOutsideTheAnswerBoxGoesToTheNextSentence()
+    {
+        RunOnSta(() =>
+        {
+            var page = new WritingPage(new SilentAudio());
+            page.Initialize(new StudyListDraft(AppSettings.Default with { WritingRetypeEnabled = false }, _ => { }), new EchoCoach(), null, Book());
+            Click(page, "GenerateButton");
+            ((TextBox)page.FindName("AnswerBox")).Text = "She goes to work.";
+            Click(page, "CheckButton");
+            var checkedPrompt = page.Session!.Prompt;
+            Assert.AreEqual(WritingSessionState.Reviewed, page.Session.State);
+
+            page.HandleEnterOutsideAnswer();
+
+            Assert.AreEqual(WritingSessionState.Answering, page.Session.State);
+            Assert.AreNotSame(checkedPrompt, page.Session.Prompt);
+        });
+    }
+
+    [TestMethod]
+    public void WritingPage_ChoosingDictationDuringADrillDoesNotReadTheAnswerAloud()
+    {
+        RunOnSta(() =>
+        {
+            var audio = new CountingAudio();
+            var page = new WritingPage(audio);
+            page.Initialize(new StudyListDraft(AppSettings.Default with { WritingRetypeEnabled = false }, _ => { }), new EchoCoach(), null, Book());
+            page.StartDrillAsync(PresentSimple).GetAwaiter().GetResult();
+
+            ((RadioButton)page.FindName("DictationModeButton")).IsChecked = true;
+            Assert.AreEqual(0, audio.Plays, "the drill stays a translation, so its English answer is not played");
+
+            page.EndDrill();
+            Click(page, "GenerateButton");
+            ((RadioButton)page.FindName("TranslateModeButton")).IsChecked = true;
+            ((RadioButton)page.FindName("DictationModeButton")).IsChecked = true;
+            Assert.IsTrue(audio.Plays > 0, "a real dictation still plays");
+        });
+    }
+
+    [TestMethod]
+    public void SettingsWindow_LearnStepNeedsAPassedQuickCheck()
+    {
+        RunOnSta(() =>
+        {
+            var window = new SettingsWindow(AppSettings.Default with { WritingRetypeEnabled = false }, _ => { }, writingCoach: new EchoCoach(),
+                writingHistory: Book(), grammarLibrary: GrammarLessonLibrary.InMemory(new FakeTutor()));
+            var grammar = (GrammarPage)window.FindName("GrammarPageControl");
+            window.StartRoadmapSession();
+
+            grammar.AnswerQuiz(0, 0);
+            Assert.IsFalse(window.RoadmapSession!.IsCurrentDone, "a failed quick check can be tried again");
+
+            grammar.RetryQuiz();
+            grammar.AnswerQuiz(0, 1);
+            Assert.IsTrue(window.RoadmapSession.IsCurrentDone);
+            window.Close();
+        });
+    }
+
+    [TestMethod]
+    public void GrammarPage_LessonWithoutAQuickCheckSaysHowToGetOne()
+    {
+        RunOnSta(() =>
+        {
+            var page = new GrammarPage(new SilentAudio());
+            page.Initialize(new StudyListDraft(AppSettings.Default, _ => { }), GrammarLessonLibrary.InMemory(new FakeTutor { WithoutQuiz = true }), Book());
+
+            page.OpenTopicAsync("present-simple").GetAwaiter().GetResult();
+
+            Assert.AreEqual(Visibility.Visible, ((FrameworkElement)page.FindName("QuizSection")).Visibility);
+            var note = (TextBlock)((Panel)page.FindName("QuizPanel")).Children.Cast<UIElement>().Single();
+            StringAssert.Contains(note.Text, "Rewrite lesson");
+        });
+    }
+
     // ---- Helpers -------------------------------------------------------------------------------
 
     private static WritingHistoryBook Book() => new(new InMemoryWritingHistoryStore(), () => Now);
@@ -305,8 +384,33 @@ public sealed class RoadmapUiTests
 
     private sealed class FakeTutor : IGrammarTutor
     {
-        public Task<GrammarLesson> CreateLessonAsync(GrammarTopic topic, WritingExplanationLanguage language, CancellationToken cancellationToken = default) =>
-            Task.FromResult(AiGrammarTutor.ParseLesson(LessonJson, topic, language, Now));
+        public bool WithoutQuiz { get; init; }
+
+        public Task<GrammarLesson> CreateLessonAsync(GrammarTopic topic, WritingExplanationLanguage language, CancellationToken cancellationToken = default)
+        {
+            var lesson = AiGrammarTutor.ParseLesson(LessonJson, topic, language, Now);
+            return Task.FromResult(WithoutQuiz ? lesson with { Quiz = [] } : lesson);
+        }
+    }
+
+    /// <summary>Counts how often something is played.</summary>
+    private sealed class CountingAudio : ISentenceAudioPlayback
+    {
+        public int Plays { get; private set; }
+        public AudioPlaybackState State { get; } = new(false, false, null);
+        public event Action<AudioPlaybackState>? StateChanged;
+
+        public Task ToggleAsync(string text, string voice, double speed)
+        {
+            Plays++;
+            return Task.CompletedTask;
+        }
+
+        public void Stop() => StateChanged?.Invoke(State);
+
+        public void Dispose()
+        {
+        }
     }
 
     /// <summary>Writes the requested exercise and level back, and accepts every answer.</summary>

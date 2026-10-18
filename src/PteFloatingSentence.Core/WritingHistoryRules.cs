@@ -167,6 +167,10 @@ public static class WritingHistoryRules
         var quizzes = (history.Quizzes ?? [])
             .Where(quiz => quiz is not null && !string.IsNullOrWhiteSpace(quiz.TopicKey) && quiz.Total is > 0 and <= 20 && quiz.Correct >= 0 && quiz.Correct <= quiz.Total)
             .ToList();
+        var completed = (history.CompletedStages ?? [])
+            .Where(completion => completion is not null && WritingRoadmap.Find(completion.StageKey) is { IsAvailable: true })
+            .DistinctBy(completion => completion.StageKey)
+            .ToList();
         return new WritingHistory
         {
             Mistakes = KeepNewest(mistakes, MaxMistakes),
@@ -174,20 +178,46 @@ public static class WritingHistoryRules
             Drills = Newest(drills, GrammarProgressRules.MaxDrills),
             Checks = Newest(checks, MaxChecks),
             Quizzes = Newest(quizzes, MaxQuizzes),
-            RoadmapStageKey = WritingRoadmap.Find(history.RoadmapStageKey) is { IsAvailable: true } stage ? stage.Key : null
+            RoadmapStageKey = WritingRoadmap.Find(history.RoadmapStageKey) is { IsAvailable: true } stage ? stage.Key : null,
+            CompletedStages = completed,
+            ActiveDays = ActiveDaysOf(history.ActiveDays ?? [])
         };
     }
 
     public const int MaxChecks = 1000;
     public const int MaxQuizzes = 300;
+    public const int MaxActiveDays = 400;
 
-    /// <summary>Logs the score of a checked answer (kept for progress, newest <see cref="MaxChecks"/>).</summary>
+    /// <summary>
+    /// Logs the score of a checked answer (kept for progress, newest <see cref="MaxChecks"/>) and its day for the
+    /// streak (newest <see cref="MaxActiveDays"/>).
+    /// </summary>
     public static WritingHistory RecordCheckScore(WritingHistory history, WritingCheckRecord check)
     {
         ArgumentNullException.ThrowIfNull(history);
         ArgumentNullException.ThrowIfNull(check);
         var record = check with { Score = Math.Clamp(check.Score, 0, 100) };
-        return history with { Checks = Newest(history.Checks.Append(record).ToList(), MaxChecks) };
+        return history with
+        {
+            Checks = Newest(history.Checks.Append(record).ToList(), MaxChecks),
+            ActiveDays = ActiveDaysOf(history.ActiveDays.Append(DayOf(record.At)))
+        };
+    }
+
+    /// <summary>The local calendar day something happened, in the offset it was recorded with.</summary>
+    public static DateOnly DayOf(DateTimeOffset at) => DateOnly.FromDateTime(at.Date);
+
+    /// <summary>Empties the mistake notebook (mistakes and weak-point results) and keeps lessons, drills and roadmap progress.</summary>
+    public static WritingHistory ClearMistakes(WritingHistory history)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+        return history with { Mistakes = [], Reviews = [] };
+    }
+
+    private static IReadOnlyList<DateOnly> ActiveDaysOf(IEnumerable<DateOnly> days)
+    {
+        var sorted = days.Distinct().Order().ToList();
+        return Newest(sorted, MaxActiveDays);
     }
 
     /// <summary>Logs a finished quick check of a lesson.</summary>

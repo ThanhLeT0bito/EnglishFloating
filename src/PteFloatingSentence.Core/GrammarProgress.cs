@@ -16,7 +16,10 @@ public sealed record GrammarDrillResult(DateTimeOffset At, string TopicKey, int 
 }
 
 /// <param name="RecentMistakes">Mistakes on the topic in the last 30 days.</param>
-/// <param name="MistakesSinceDrill">Of those, the mistakes made after the latest drill (all of them without a drill).</param>
+/// <param name="MistakesSinceDrill">
+/// Of those, the mistakes made after the latest passed drill (all of them without one). A failed drill does not
+/// reset the count.
+/// </param>
 public sealed record GrammarTopicStat(
     GrammarTopic Topic,
     int RecentMistakes,
@@ -35,8 +38,8 @@ public static class GrammarProgressRules
     public const int DrillLength = 5;
 
     /// <summary>
-    /// Status of one topic: Good after a passed drill with no new mistakes; Needs review with 3+ mistakes since the
-    /// last drill; Improving with fewer mistakes since the drill or after a failed drill; otherwise Not started.
+    /// Status of one topic: Good when the latest drill passed and no mistake came after it; Needs review with 3+
+    /// mistakes since the last passed drill; Improving with fewer, or after any drill; otherwise Not started.
     /// </summary>
     public static GrammarTopicStat StatFor(WritingHistory history, GrammarTopic topic, DateTimeOffset now)
     {
@@ -50,7 +53,11 @@ public static class GrammarProgressRules
             .Where(drill => string.Equals(drill.TopicKey, topic.Key, StringComparison.Ordinal))
             .OrderByDescending(drill => drill.At)
             .FirstOrDefault();
-        var sinceDrill = lastDrill is null ? mistakes.Count : mistakes.Count(mistake => mistake.At > lastDrill.At);
+        var lastPass = history.Drills
+            .Where(drill => drill.IsPass && string.Equals(drill.TopicKey, topic.Key, StringComparison.Ordinal))
+            .OrderByDescending(drill => drill.At)
+            .FirstOrDefault();
+        var sinceDrill = lastPass is null ? mistakes.Count : mistakes.Count(mistake => mistake.At > lastPass.At);
 
         var status = lastDrill is { IsPass: true } && sinceDrill == 0 ? GrammarTopicStatus.Good
             : sinceDrill >= RepeatThreshold ? GrammarTopicStatus.NeedsReview
@@ -111,14 +118,24 @@ public static class GrammarProgressRules
         return history with { Drills = drills.Count <= MaxDrills ? drills : drills.Skip(drills.Count - MaxDrills).ToList() };
     }
 
-    /// <summary>True when <paramref name="feedback"/> has no mistake on <paramref name="topic"/>; a custom topic needs a score of 80+.</summary>
+    /// <summary>Lowest score a drill sentence can pass with, so a poor answer whose mistake the AI did not tag still fails.</summary>
+    public const int MinDrillScore = 60;
+
+    /// <summary>
+    /// True when <paramref name="feedback"/> has no mistake on <paramref name="topic"/> and scores at least
+    /// <see cref="MinDrillScore"/>; a custom topic, which the AI rarely tags, needs a score of 80+.
+    /// </summary>
     public static bool PassesTopic(WritingFeedback feedback, GrammarTopic topic)
     {
         ArgumentNullException.ThrowIfNull(feedback);
         ArgumentNullException.ThrowIfNull(topic);
         var issues = (feedback.Issues ?? []).Where(issue => issue is not null && issue.Type != WritingIssueType.Punctuation).ToList();
-        if (topic.IsCustom && issues.All(issue => issue.TopicKey != topic.Key))
-            return feedback.Score >= 80;
-        return issues.All(issue => !string.Equals(issue.TopicKey, topic.Key, StringComparison.Ordinal));
+        var onTopic = issues.Any(issue => string.Equals(issue.TopicKey, topic.Key, StringComparison.Ordinal)
+            || (!topic.IsCustom && Find(issue.TopicKey)?.Key == topic.Key));
+        if (onTopic)
+            return false;
+        return feedback.Score >= (topic.IsCustom ? 80 : MinDrillScore);
     }
+
+    private static GrammarTopic? Find(string? key) => GrammarTopics.Find(key);
 }

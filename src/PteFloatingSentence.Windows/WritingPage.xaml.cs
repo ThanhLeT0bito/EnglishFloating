@@ -153,8 +153,11 @@ public partial class WritingPage : UserControl, IDisposable
     private WritingLevel PracticeLevel() =>
         _drill?.Practice?.Level ?? _guided?.Practice.Level ?? _draft?.Settings.WritingLevel ?? WritingLevel.Easy;
 
+    /// <summary>Weak points to aim the next sentence at; none in dictation, which cannot test grammar tags.</summary>
     private IReadOnlyList<WritingSkillTag> FocusTags() =>
-        _draft is { Settings.WritingFocusWeakPoints: true } && _history.CanPracticeWeakPoints ? _history.WeakTags() : [];
+        _draft is { Settings.WritingFocusWeakPoints: true } && _draft.Settings.WritingPracticeMode != WritingPracticeMode.Dictation && _history.CanPracticeWeakPoints
+            ? _history.WeakTags()
+            : [];
 
     /// <summary>Re-reads topics, level, language and study lists from the draft.</summary>
     public void RefreshFromDraft()
@@ -242,7 +245,9 @@ public partial class WritingPage : UserControl, IDisposable
         // A paraphrase or combine exercise needs its own kind of sentence: get one right away.
         if (_session.PromptNeedsNewMode || (_session.State == WritingSessionState.Generating && _session.Prompt is null))
             _ = GenerateAsync();
-        else if (mode == WritingPracticeMode.Dictation && _session is { State: WritingSessionState.Answering, Prompt: not null } session)
+        // Play only when the sentence really is a dictation now: during a drill or roadmap run the exercise stays
+        // the same, and playing a translation's reference would read out the answer.
+        else if (_session is { State: WritingSessionState.Answering, Prompt: not null, PromptMode: WritingPracticeMode.Dictation } session)
             _ = PlayAsync(session.Prompt.ReferenceEnglish, restart: true);
     }
 
@@ -571,11 +576,13 @@ public partial class WritingPage : UserControl, IDisposable
             // The answer stays highlighted in the result; the box is now for typing the corrected sentence.
             AnswerBox.Text = string.Empty;
             AnswerBox.Focus();
+            return;
         }
-        else if (_draft.Settings.WritingAutoPlayCorrected && EnglishResult() is { } english)
-        {
+
+        // Keep the keyboard in the answer box (the Check button may have taken focus), so Enter goes to the next sentence.
+        AnswerBox.Focus();
+        if (_draft.Settings.WritingAutoPlayCorrected && EnglishResult() is { } english)
             await PlayAsync(english, restart: true);
-        }
     }
 
     // ---- Grammar drill ---------------------------------------------------------------------------
@@ -744,6 +751,19 @@ public partial class WritingPage : UserControl, IDisposable
         }
     }
 
+    /// <summary>
+    /// Enter pressed while the answer box does not have the keyboard (e.g. after clicking Check): does what Enter
+    /// does in the box, instead of reaching the Settings window's Save button.
+    /// </summary>
+    public void HandleEnterOutsideAnswer()
+    {
+        if (_disposed || _session is null)
+            return;
+
+        AnswerBox.Focus();
+        _ = HandleAnswerEnterAsync();
+    }
+
     private async Task HandleAnswerEnterAsync()
     {
         if (_session is null || _session.IsBusy)
@@ -863,7 +883,7 @@ public partial class WritingPage : UserControl, IDisposable
             return;
 
         _clearArmed = false;
-        ClearHistoryButton.Content = "Clear history";
+        ClearHistoryButton.Content = "Clear mistakes";
         MistakesBody.Visibility = _mistakesCollapsed ? Visibility.Collapsed : Visibility.Visible;
         MistakesChevron.Text = _mistakesCollapsed ? "\uE76C" : "\uE70D";
         MistakesToggleButton.ToolTip = _mistakesCollapsed ? "Show my mistakes" : "Hide my mistakes";

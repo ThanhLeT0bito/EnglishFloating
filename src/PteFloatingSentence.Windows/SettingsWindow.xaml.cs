@@ -60,6 +60,32 @@ public partial class SettingsWindow : Window
     /// </summary>
     private void ApplyTopmost() => Topmost = WindowState != WindowState.Maximized || IsActive;
 
+    /// <summary>
+    /// On the practice pages Enter and Esc never reach Save changes / Cancel: Enter there means "check" or "next
+    /// sentence", and closing Settings would end today's session and lose the current exercise. Children handle the
+    /// keys first (KeyDown bubbles), so text boxes, buttons and drop-downs keep their own Enter and Esc.
+    /// </summary>
+    private void SettingsWindow_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Handled || SelectedPage is not (SettingsPageId.Writing or SettingsPageId.Grammar or SettingsPageId.Roadmap))
+            return;
+
+        if (e.Key == System.Windows.Input.Key.Escape)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key is not (System.Windows.Input.Key.Enter or System.Windows.Input.Key.Return)
+            || ReferenceEquals(e.OriginalSource, SaveButton) || ReferenceEquals(e.OriginalSource, CancelButton))
+            return;
+
+        e.Handled = true;
+        // Focus left the answer box (e.g. after clicking Check): Enter still does what it does in the box.
+        if (SelectedPage == SettingsPageId.Writing && e.OriginalSource is not System.Windows.Controls.ComboBox)
+            WritingPageControl.HandleEnterOutsideAnswer();
+    }
+
     /// <summary>Today's roadmap session while it runs, otherwise null.</summary>
     public RoadmapSession? RoadmapSession => _roadmapSession;
 
@@ -162,6 +188,7 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent();
         ApplyTopmost();
+        KeyDown += SettingsWindow_KeyDown;
         _draft = new StudyListDraft(initial, save);
         _apiKeyStore = apiKeyStore;
         _explainer = explainer;
@@ -460,7 +487,12 @@ public partial class SettingsWindow : Window
 
     private void OnGuidedCompleted(GuidedPractice run) => _roadmapSession?.Complete(run.Kind, run.Topic?.Key);
 
-    private void OnQuizCompleted(GrammarTopic topic, int correct, int total) => _roadmapSession?.Complete(RoadmapStepKind.Learn, topic.Key);
+    /// <summary>The Learn step is done when its quick check is passed; a failed one can be tried again from the lesson.</summary>
+    private void OnQuizCompleted(GrammarTopic topic, int correct, int total)
+    {
+        if (new GrammarQuizResult(DateTimeOffset.MinValue, topic.Key, correct, total).IsPass)
+            _roadmapSession?.Complete(RoadmapStepKind.Learn, topic.Key);
+    }
 
     private void OnRoadmapPracticeRequested(RoadmapStage stage, RoadmapPractice practice)
     {
@@ -559,6 +591,14 @@ public partial class SettingsWindow : Window
         if (!TryUpdateSelectedList())
             return;
 
+        // Validate first: a Save that fails must not have changed the stored keys already.
+        var validation = _draft.Validate();
+        if (!validation.IsValid)
+        {
+            ShowResult(validation);
+            return;
+        }
+
         var newKey = GeminiPageControl.CurrentKey;
         if (!string.IsNullOrEmpty(newKey))
         {
@@ -640,6 +680,8 @@ public partial class SettingsWindow : Window
         try
         {
             SetupPageControl.RefreshFromDraft(_draft);
+            // Writing options can change from the floating window while Settings is open.
+            WritingPageControl?.RefreshFromDraft();
             DisplayPageControl?.LoadSettings(_draft.Settings);
             ReviewPageControl?.LoadData(new ReviewViewModel(_draft.Settings));
             GeminiPageControl?.LoadState(_apiKeyConfigured);

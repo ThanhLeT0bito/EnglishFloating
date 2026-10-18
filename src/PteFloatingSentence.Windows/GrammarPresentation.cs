@@ -92,6 +92,10 @@ public static class GrammarPresentation
 
     public static string QuizRetryText(WritingExplanationLanguage language) => Pick(language, "Try the quick check again", "Làm lại bài kiểm tra");
 
+    public static string NoQuizText(WritingExplanationLanguage language) =>
+        Pick(language, "This lesson has no quick check. Click Rewrite lesson to get one — the roadmap counts a lesson once its quick check is passed.",
+            "Bài này chưa có phần kiểm tra nhanh. Bấm Rewrite lesson để có — lộ trình chỉ tính bài học khi đã qua phần kiểm tra.");
+
     private static string Pick(WritingExplanationLanguage language, string english, string vietnamese) =>
         language == WritingExplanationLanguage.Vietnamese ? vietnamese : english;
 }

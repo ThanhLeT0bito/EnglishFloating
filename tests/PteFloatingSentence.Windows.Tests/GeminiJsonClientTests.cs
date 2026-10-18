@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -111,7 +112,7 @@ public sealed class GeminiJsonClientTests
     }
 
     [TestMethod]
-    public async Task GenerateJsonAsync_NonTransientStatus_StopsAfterRetryWithoutThinking()
+    public async Task GenerateJsonAsync_BadRequest_RetriesSimplerThenTriesTheNextModel()
     {
         var handler = new GeminiTestHandler((_, _) => Task.FromResult(GeminiTestHandler.Status(HttpStatusCode.BadRequest)));
         using var client = new GeminiJsonClient(() => "k", new HttpClient(handler), ["a", "b"]);
@@ -119,8 +120,90 @@ public sealed class GeminiJsonClientTests
         var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => client.GenerateJsonAsync("s", "u", Schema));
 
         StringAssert.Contains(error.Message, "400");
-        Assert.AreEqual(2, handler.RequestBodies.Count);
-        Assert.IsTrue(handler.RequestUris.All(uri => uri.Contains("/models/a:")));
+        Assert.AreEqual(4, handler.RequestBodies.Count, "each model once as asked, once simpler");
+        Assert.IsTrue(handler.RequestUris.Take(2).All(uri => uri.Contains("/models/a:")));
+        Assert.IsTrue(handler.RequestUris.Skip(2).All(uri => uri.Contains("/models/b:")));
+    }
+
+    [TestMethod]
+    public async Task GenerateJsonAsync_RetiredModel_FallsBackAndShowsNoErrorWhenTheNextWorks()
+    {
+        var handler = new GeminiTestHandler((request, _) => Task.FromResult(request.RequestUri!.ToString().Contains("/models/old:")
+            ? Error(HttpStatusCode.BadRequest, "{\"error\":{\"code\":400,\"message\":\"The model old has been decommissioned.\"}}")
+            : GeminiTestHandler.Ok("{\"ok\":true}")));
+        using var client = new GeminiJsonClient(() => "k", new HttpClient(handler), ["old", "new"]);
+
+        Assert.AreEqual("{\"ok\":true}", await client.GenerateJsonAsync("s", "u", Schema));
+    }
+
+    [TestMethod]
+    public async Task GenerateJsonAsync_InvalidKey_SaysSoAtOnceWithoutTryingOtherModels()
+    {
+        const string body = "{\"error\":{\"code\":400,\"message\":\"API key not valid. Please pass a valid API key.\",\"status\":\"INVALID_ARGUMENT\","
+            + "\"details\":[{\"@type\":\"type.googleapis.com/google.rpc.ErrorInfo\",\"reason\":\"API_KEY_INVALID\"}]}}";
+        var handler = new GeminiTestHandler((_, _) => Task.FromResult(Error(HttpStatusCode.BadRequest, body)));
+        using var client = new GeminiJsonClient(() => "k", new HttpClient(handler), ["a", "b"]);
+
+        var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => client.GenerateJsonAsync("s", "u", Schema));
+
+        Assert.AreEqual("Gemini rejected the API key (HTTP 400). Check it in Settings.", error.Message);
+        Assert.AreEqual(1, handler.RequestBodies.Count);
+    }
+
+    [TestMethod]
+    public async Task GenerateJsonAsync_ShowsTheProvidersReasonWithoutTheKey()
+    {
+        var handler = new GeminiTestHandler((_, _) => Task.FromResult(Error(HttpStatusCode.UnprocessableEntity,
+            "{\"error\":{\"message\":\"Request for key secret-key-123 exceeds the allowed size.\"}}")));
+        using var client = new GeminiJsonClient(() => "secret-key-123", new HttpClient(handler), ["a"]);
+
+        var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => client.GenerateJsonAsync("s", "u", Schema));
+
+        Assert.AreEqual("Gemini request failed (HTTP 422): Request for key *** exceeds the allowed size.", error.Message);
+    }
+
+    [TestMethod]
+    public async Task GenerateJsonAsync_ConnectionDropsWhileReading_SaysCouldNotConnect()
+    {
+        var handler = new GeminiTestHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new BrokenStream())
+        }));
+        using var client = new GeminiJsonClient(() => "k", new HttpClient(handler), ["a"]);
+
+        var error = await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => client.GenerateJsonAsync("s", "u", Schema));
+
+        Assert.AreEqual(JsonLlmClientBase.ConnectionText("Gemini"), error.Message);
+    }
+
+    [TestMethod]
+    public void ErrorDetail_ReadsTheCommonShapesAndShortensLongReasons()
+    {
+        Assert.AreEqual("Your credit balance is too low to access the Anthropic API.", JsonLlmClientBase.ErrorDetail(
+            "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API.\"}}", "k"));
+        Assert.AreEqual("Rate limit reached", JsonLlmClientBase.ErrorDetail("{\"error\":\"Rate limit reached\"}", "k"));
+        Assert.IsNull(JsonLlmClientBase.ErrorDetail("<html>Bad gateway</html>", "k"));
+        Assert.IsNull(JsonLlmClientBase.ErrorDetail("{\"error\":{\"code\":400}}", "k"));
+        var longReason = JsonLlmClientBase.ErrorDetail("{\"error\":{\"message\":\"" + new string('x', 500) + "\"}}", "k")!;
+        Assert.AreEqual(JsonLlmClientBase.MaxErrorDetailLength + 1, longReason.Length);
+        Assert.IsTrue(longReason.EndsWith('…'));
+    }
+
+    private static HttpResponseMessage Error(HttpStatusCode status, string body) => new(status) { Content = new StringContent(body) };
+
+    /// <summary>A response body whose connection drops mid-read, like HttpIOException.</summary>
+    private sealed class BrokenStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => 0; set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => throw new IOException("The response ended prematurely.");
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     [TestMethod]

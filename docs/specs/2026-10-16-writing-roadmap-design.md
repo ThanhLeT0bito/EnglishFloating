@@ -35,6 +35,12 @@ order. `Practices[0]` is the stage's main exercise.
 Percent = the average of the four parts, each capped at 100%; 99% at most until the stage is complete.
 The current stage is the one the learner chose ("Set as my stage"), otherwise the first stage that is not complete.
 
+A stage that meets every target is saved as completed (`CompletedStages`) the moment it happens, so it stays done
+when its sentences, drills or quick checks later leave the capped logs, or when reviewing its topics from a later
+stage lowers its average. A topic counts as drilled when its latest drill passed; "needs review" counts the mistakes
+since the last passed drill, so a failed drill does not clear it. A drill sentence passes with no mistake on the topic
+and a score of 60 or more (80 for a custom topic).
+
 ## Notebook log
 
 `writing-history.json` gains:
@@ -42,6 +48,14 @@ The current stage is the one the learner chose ("Set as my stage"), otherwise th
 - `checks`: every check's time, exercise, level, score and drill topic (last 1000).
 - `quizzes`: every finished quick check — topic, correct, total (last 300).
 - `roadmapStageKey`: the chosen stage, or empty to follow progress. Unknown or coming-soon stages are dropped.
+- `completedStages`: finished stages and when (see above).
+- `activeDays`: local dates with at least one checked sentence (last 400), so the streak survives the check cap.
+  Each check counts on the date it was made in its own time zone, so daylight saving does not move it.
+
+Only the first check of a sentence counts (score, streak, weak-point result); checking it again records only new
+mistakes. Dictation never records weak-point results. "Clear mistakes" on the Writing page empties only the mistakes
+and weak-point results; lessons, drills and roadmap progress stay. A notebook file that cannot be read is kept as
+`writing-history.bad-<time>.json` instead of being overwritten.
 
 Older files load as before; the roadmap starts from the checks made after this update, while lessons and drills
 already saved still count.
@@ -64,7 +78,10 @@ The Settings window runs the session (`RoadmapSession`):
 
 - A banner under the page title shows "Today · Step i of n · …", **Next step →** (highlighted once the step is
   done; a step that is not done can be skipped), **Roadmap** and **End**.
-- Learn opens the lesson on the Grammar page; finishing its quick check marks the step done.
+- On the Writing, Grammar and Roadmap pages Enter never saves and closes Settings and Esc never cancels it; Enter
+  outside the answer box does what it does in the box (check / next sentence).
+- Learn opens the lesson on the Grammar page; passing its quick check marks the step done (a failed one can be
+  retried; a lesson without questions says to rewrite it).
 - Drill starts a grammar drill on the Writing page in the stage's exercise and level.
 - Review and Apply start a guided run (`GuidedPractice`) on the Writing page with a fixed exercise, level and count.
   It reuses the drill banner ("Apply: Translate · Easy · sentence 3 of 8 · average 82").

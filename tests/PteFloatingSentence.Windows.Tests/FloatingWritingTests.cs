@@ -123,6 +123,33 @@ public sealed class FloatingWritingTests
     }
 
     [TestMethod]
+    public void FloatingWindow_ExitWritingShowsTheVocabularyCardsAgain()
+    {
+        RunOnSta(() =>
+        {
+            var listId = Guid.NewGuid();
+            var item = new VocabularyItem(Guid.NewGuid(), "commute", "commute", Meaning: "Đi làm hằng ngày.", Status: VocabularyStatus.Ready);
+            var settings = AppSettings.Default with
+            {
+                ShowVocabularyCards = true,
+                ActiveListId = listId,
+                StudyLists = [new StudyList(listId, "List", 10, 0, [new StudySentence(Guid.NewGuid(), "My commute is long.", Vocabulary: [item])])]
+            };
+            var window = new FloatingWindow(new NoopPlayer(), null, null) { WritingCoach = new FakeCoach() };
+            window.ApplySettings(settings);
+            var cards = (FrameworkElement)window.FindName("VocabularyPanel");
+            Assert.AreEqual(Visibility.Visible, cards.Visibility);
+
+            window.StartWriting();
+            Assert.AreEqual(Visibility.Collapsed, cards.Visibility);
+
+            window.ExitWriting();
+            Assert.AreEqual(Visibility.Visible, cards.Visibility, "the same sentence's cards come back");
+            window.Close();
+        });
+    }
+
+    [TestMethod]
     public void FloatingWindow_StartAndExitWriting()
     {
         RunOnSta(() =>

@@ -10,13 +10,16 @@ namespace PteFloatingSentence.Windows.Infrastructure;
 
 /// <summary>
 /// Shared request loop for AI providers: tries each model in turn with its own time slot, moves on when a model is
-/// slow or returns a transient status, retries a model once with a simpler request after HTTP 400, caps the response
-/// size and total time, and turns failures into <see cref="InvalidOperationException"/> with a user-facing message.
-/// Caller cancellation stays an <see cref="OperationCanceledException"/>. The API key never appears in messages.
+/// slow, returns a transient status or keeps failing, retries a model once with a simpler request after HTTP 400,
+/// caps the response size and total time, and turns failures into <see cref="InvalidOperationException"/> with a
+/// user-facing message that includes the provider's own reason. A rejected API key stops at once. Caller
+/// cancellation stays an <see cref="OperationCanceledException"/>. The API key never appears in messages.
 /// </summary>
 public abstract class JsonLlmClientBase : IJsonLlmClient, IDisposable
 {
     public const int MaxResponseBytes = 64 * 1024;
+    public const int MaxErrorBytes = 8 * 1024;
+    public const int MaxErrorDetailLength = 200;
 
     public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(45);
     public static readonly TimeSpan DefaultAttemptTimeout = TimeSpan.FromSeconds(20);
@@ -79,6 +82,8 @@ public abstract class JsonLlmClientBase : IJsonLlmClient, IDisposable
         using var total = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         total.CancelAfter(_timeout);
         HttpStatusCode? lastTransientStatus = null;
+        HttpStatusCode? lastFailedStatus = null;
+        string? lastFailedDetail = null;
         var modelTimedOut = false;
         try
         {
@@ -92,11 +97,12 @@ public abstract class JsonLlmClientBase : IJsonLlmClient, IDisposable
 
                     HttpStatusCode status;
                     string? body;
+                    string? detail;
                     attempts++;
                     try
                     {
                         using var request = CreateRequest(model, key, systemInstruction, userText, responseSchema, temperature, relaxed);
-                        (status, body) = await SendOnceAsync(request, attempt.Token);
+                        (status, body, detail) = await SendOnceAsync(request, key, attempt.Token);
                     }
                     catch (OperationCanceledException) when (attempt.IsCancellationRequested && !total.IsCancellationRequested)
                     {
@@ -105,8 +111,12 @@ public abstract class JsonLlmClientBase : IJsonLlmClient, IDisposable
                         break;
                     }
 
-                    if (status == HttpStatusCode.BadRequest && !relaxed)
-                        continue;
+                    if (body is not null)
+                        return new JsonLlmResult(ExtractJson(body), new AiCallInfo(ProviderName, model, watch.Elapsed, attempts));
+
+                    // Another model will not fix a wrong key (Gemini says so with HTTP 400).
+                    if (IsKeyRejected(status, detail))
+                        throw new InvalidOperationException($"{ProviderName} rejected the API key (HTTP {(int)status}). Check it in Settings.");
 
                     if (IsTransient(status))
                     {
@@ -114,17 +124,19 @@ public abstract class JsonLlmClientBase : IJsonLlmClient, IDisposable
                         break;
                     }
 
-                    if (body is null)
-                    {
-                        throw new InvalidOperationException(status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden
-                            ? $"{ProviderName} rejected the API key (HTTP {(int)status}). Check it in Settings."
-                            : $"{ProviderName} request failed (HTTP {(int)status}). Try again later.");
-                    }
+                    lastFailedStatus = status;
+                    lastFailedDetail = detail;
+                    // The model may reject an optional feature: try once more with a simpler request.
+                    if (status == HttpStatusCode.BadRequest && !relaxed)
+                        continue;
 
-                    return new JsonLlmResult(ExtractJson(body), new AiCallInfo(ProviderName, model, watch.Elapsed, attempts));
+                    // Still failing (e.g. a retired model): try the next model.
+                    break;
                 }
             }
 
+            if (lastFailedStatus is not null)
+                throw new InvalidOperationException(FailedText(ProviderName, lastFailedStatus.Value, lastFailedDetail));
             if (lastTransientStatus is HttpStatusCode.TooManyRequests)
                 throw new InvalidOperationException($"{ProviderName} is busy or your quota is used up (HTTP 429). Try again in a moment.");
             if (lastTransientStatus is not null)
@@ -141,6 +153,74 @@ public abstract class JsonLlmClientBase : IJsonLlmClient, IDisposable
         {
             throw new InvalidOperationException(ConnectionText(ProviderName));
         }
+        catch (IOException)
+        {
+            // The connection dropped while reading the answer (HttpIOException).
+            throw new InvalidOperationException(ConnectionText(ProviderName));
+        }
+    }
+
+    /// <summary>"Gemini request failed (HTTP 400): the provider's reason." — or "Try again later." without a reason.</summary>
+    public static string FailedText(string provider, HttpStatusCode status, string? detail) =>
+        string.IsNullOrWhiteSpace(detail)
+            ? $"{provider} request failed (HTTP {(int)status}). Try again later."
+            : $"{provider} request failed (HTTP {(int)status}): {detail}";
+
+    /// <summary>401/403, or a 400 whose reason says the key is invalid (how Gemini reports a wrong key).</summary>
+    private static bool IsKeyRejected(HttpStatusCode status, string? detail) =>
+        status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden
+        || (status == HttpStatusCode.BadRequest && detail is not null
+            && (detail.Contains("API key not valid", StringComparison.OrdinalIgnoreCase)
+                || detail.Contains("API_KEY_INVALID", StringComparison.OrdinalIgnoreCase)
+                || detail.Contains("invalid api key", StringComparison.OrdinalIgnoreCase)
+                || detail.Contains("invalid x-api-key", StringComparison.OrdinalIgnoreCase)));
+
+    /// <summary>
+    /// The provider's reason from an error body ({"error": {"message": …}} for Gemini, OpenAI-compatible APIs and
+    /// Anthropic), shortened, with the key removed. Null when there is none.
+    /// </summary>
+    internal static string? ErrorDetail(string? body, string key)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return null;
+
+        string? message = null;
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            var root = document.RootElement;
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("error", out var error))
+            {
+                if (error.ValueKind == JsonValueKind.String)
+                    message = error.GetString();
+                else if (error.ValueKind == JsonValueKind.Object && error.TryGetProperty("message", out var text) && text.ValueKind == JsonValueKind.String)
+                    message = text.GetString();
+                // Gemini puts the machine-readable reason (e.g. API_KEY_INVALID) in details.
+                if (error.ValueKind == JsonValueKind.Object && error.TryGetProperty("details", out var details) && details.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in details.EnumerateArray())
+                    {
+                        if (item.ValueKind == JsonValueKind.Object && item.TryGetProperty("reason", out var reason) && reason.ValueKind == JsonValueKind.String)
+                            message = $"{message} ({reason.GetString()})".Trim();
+                    }
+                }
+            }
+            else if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("message", out var plain) && plain.ValueKind == JsonValueKind.String)
+            {
+                message = plain.GetString();
+            }
+        }
+        catch (JsonException)
+        {
+            // Not JSON (e.g. an HTML error page): no reason to show.
+        }
+
+        if (string.IsNullOrWhiteSpace(message))
+            return null;
+        if (!string.IsNullOrEmpty(key))
+            message = message.Replace(key, "***", StringComparison.Ordinal);
+        message = string.Join(' ', message.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return message.Length <= MaxErrorDetailLength ? message : message[..MaxErrorDetailLength].TrimEnd() + "…";
     }
 
     /// <summary>
@@ -208,24 +288,49 @@ public abstract class JsonLlmClientBase : IJsonLlmClient, IDisposable
         return trimmed[(firstNewLine + 1)..lastFence].Trim();
     }
 
-    private async Task<(HttpStatusCode Status, string? Body)> SendOnceAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    /// <summary>The body of a successful response, or the status and the provider's reason of a failed one.</summary>
+    private async Task<(HttpStatusCode Status, string? Body, string? Detail)> SendOnceAsync(HttpRequestMessage request, string key, CancellationToken cancellationToken)
     {
         using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
-            return (response.StatusCode, null);
+        {
+            string? errorBody = null;
+            try
+            {
+                errorBody = await ReadAsync(response, MaxErrorBytes, truncate: true, cancellationToken);
+            }
+            catch (Exception error) when (error is IOException or HttpRequestException)
+            {
+                // The reason is optional; the status is enough.
+            }
 
+            return (response.StatusCode, null, ErrorDetail(errorBody, key));
+        }
+
+        return (response.StatusCode, await ReadAsync(response, MaxResponseBytes, truncate: false, cancellationToken), null);
+    }
+
+    /// <summary>Reads at most <paramref name="limit"/> bytes: an error body is cut there, an answer must fit.</summary>
+    private async Task<string> ReadAsync(HttpResponseMessage response, int limit, bool truncate, CancellationToken cancellationToken)
+    {
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var body = new MemoryStream();
         var buffer = new byte[4096];
         int count;
         while ((count = await stream.ReadAsync(buffer, cancellationToken)) > 0)
         {
-            if (body.Length + count > MaxResponseBytes)
-                throw new InvalidOperationException($"{ProviderName} returned an oversized response.");
+            if (body.Length + count > limit)
+            {
+                if (!truncate)
+                    throw new InvalidOperationException($"{ProviderName} returned an oversized response.");
+                body.Write(buffer, 0, (int)(limit - body.Length));
+                break;
+            }
+
             body.Write(buffer, 0, count);
         }
 
-        return (response.StatusCode, Encoding.UTF8.GetString(body.ToArray()));
+        return Encoding.UTF8.GetString(body.ToArray());
     }
 
     public void Dispose()

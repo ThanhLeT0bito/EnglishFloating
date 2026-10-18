@@ -125,8 +125,11 @@ public partial class FloatingWritingPanel : UserControl, IDisposable
     }
 
     /// <summary>Weak points to target with the next sentence, or none when the switch is off or not available yet.</summary>
+    /// <summary>Weak points to aim the next sentence at; none in dictation, which cannot test grammar tags.</summary>
     private IReadOnlyList<WritingSkillTag> FocusTags() =>
-        _settings.WritingFocusWeakPoints && _history is { CanPracticeWeakPoints: true } ? _history.WeakTags() : [];
+        _settings.WritingFocusWeakPoints && _settings.WritingPracticeMode != WritingPracticeMode.Dictation && _history is { CanPracticeWeakPoints: true }
+            ? _history.WeakTags()
+            : [];
 
     /// <summary>Takes topics, level and language from the app's current settings.</summary>
     public void UpdateSettings(AppSettings settings)

@@ -422,7 +422,8 @@ public partial class GrammarPage : UserControl, IDisposable
 
         QuizHeading.Text = GrammarPresentation.QuizHeading(language);
         RenderQuiz();
-        QuizSection.Visibility = lesson.Quiz.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        // Shown even without questions: the roadmap needs a passed quick check, so say how to get one.
+        QuizSection.Visibility = Visibility.Visible;
 
         PracticeButton.Content = GrammarPresentation.PracticeButtonText(language);
         LessonCallText.Text = lesson.Call is null
@@ -627,6 +628,18 @@ public partial class GrammarPage : UserControl, IDisposable
         QuizPanel.Children.Clear();
         if (_lesson is null)
             return;
+
+        if (_lesson.Quiz.Count == 0)
+        {
+            QuizPanel.Children.Add(new TextBlock
+            {
+                Text = GrammarPresentation.NoQuizText(ExplanationLanguage),
+                FontSize = 13,
+                Foreground = (Brush)FindResource("TextMutedBrush"),
+                TextWrapping = TextWrapping.Wrap
+            });
+            return;
+        }
 
         for (var index = 0; index < _lesson.Quiz.Count; index++)
         {

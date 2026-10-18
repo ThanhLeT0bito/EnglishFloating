@@ -9,7 +9,7 @@ public enum RoadmapStageState
 }
 
 /// <param name="QuizPassed">The lesson's quick check was answered at least two thirds right.</param>
-/// <param name="DrillPassed">A 5-sentence drill passed (4/5 or better).</param>
+/// <param name="DrillPassed">The latest 5-sentence drill passed (4/5 or better).</param>
 public sealed record RoadmapTopicProgress(GrammarTopic Topic, bool QuizPassed, bool DrillPassed, GrammarTopicStatus Status)
 {
     /// <summary>Learned, drilled and not repeatedly wrong right now.</summary>
@@ -17,11 +17,13 @@ public sealed record RoadmapTopicProgress(GrammarTopic Topic, bool QuizPassed, b
 }
 
 /// <summary>How far the learner is in a stage; see <see cref="RoadmapRules"/> for the targets.</summary>
+/// <param name="CompletedBefore">The stage was finished earlier and saved, so it stays done.</param>
 public sealed record RoadmapStageProgress(
     RoadmapStage Stage,
     IReadOnlyList<RoadmapTopicProgress> Topics,
     int Sentences,
-    int? RecentAverage)
+    int? RecentAverage,
+    bool CompletedBefore = false)
 {
     public int LessonsDone => Topics.Count(topic => topic.QuizPassed);
     public int DrillsPassed => Topics.Count(topic => topic.DrillPassed);
@@ -31,7 +33,11 @@ public sealed record RoadmapStageProgress(
     public bool LessonsComplete => Topics.Count > 0 && LessonsDone == Topics.Count;
     public bool DrillsComplete => DrillsPassed >= DrillsNeeded;
     public bool SentencesComplete => Sentences >= RoadmapRules.RequiredSentences && RecentAverage >= RoadmapRules.PassScore;
-    public bool IsComplete => Stage.IsAvailable && LessonsComplete && DrillsComplete && SentencesComplete && NeedsReview.Count == 0;
+    /// <summary>Meets every target right now.</summary>
+    public bool MeetsTargets => Stage.IsAvailable && LessonsComplete && DrillsComplete && SentencesComplete && NeedsReview.Count == 0;
+
+    /// <summary>Done now, or finished earlier: a finished stage does not reopen when old entries leave the logs.</summary>
+    public bool IsComplete => Stage.IsAvailable && (CompletedBefore || MeetsTargets);
 
     /// <summary>0-100: the average of lessons, drills, sentence count and average score, each capped at 100%.</summary>
     public int Percent
@@ -88,16 +94,36 @@ public static class RoadmapRules
         ArgumentNullException.ThrowIfNull(history);
         ArgumentNullException.ThrowIfNull(stage);
         var topics = stage.Topics
-            .Select(topic => new RoadmapTopicProgress(
-                topic,
-                history.Quizzes.Any(quiz => quiz.TopicKey == topic.Key && quiz.IsPass),
-                history.Drills.Any(drill => drill.TopicKey == topic.Key && drill.IsPass),
-                GrammarProgressRules.StatFor(history, topic, now).Status))
+            .Select(topic =>
+            {
+                var stat = GrammarProgressRules.StatFor(history, topic, now);
+                return new RoadmapTopicProgress(
+                    topic,
+                    history.Quizzes.Any(quiz => quiz.TopicKey == topic.Key && quiz.IsPass),
+                    stat.LastDrill is { IsPass: true },
+                    stat.Status);
+            })
             .ToList();
         var checks = history.Checks.Where(check => BelongsTo(check, stage)).ToList();
         var recent = checks.TakeLast(RequiredSentences).ToList();
         int? average = recent.Count == 0 ? null : (int)Math.Round(recent.Average(check => check.Score), MidpointRounding.AwayFromZero);
-        return new RoadmapStageProgress(stage, topics, checks.Count, average);
+        var completedBefore = history.CompletedStages.Any(completion => string.Equals(completion.StageKey, stage.Key, StringComparison.Ordinal));
+        return new RoadmapStageProgress(stage, topics, checks.Count, average, completedBefore);
+    }
+
+    /// <summary>
+    /// Saves every available stage that meets its targets now, so it stays done later even when its sentences,
+    /// drills or quick checks leave the capped logs, or later practice lowers its average.
+    /// </summary>
+    public static WritingHistory RecordCompletions(WritingHistory history, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+        var done = history.CompletedStages.Select(completion => completion.StageKey).ToHashSet(StringComparer.Ordinal);
+        var added = WritingRoadmap.All
+            .Where(stage => stage.IsAvailable && !done.Contains(stage.Key) && Progress(history, stage, now).MeetsTargets)
+            .Select(stage => new RoadmapStageCompletion(stage.Key, now))
+            .ToList();
+        return added.Count == 0 ? history : history with { CompletedStages = history.CompletedStages.Concat(added).ToList() };
     }
 
     /// <summary>Progress of every stage with its state: done, current, upcoming or coming soon.</summary>
@@ -148,9 +174,12 @@ public static class RoadmapRules
             : main;
         var steps = new List<RoadmapStep>();
 
-        var weakTopic = GrammarProgressRules.Recommendations(history, now)
+        // Every topic that needs review, not only the top recommendations, so the stage's own topic comes first.
+        var weakTopic = GrammarProgressRules.Stats(history, now)
             .Where(stat => stat.Status == GrammarTopicStatus.NeedsReview)
             .OrderBy(stat => stage.TopicKeys.Contains(stat.Topic.Key, StringComparer.Ordinal) ? 0 : 1)
+            .ThenByDescending(stat => stat.MistakesSinceDrill)
+            .ThenByDescending(stat => stat.LastMistake)
             .Select(stat => stat.Topic)
             .FirstOrDefault();
         if (weakTopic is not null)
@@ -177,12 +206,15 @@ public static class RoadmapRules
         return steps;
     }
 
-    /// <summary>Days in a row (ending today, or yesterday when nothing was checked yet today) with at least one check.</summary>
+    /// <summary>
+    /// Days in a row (ending today, or yesterday when nothing was checked yet today) with at least one check. Each
+    /// check counts on the local date it was made, so a change of time zone or daylight saving does not move it.
+    /// </summary>
     public static int Streak(WritingHistory history, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(history);
-        var days = history.Checks.Select(check => check.At.ToOffset(now.Offset).Date).ToHashSet();
-        var day = now.Date;
+        var days = history.ActiveDays.Concat(history.Checks.Select(check => WritingHistoryRules.DayOf(check.At))).ToHashSet();
+        var day = WritingHistoryRules.DayOf(now);
         if (!days.Contains(day))
             day = day.AddDays(-1);
         var streak = 0;
@@ -196,7 +228,7 @@ public static class RoadmapRules
     }
 
     public static int ChecksToday(WritingHistory history, DateTimeOffset now) =>
-        history.Checks.Count(check => check.At.ToOffset(now.Offset).Date == now.Date);
+        history.Checks.Count(check => WritingHistoryRules.DayOf(check.At) == WritingHistoryRules.DayOf(now));
 
     private static int DayIndex(DateTimeOffset now) => (int)(now.Date - DateTime.UnixEpoch.Date).TotalDays;
 }

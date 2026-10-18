@@ -31,32 +31,62 @@ public static class WritingTextMatch
 {
     /// <summary>
     /// Splits text into lowercase words of letters, digits, apostrophes and inner hyphens. Curly apostrophes become
-    /// straight ones; all other punctuation is ignored.
+    /// straight ones; a plural possessive keeps its apostrophe ("students'") but a closing quote does not ("'yes'");
+    /// a thousands comma joins the number ("1,000" is "1000"); "." and ":" between digits become one "." so "10:30"
+    /// matches "10.30" and "3.5" stays different from "35"; all other punctuation is ignored.
     /// </summary>
     public static IReadOnlyList<string> Words(string? text)
     {
         var words = new List<string>();
         var current = new StringBuilder();
-        foreach (var raw in text ?? string.Empty)
+        var source = text ?? string.Empty;
+        var quoted = false;
+        for (var i = 0; i < source.Length; i++)
         {
-            var c = raw is '’' or '‘' or '`' ? '\'' : raw;
+            var c = Apostrophe(source[i]);
             if (char.IsLetterOrDigit(c) || ((c == '\'' || c == '-') && current.Length > 0))
             {
+                if (current.Length == 0)
+                    quoted = i > 0 && Apostrophe(source[i - 1]) == '\'';
                 current.Append(char.ToLowerInvariant(c));
                 continue;
             }
 
-            Flush(current, words);
+            if (current.Length > 0 && char.IsDigit(current[^1]) && i + 1 < source.Length && char.IsDigit(source[i + 1]))
+            {
+                // 1,000: a thousands separator (exactly three digits follow) is dropped.
+                if (c == ',' && IsDigitGroup(source, i + 1))
+                    continue;
+                // 3.5 · 10:30: one standard separator inside the number.
+                if (c is '.' or ':')
+                {
+                    current.Append('.');
+                    continue;
+                }
+            }
+
+            Flush(current, words, quoted);
+            quoted = false;
         }
 
-        Flush(current, words);
+        Flush(current, words, quoted);
         return words;
     }
 
-    private static void Flush(StringBuilder current, List<string> words)
+    private static bool IsDigitGroup(string source, int start) =>
+        start + 3 <= source.Length
+        && char.IsDigit(source[start]) && char.IsDigit(source[start + 1]) && char.IsDigit(source[start + 2])
+        && (start + 3 == source.Length || !char.IsDigit(source[start + 3]));
+
+    private static char Apostrophe(char c) => c is '’' or '‘' or '`' ? '\'' : c;
+
+    private static void Flush(StringBuilder current, List<string> words, bool quoted)
     {
-        var word = current.ToString().TrimEnd('\'', '-');
+        var word = current.ToString().TrimEnd('-');
         current.Clear();
+        // A closing quote is not part of the word ('yes', ‘crisis’), but a plural possessive's apostrophe is ("students'").
+        while (word.EndsWith('\'') && (quoted || !(word.Length > 2 && word[^2] == 's' && !word.EndsWith("''", StringComparison.Ordinal))))
+            word = word[..^1].TrimEnd('-');
         if (word.Length > 0)
             words.Add(word);
     }
@@ -99,7 +129,7 @@ public static class WritingTextMatch
         {
             for (var j = 1; j <= m; j++)
             {
-                var same = want[i - 1] == got[j - 1];
+                var same = SameSpoken(want[i - 1], got[j - 1]);
                 // A close misspelling is cheaper than a missing + extra pair, so it stays aligned.
                 var substitute = same ? 0 : IsCloseSpelling(want[i - 1], got[j - 1]) ? 1 : 2;
                 cost[i, j] = Math.Min(Math.Min(cost[i - 1, j] + 1, cost[i, j - 1] + 1), cost[i - 1, j - 1] + substitute);
@@ -112,7 +142,7 @@ public static class WritingTextMatch
         {
             if (a > 0 && b > 0)
             {
-                var same = want[a - 1] == got[b - 1];
+                var same = SameSpoken(want[a - 1], got[b - 1]);
                 var close = !same && IsCloseSpelling(want[a - 1], got[b - 1]);
                 var substitute = same ? 0 : close ? 1 : 2;
                 if (cost[a, b] == cost[a - 1, b - 1] + substitute)
@@ -140,6 +170,11 @@ public static class WritingTextMatch
         words.Reverse();
         return new DictationResult(words.Count(word => word.Status == DictationWordStatus.Correct), n, words);
     }
+
+    /// <summary>Same word as heard: a possessive apostrophe cannot be heard, so "students" counts for "students'".</summary>
+    private static bool SameSpoken(string expected, string typed) =>
+        string.Equals(expected, typed, StringComparison.Ordinal)
+        || string.Equals(expected.TrimEnd('\''), typed.TrimEnd('\''), StringComparison.Ordinal);
 
     /// <summary>True when <paramref name="typed"/> looks like a misspelling of <paramref name="expected"/>.</summary>
     public static bool IsCloseSpelling(string expected, string typed)

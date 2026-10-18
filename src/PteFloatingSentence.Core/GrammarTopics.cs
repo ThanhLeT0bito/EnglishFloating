@@ -146,13 +146,37 @@ public static class GrammarTopics
     ];
 
     private static readonly Dictionary<string, GrammarTopic> ByKey = All.ToDictionary(topic => topic.Key, StringComparer.Ordinal);
+    // English names, whole and without their "(…)" part, since Find cuts the input at "(" too.
+    private static readonly Dictionary<string, GrammarTopic> ByFoldedName = All
+        .SelectMany(topic => new[] { (Name: Fold(topic.Name), Topic: topic), (Name: Fold(topic.Name.Split('(')[0]), Topic: topic) })
+        .Where(item => item.Name.Length > 0)
+        .GroupBy(item => item.Name)
+        .ToDictionary(group => group.Key, group => group.First().Topic, StringComparer.Ordinal);
     private static readonly Dictionary<string, int> Order = All.Select((topic, index) => (topic.Key, index)).ToDictionary(item => item.Key, item => item.index, StringComparer.Ordinal);
 
     public static bool IsCustomKey(string? key) => key is not null && key.StartsWith(CustomKeyPrefix, StringComparison.Ordinal);
 
-    /// <summary>A built-in topic by key, or null.</summary>
-    public static GrammarTopic? Find(string? key) =>
-        key is not null && ByKey.TryGetValue(key.Trim(), out var topic) ? topic : null;
+    /// <summary>
+    /// A built-in topic by key, or null. Tolerates what the AI sometimes sends back instead of the bare key: the
+    /// prompt's "key (Name)" format, quotes, another case, spaces or underscores, or the English name.
+    /// </summary>
+    public static GrammarTopic? Find(string? key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return null;
+
+        var trimmed = key.Trim();
+        if (ByKey.TryGetValue(trimmed, out var topic))
+            return topic;
+        if (IsCustomKey(trimmed))
+            return null;
+
+        var head = trimmed.Split('(')[0].Trim().Trim('"', '\'', '`').Trim();
+        var normalized = head.ToLowerInvariant().Replace('_', '-').Replace(' ', '-');
+        if (ByKey.TryGetValue(normalized, out topic))
+            return topic;
+        return ByFoldedName.GetValueOrDefault(Fold(head));
+    }
 
     /// <summary>A topic for something the learner searched for that is not built in, e.g. "used to".</summary>
     public static GrammarTopic? Custom(string? query)

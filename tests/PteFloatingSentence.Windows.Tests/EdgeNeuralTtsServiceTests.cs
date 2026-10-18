@@ -232,6 +232,98 @@ public class EdgeNeuralTtsServiceTests
     }
 
     [Fact]
+    public async Task SynthesizeSpeechAsync_UsesTheEdgeServicesEndpointFirst()
+    {
+        var socket = AudioSocket();
+        var service = new EdgeNeuralTtsService(() => socket);
+
+        using var stream = await service.SynthesizeSpeechAsync("Hello", "en-US-JennyNeural", 1.0, CancellationToken.None);
+
+        var uri = socket.ConnectedUri!.ToString();
+        uri.Should().StartWith("wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1?Ocp-Apim-Subscription-Key=" + EdgeNeuralTtsService.TrustedClientToken);
+        uri.Should().Contain("&Sec-MS-GEC=").And.Contain("&Sec-MS-GEC-Version=" + EdgeNeuralTtsService.SecMsGecVersion).And.Contain("&ConnectionId=");
+    }
+
+    [Fact]
+    public async Task SynthesizeSpeechAsync_WhenAnEndpointRefusesTheHandshake_TriesTheNextAndRemembersIt()
+    {
+        var refused = new RefusingWebSocketClient(403, serverDate: null);
+        var sockets = new Queue<IWebSocketClient>([refused, AudioSocket(), AudioSocket()]);
+        var service = new EdgeNeuralTtsService(() => sockets.Dequeue());
+
+        using (await service.SynthesizeSpeechAsync("Hello", "en-US-JennyNeural", 1.0, CancellationToken.None))
+        {
+        }
+
+        refused.IsDisposed.Should().BeTrue();
+        refused.ConnectedUri!.Host.Should().Be("api.msedgeservices.com");
+        var second = (FakeWebSocketClient)sockets.Peek();
+        using (await service.SynthesizeSpeechAsync("Again", "en-US-JennyNeural", 1.0, CancellationToken.None))
+        {
+        }
+
+        second.ConnectedUri!.Host.Should().Be("speech.platform.bing.com", "the endpoint that worked is tried first next time");
+    }
+
+    [Fact]
+    public async Task SynthesizeSpeechAsync_WhenThePcClockIsWrong_RetriesWithTheServerTime()
+    {
+        // Two hours ahead, in the middle of a 5-minute token window so the test cannot cross into the next one.
+        var ahead = DateTimeOffset.UtcNow.AddHours(2);
+        var serverNow = ahead.AddTicks(-(ahead.UtcTicks % TimeSpan.FromMinutes(5).Ticks)).AddMinutes(2.5);
+        var refused = new RefusingWebSocketClient(403, serverNow);
+        var accepted = AudioSocket();
+        var sockets = new Queue<IWebSocketClient>([refused, accepted]);
+        var service = new EdgeNeuralTtsService(() => sockets.Dequeue());
+
+        using (await service.SynthesizeSpeechAsync("Hello", "en-US-JennyNeural", 1.0, CancellationToken.None))
+        {
+        }
+
+        accepted.ConnectedUri!.Host.Should().Be("api.msedgeservices.com", "the same endpoint is retried with the corrected time");
+        accepted.ConnectedUri.ToString().Should().Contain("Sec-MS-GEC=" + EdgeNeuralTtsService.GenerateSecMsGec(serverNow));
+    }
+
+    [Fact]
+    public async Task SynthesizeSpeechAsync_WhenAnEndpointHangs_TriesTheNextInTime()
+    {
+        var hanging = new BlockingWebSocketClient(blockConnect: true);
+        var accepted = AudioSocket();
+        var sockets = new Queue<IWebSocketClient>([hanging, accepted]);
+        var service = new EdgeNeuralTtsService(() => sockets.Dequeue(), TimeSpan.FromSeconds(10), connectTimeout: TimeSpan.FromMilliseconds(100));
+
+        using (await service.SynthesizeSpeechAsync("Hello", "en-US-JennyNeural", 1.0, CancellationToken.None))
+        {
+        }
+
+        hanging.IsDisposed.Should().BeTrue();
+        accepted.ConnectedUri!.Host.Should().Be("speech.platform.bing.com");
+    }
+
+    [Fact]
+    public async Task SynthesizeSpeechAsync_WhenEveryEndpointRefuses_ThrowsTheLastError()
+    {
+        var sockets = new Queue<IWebSocketClient>([new RefusingWebSocketClient(403, null), new RefusingWebSocketClient(403, null)]);
+        var service = new EdgeNeuralTtsService(() => sockets.Dequeue());
+
+        var act = () => service.SynthesizeSpeechAsync("Hello", "en-US-JennyNeural", 1.0, CancellationToken.None);
+
+        await FluentActions.Awaiting(act).Should().ThrowAsync<WebSocketException>();
+        sockets.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void GenerateSecMsGec_RoundsDownToFiveMinutes()
+    {
+        var at = new DateTimeOffset(2026, 10, 16, 9, 1, 0, TimeSpan.Zero);
+
+        EdgeNeuralTtsService.GenerateSecMsGec(at).Should().Be(EdgeNeuralTtsService.GenerateSecMsGec(at.AddMinutes(3)));
+        EdgeNeuralTtsService.GenerateSecMsGec(at).Should().NotBe(EdgeNeuralTtsService.GenerateSecMsGec(at.AddMinutes(5)));
+        EdgeNeuralTtsService.GenerateSecMsGec(at).Should().MatchRegex("^[0-9A-F]{64}$");
+    }
+
+    /// <summary>Calls the real Edge service; skipped unless PTE_LIVE_TESTS=1 so a network or region block does not fail the suite.</summary>
+    [LiveFact]
     public async Task SynthesizeSpeechAsync_LiveEndpoint_CanSynthesizeRealAudio()
     {
         var service = new EdgeNeuralTtsService();
@@ -241,6 +333,45 @@ public class EdgeNeuralTtsServiceTests
         stream.Should().NotBeNull();
         stream.Length.Should().BeGreaterThan(100);
         stream.Position.Should().Be(0);
+    }
+
+    private static FakeWebSocketClient AudioSocket()
+    {
+        var socket = new FakeWebSocketClient();
+        socket.EnqueueBinaryMessage(header: "Path:audio\r\n", audioPayload: [0x11, 0x22, 0x33]);
+        socket.EnqueueTextMessage("Path:turn.end\r\nContent-Type:text/plain\r\n\r\nEnd");
+        return socket;
+    }
+
+    /// <summary>Runs only when the PTE_LIVE_TESTS environment variable is 1.</summary>
+    private sealed class LiveFactAttribute : FactAttribute
+    {
+        public LiveFactAttribute()
+        {
+            if (Environment.GetEnvironmentVariable("PTE_LIVE_TESTS") != "1")
+                Skip = "Calls the live Edge TTS service. Set PTE_LIVE_TESTS=1 to run it.";
+        }
+    }
+
+    /// <summary>A socket whose handshake is refused with <paramref name="status"/>, like the Bing host since October 2026.</summary>
+    private sealed class RefusingWebSocketClient(int status, DateTimeOffset? serverDate) : IWebSocketClient
+    {
+        public bool IsDisposed { get; private set; }
+        public Uri? ConnectedUri { get; private set; }
+        public WebSocketState State => WebSocketState.Closed;
+        public int? HandshakeStatusCode => status;
+        public DateTimeOffset? ServerDate => serverDate;
+
+        public Task ConnectAsync(Uri uri, CancellationToken cancellationToken)
+        {
+            ConnectedUri = uri;
+            throw new WebSocketException($"The server returned status code '{status}' when status code '101' was expected.");
+        }
+
+        public Task SendAsync(ArraySegment<byte> buffer, WebSocketMessageType messageType, bool endOfMessage, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<WebSocketReceiveResult> ReceiveAsync(ArraySegment<byte> buffer, CancellationToken cancellationToken) => throw new InvalidOperationException("Not connected.");
+        public Task CloseAsync(WebSocketCloseStatus closeStatus, string? statusDescription, CancellationToken cancellationToken) => Task.CompletedTask;
+        public void Dispose() => IsDisposed = true;
     }
 
     private sealed class BlockingWebSocketClient(bool blockConnect) : IWebSocketClient
@@ -311,8 +442,11 @@ public class EdgeNeuralTtsServiceTests
             });
         }
 
+        public Uri? ConnectedUri { get; private set; }
+
         public Task ConnectAsync(Uri uri, CancellationToken cancellationToken)
         {
+            ConnectedUri = uri;
             State = WebSocketState.Open;
             return Task.CompletedTask;
         }
