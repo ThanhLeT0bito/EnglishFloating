@@ -21,6 +21,7 @@ public partial class App : System.Windows.Application
     private AiVocabularyExplainer? _explainer;
     private AiSentencePhraser? _sentencePhraser;
     private AiSentenceSplitter? _sentenceSplitter;
+    private AiVocabularyChecker? _vocabularyChecker;
     private AiWritingCoach? _writingCoach;
     private readonly WritingHistoryBook _writingHistory = new(new JsonWritingHistoryStore());
     private GrammarLessonLibrary? _grammarLibrary;
@@ -77,6 +78,7 @@ public partial class App : System.Windows.Application
         _explainer = new AiVocabularyExplainer(_aiClient);
         _sentencePhraser = new AiSentencePhraser(_aiClient);
         _sentenceSplitter = new AiSentenceSplitter(_aiClient);
+        _vocabularyChecker = new AiVocabularyChecker(_aiClient);
         _writingCoach = new AiWritingCoach(_aiClient);
 
         // Lessons are long answers: give them their own clients with more time per request.
@@ -231,7 +233,7 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore, _explainer, _sentencePhraser, _writingCoach, _groqKeyStore, _claudeKeyStore, _writingHistory, _grammarLibrary, _sentenceSplitter);
+        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore, _explainer, _sentencePhraser, _writingCoach, _groqKeyStore, _claudeKeyStore, _writingHistory, _grammarLibrary, _sentenceSplitter, _vocabularyChecker);
         void OnStartPractice(object? sender, Guid listId) => _floatingWindow?.StartPractice(listId);
         _settingsWindow.StartPracticeRequested += OnStartPractice;
         _settingsWindow.Closed += (_, _) =>

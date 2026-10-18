@@ -155,7 +155,10 @@ public sealed class StudyListDraft
             CustomFlashcardDecks = settings.CustomFlashcardDecks,
             FlashcardProgress = settings.FlashcardProgress,
             ShowFloatingFlashcard = settings.ShowFloatingFlashcard,
-            ActiveFlashcardDeckKey = settings.ActiveFlashcardDeckKey
+            ActiveFlashcardDeckKey = settings.ActiveFlashcardDeckKey,
+            FlashcardMeaningLanguage = settings.FlashcardMeaningLanguage,
+            VocabularyCheckDirection = settings.VocabularyCheckDirection,
+            MeaningTranslations = settings.MeaningTranslations
         };
     }
 
@@ -187,6 +190,9 @@ public sealed class StudyListDraft
             ShowVocabularyCards = Take(s => s.ShowVocabularyCards),
             ShowFloatingFlashcard = Take(s => s.ShowFloatingFlashcard),
             ActiveFlashcardDeckKey = Take(s => s.ActiveFlashcardDeckKey),
+            FlashcardMeaningLanguage = Take(s => s.FlashcardMeaningLanguage),
+            VocabularyCheckDirection = Take(s => s.VocabularyCheckDirection),
+            MeaningTranslations = TakeList(s => s.MeaningTranslations),
             LaunchAtWindowsSignIn = Take(s => s.LaunchAtWindowsSignIn),
             TtsVoice = Take(s => s.TtsVoice),
             TtsSpeed = Take(s => s.TtsSpeed),

@@ -733,6 +733,113 @@ public class FlashcardUiTests
         });
     }
 
+    private static (FlashcardsPage Page, Func<AppSettings> Saved) CheckPage(IVocabularyChecker? checker, AppSettings? extra = null, params CustomVocabularyCard[] cards)
+    {
+        AppSettings? saved = null;
+        var deck = new CustomFlashcardDeck(Guid.NewGuid(), "Vocab", cards);
+        var settings = (extra ?? AppSettings.Default) with { CustomFlashcardDecks = [deck] };
+        var page = new FlashcardsPage(new FakeAudioPlayback()) { VocabularyChecker = checker };
+        page.LoadSettings(settings, updated => saved = updated);
+        page.SelectDeck(FlashcardRules.CustomDeckKey(deck.Id));
+        return (page, () => saved!);
+    }
+
+    private static readonly CustomVocabularyCard Bibliography =
+        new(Guid.NewGuid(), "bibliography", "bibliography", "/ˌbɪbliˈɒɡrəfi/", "A list of the books and articles used in a piece of work.", "Add a bibliography at the end.");
+
+    [TestMethod]
+    public void FlashcardsPage_CheckWord_TypoGetsASecondTry_ThenUpdatesProgress()
+    {
+        RunOnSta(() =>
+        {
+            var (page, saved) = CheckPage(null, null, Bibliography);
+
+            page.StartCheckAsync().GetAwaiter().GetResult();
+            Assert.IsTrue(page.IsChecking);
+            Assert.AreEqual(VocabularyCheckDirection.MeaningToWord, page.CurrentCheckQuestion!.Direction);
+
+            page.SubmitCheckAnswerAsync("bibliografy").GetAwaiter().GetResult();
+            Assert.AreEqual(FlashcardsPage.CheckStage.Answering, page.CheckStageNow, "a typo gets another try");
+            Assert.AreEqual("Almost!", page.CheckFeedback);
+
+            page.SubmitCheckAnswerAsync("Bibliography").GetAwaiter().GetResult();
+            Assert.AreEqual(FlashcardsPage.CheckStage.Answered, page.CheckStageNow);
+            Assert.AreEqual(1, page.CheckCorrectCount);
+            Assert.AreEqual(FlashcardRating.Hard, saved().FlashcardProgress.Single().LastRating);
+
+            page.NextCheckQuestion();
+            Assert.AreEqual(FlashcardsPage.CheckStage.Summary, page.CheckStageNow);
+            page.ExitCheck();
+            Assert.IsFalse(page.IsChecking);
+            page.Dispose();
+        });
+    }
+
+    [TestMethod]
+    public void FlashcardsPage_CheckMeaning_UsesTheAiOrLetsTheLearnerGrade()
+    {
+        RunOnSta(() =>
+        {
+            var options = AppSettings.Default with { VocabularyCheckDirection = VocabularyCheckDirection.WordToMeaning, FlashcardMeaningLanguage = "vi" };
+            var checker = new FakeChecker { Grade = new MeaningGrade(false, "Không đúng.") };
+            var (page, saved) = CheckPage(checker, options, Bibliography);
+
+            page.StartCheckAsync().GetAwaiter().GetResult();
+            Assert.AreEqual(1, checker.Translations, "the Vietnamese meaning is fetched once");
+            Assert.AreEqual("Danh mục tài liệu", VocabularyCheckRules.MeaningIn(saved(), page.CurrentCheckQuestion!.Card, "vi"));
+
+            page.SubmitCheckAnswerAsync("một trường học").GetAwaiter().GetResult();
+            Assert.AreEqual(FlashcardsPage.CheckStage.Answered, page.CheckStageNow);
+            Assert.AreEqual(1, page.CheckMissedCount);
+            Assert.AreEqual(FlashcardLearningState.Learning, saved().FlashcardProgress.Single().State);
+            page.Dispose();
+
+            // No AI: the learner compares with the meaning and marks the answer.
+            var (manual, manualSaved) = CheckPage(null, options with { FlashcardMeaningLanguage = "en" }, Bibliography);
+            manual.StartCheckAsync().GetAwaiter().GetResult();
+            manual.SubmitCheckAnswerAsync("list of sources").GetAwaiter().GetResult();
+            Assert.AreEqual(FlashcardsPage.CheckStage.SelfGrade, manual.CheckStageNow);
+            manual.GradeCheckYourself(true);
+            Assert.AreEqual(FlashcardRating.Remembered, manualSaved().FlashcardProgress.Single().LastRating);
+            manual.Dispose();
+        });
+    }
+
+    [TestMethod]
+    public void FlashcardsPage_CheckReveal_CountsAsMissed_AndOptionsAreSaved()
+    {
+        RunOnSta(() =>
+        {
+            var (page, saved) = CheckPage(null, null, Bibliography);
+
+            page.SetMeaningLanguage("vi");
+            page.SetCheckDirection(VocabularyCheckDirection.Mixed);
+            Assert.AreEqual("vi", saved().FlashcardMeaningLanguage);
+            Assert.AreEqual(VocabularyCheckDirection.Mixed, saved().VocabularyCheckDirection);
+
+            page.StartCheckAsync().GetAwaiter().GetResult();
+            page.RevealCheckAnswer();
+            Assert.AreEqual(1, page.CheckMissedCount);
+            Assert.AreEqual(FlashcardRating.Again, saved().FlashcardProgress.Single().LastRating);
+            page.Dispose();
+        });
+    }
+
+    private sealed class FakeChecker : IVocabularyChecker
+    {
+        public int Translations { get; private set; }
+        public MeaningGrade Grade { get; init; } = new(true, "Right.");
+
+        public Task<IReadOnlyList<string>> TranslateMeaningsAsync(IReadOnlyList<MeaningToTranslate> items, MeaningLanguage language, CancellationToken cancellationToken = default)
+        {
+            Translations++;
+            return Task.FromResult<IReadOnlyList<string>>(items.Select(_ => "Danh mục tài liệu").ToList());
+        }
+
+        public Task<MeaningGrade> GradeMeaningAsync(string phrase, string expectedMeaning, string answer, MeaningLanguage language, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Grade);
+    }
+
     private sealed class FakeAudioPlayback : ISentenceAudioPlayback
     {
         private Action<AudioPlaybackState>? _changed;

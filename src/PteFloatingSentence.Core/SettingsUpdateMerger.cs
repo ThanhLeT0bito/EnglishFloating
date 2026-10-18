@@ -2,7 +2,7 @@ namespace PteFloatingSentence.Core;
 
 public static class SettingsUpdateMerger
 {
-    public static AppSettings MergeEditableFields(AppSettings latest, AppSettings submitted) => WritingTopicRules.CopyPreferences(latest with
+    public static AppSettings MergeEditableFields(AppSettings latest, AppSettings submitted) => VocabularyCheckRules.Normalize(WritingTopicRules.CopyPreferences(latest with
     {
         Sentence = submitted.Sentence,
         ActiveListId = submitted.ActiveListId,
@@ -25,6 +25,10 @@ public static class SettingsUpdateMerger
         TtsSpeed = submitted.TtsSpeed,
         PracticeMode = submitted.PracticeMode,
         PracticeAudioDelaySeconds = PracticeAudioDelay.Normalize(submitted.PracticeAudioDelaySeconds),
-        PenAction = Enum.IsDefined(submitted.PenAction) ? submitted.PenAction : FloatingPenAction.Writing
-    }, submitted);
+        PenAction = Enum.IsDefined(submitted.PenAction) ? submitted.PenAction : FloatingPenAction.Writing,
+        FlashcardMeaningLanguage = submitted.FlashcardMeaningLanguage,
+        VocabularyCheckDirection = submitted.VocabularyCheckDirection,
+        // Both sides only add translations; keep all of them.
+        MeaningTranslations = [.. latest.MeaningTranslations ?? [], .. submitted.MeaningTranslations ?? []]
+    }, submitted));
 }

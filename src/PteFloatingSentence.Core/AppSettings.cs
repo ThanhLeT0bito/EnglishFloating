@@ -21,6 +21,15 @@ public sealed record AppSettings
     public IReadOnlyList<FlashcardProgress> FlashcardProgress { get; init; } = [];
     public bool ShowFloatingFlashcard { get; init; } = false;
     public string? ActiveFlashcardDeckKey { get; init; } = null;
+
+    /// <summary>The language flashcard meanings are shown and checked in (a <see cref="MeaningLanguages"/> code).</summary>
+    public string FlashcardMeaningLanguage { get; init; } = MeaningLanguages.English;
+
+    /// <summary>What a vocabulary check asks: the word from its meaning, the meaning from the word, or both.</summary>
+    public VocabularyCheckDirection VocabularyCheckDirection { get; init; } = VocabularyCheckDirection.MeaningToWord;
+
+    /// <summary>Meanings translated by the AI, kept so each word is translated once per language.</summary>
+    public IReadOnlyList<MeaningTranslation> MeaningTranslations { get; init; } = [];
     public bool LaunchAtWindowsSignIn { get; init; } = true;
     public string TtsVoice { get; init; } = "en-US-JennyNeural";
     public double TtsSpeed { get; init; } = 1.0;

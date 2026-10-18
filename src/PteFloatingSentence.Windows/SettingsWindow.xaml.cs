@@ -191,7 +191,8 @@ public partial class SettingsWindow : Window
 
     public SettingsWindow(AppSettings initial, Action<AppSettings> save, ProtectedApiKeyStore? apiKeyStore = null, IVocabularyExplainer? explainer = null, ISentencePhraser? sentencePhraser = null, IWritingCoach? writingCoach = null,
         ProtectedApiKeyStore? groqKeyStore = null, ProtectedApiKeyStore? claudeKeyStore = null, WritingHistoryBook? writingHistory = null,
-        GrammarLessonLibrary? grammarLibrary = null, ISentenceSplitter? sentenceSplitter = null)
+        GrammarLessonLibrary? grammarLibrary = null, ISentenceSplitter? sentenceSplitter = null,
+        IVocabularyChecker? vocabularyChecker = null)
     {
         InitializeComponent();
         ApplyTopmost();
@@ -220,6 +221,8 @@ public partial class SettingsWindow : Window
         GeminiPageControl.ClearKeyRequested += OnClearKeyRequested;
         GeminiPageControl.ProviderChanged += OnAiProviderChanged;
         GeminiPageControl.ClearProviderKeyRequested += OnClearProviderKeyRequested;
+        if (FlashcardsPageControl is not null)
+            FlashcardsPageControl.VocabularyChecker = vocabularyChecker;
         FlashcardsPageControl?.LoadSettings(_draft.Settings, OnFlashcardsSettingsChanged, _explainer);
         ReviewPracticePageControl.PracticeModeChanged += OnPracticeModeChanged;
         ReviewPracticePageControl?.Initialize(_draft.Settings, (listId, sentenceId, completed) =>

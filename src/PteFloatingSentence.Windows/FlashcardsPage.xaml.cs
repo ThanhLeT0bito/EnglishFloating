@@ -63,6 +63,7 @@ public partial class FlashcardsPage : UserControl, IDisposable
         if (_disposed) return;
         _disposed = true;
         CancelAiGeneration();
+        CancelCheck();
         _audio.Stop();
         _audio.StateChanged -= Audio_StateChanged;
         _audio.Dispose();
@@ -118,6 +119,7 @@ public partial class FlashcardsPage : UserControl, IDisposable
             _explainer = explainer;
         }
 
+        RenderCheckOptions();
         RefreshDecksList();
 
         // If deck was already selected and still exists, keep it
@@ -190,6 +192,7 @@ public partial class FlashcardsPage : UserControl, IDisposable
             SelectedDeckBadge.Visibility = Visibility.Collapsed;
             SelectedDeckStatsText.Text = string.Empty;
             StartStudyingButton.IsEnabled = false;
+            CheckWordsButton.IsEnabled = false;
             AddCardButton.Visibility = Visibility.Collapsed;
             DeleteDeckButton.Visibility = Visibility.Collapsed;
             _allCurrentDeckCards = [];
@@ -224,6 +227,7 @@ public partial class FlashcardsPage : UserControl, IDisposable
 
         _allCurrentDeckCards = FlashcardDeckProjection.GetDeckCards(_settings, _selectedDeckKey, includeUnavailable: true);
         StartStudyingButton.IsEnabled = _allCurrentDeckCards.Any(c => c.IsReady);
+        CheckWordsButton.IsEnabled = VocabularyCheckRules.PickQuestions(_allCurrentDeckCards, VocabularyCheckDirection.MeaningToWord, 1).Count > 0;
 
         var allCount = _allCurrentDeckCards.Count;
         var activeCount = _allCurrentDeckCards.Count(c => !c.IsMarkedDone);
@@ -445,6 +449,18 @@ public partial class FlashcardsPage : UserControl, IDisposable
 
         UpdateStudyCardDisplay();
         Focus();
+        _ = TranslateStudyCardsAsync(readyCards);
+    }
+
+    /// <summary>Gets the meanings of the cards being studied in the chosen language, then shows them on the card.</summary>
+    private async Task TranslateStudyCardsAsync(IReadOnlyList<FlashcardItem> cards)
+    {
+        CancelCheck();
+        var cts = new CancellationTokenSource();
+        _checkCts = cts;
+        await EnsureTranslationsAsync(cards, cts.Token);
+        if (ReferenceEquals(_checkCts, cts) && _isStudying && !_studyIsShowingBack)
+            UpdateStudyCardDisplay();
     }
 
     public void ExitInPageStudy()
@@ -480,7 +496,10 @@ public partial class FlashcardsPage : UserControl, IDisposable
         StudyBackPhraseText.Text = card.Phrase;
         StudyBackPronunciationText.Text = card.PronunciationIpa ?? string.Empty;
         StudyBackPronunciationText.Visibility = string.IsNullOrWhiteSpace(card.PronunciationIpa) ? Visibility.Collapsed : Visibility.Visible;
-        StudyBackMeaningText.Text = card.Meaning;
+        var meaning = MeaningFor(card);
+        StudyBackMeaningText.Text = meaning;
+        StudyBackEnglishMeaningText.Text = string.Equals(meaning, card.Meaning, StringComparison.Ordinal) ? string.Empty : card.Meaning;
+        StudyBackEnglishMeaningText.Visibility = StudyBackEnglishMeaningText.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         StudyBackExampleText.Text = card.Example;
 
         if (card.SourceSentences.Count > 0)
@@ -632,6 +651,13 @@ public partial class FlashcardsPage : UserControl, IDisposable
 
     private void UserControl_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
+        if (IsChecking)
+        {
+            if (HandleCheckKey(e.Key))
+                e.Handled = true;
+            return;
+        }
+
         if (_isStudying)
         {
             switch (e.Key)
