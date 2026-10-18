@@ -420,7 +420,12 @@ public sealed class StudyListDraft
         return new(true, null);
     }
 
-    public ValidationResult AddPhrasedSentence(string groups)
+    /// <summary>True when the selected list already has this sentence (ignoring case and spacing).</summary>
+    public bool HasSentence(string text) =>
+        SelectedList.Sentences.Any(sentence => SentenceKey(sentence.Text) == SentenceKey(text ?? string.Empty));
+
+    /// <summary>Adds a sentence with its reading groups (one per line); <paramref name="select"/> also selects it.</summary>
+    public ValidationResult AddPhrasedSentence(string groups, bool select = true)
     {
         var proposal = SentencePhrasing.ParseGroups(groups);
         if (!proposal.Validation.IsValid)
@@ -429,7 +434,8 @@ public sealed class StudyListDraft
         var sentence = new StudySentence(Guid.NewGuid(), proposal.Text,
             PhraseBreakAfterWordIndices: proposal.BreakAfterWordIndices);
         ReplaceSelectedList(SelectedList with { Sentences = SelectedList.Sentences.Append(sentence).ToList() });
-        SelectSentence(sentence.Id);
+        if (select)
+            SelectSentence(sentence.Id);
         return new(true, null);
     }
 

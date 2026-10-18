@@ -18,6 +18,7 @@ public partial class SetupPage : UserControl
     private bool _isRendering;
     private bool _settingInput;
     private CancellationTokenSource? _splitting;
+    private CancellationTokenSource? _phrasing;
     public ISentencePhraser? SentencePhraser { get; set; }
 
     /// <summary>AI that splits pasted text into clean sentences (the "AI split" button); null without an AI key.</summary>
@@ -288,7 +289,7 @@ public partial class SetupPage : UserControl
             ShowAddStatus(null);
     }
 
-    /// <summary>"＋ Add 5 sentences" when several are in the box; AI phrasing works on one sentence only.</summary>
+    /// <summary>"＋ Add 5 sentences" / "✨ AI phrased (5)" when several are in the box.</summary>
     private void RenderAddButtons()
     {
         if (AddSentenceButton is null)
@@ -296,7 +297,11 @@ public partial class SetupPage : UserControl
 
         var count = PteFloatingSentence.Core.SentenceSplitter.Split(SentenceInput.Text).Count;
         AddSentenceButton.Content = count > 1 ? $"＋ Add {count} sentences" : "＋ Add sentence";
-        AddWithAiButton.IsEnabled = count <= 1 && _splitting is null;
+        AddWithAiButton.Content = count > 1 ? $"✨ AI phrased ({count})" : "✨ AI phrased";
+        var busy = _splitting is not null || _phrasing is not null;
+        AddWithAiButton.IsEnabled = !busy;
+        AddSentenceButton.IsEnabled = !busy;
+        AiSplitButton.IsEnabled = !busy;
         SentencePlaceholder.Visibility = string.IsNullOrEmpty(SentenceInput.Text) ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -320,6 +325,98 @@ public partial class SetupPage : UserControl
         AddStatusText.Foreground = new SolidColorBrush(warning ? Color.FromRgb(0xFB, 0xBF, 0x24) : Color.FromRgb(0x34, 0xD3, 0x99));
     }
 
+    /// <summary>
+    /// Phrases every sentence with AI (spelling check + reading groups) and adds each to the list, one after another.
+    /// Sentences already in the list are skipped; ones that fail stay in the box to try again.
+    /// </summary>
+    public async Task PhraseAndAddAllAsync(IReadOnlyList<string> sentences)
+    {
+        if (_draft is null)
+            return;
+        if (SentencePhraser is null)
+        {
+            _showResult?.Invoke(new ValidationResult(false, "AI is unavailable. Add an API key on the AI page."));
+            return;
+        }
+
+        var phrasing = new CancellationTokenSource();
+        _phrasing = phrasing;
+        RenderAddButtons();
+        _showResult?.Invoke(new ValidationResult(true, null));
+        var added = 0;
+        var duplicates = 0;
+        var failed = new List<string>();
+        string? firstError = null;
+        try
+        {
+            for (var i = 0; i < sentences.Count; i++)
+            {
+                var sentence = sentences[i];
+                ShowAddStatus($"AI phrasing sentence {i + 1} of {sentences.Count}…");
+                if (_draft.HasSentence(sentence))
+                {
+                    duplicates++;
+                    continue;
+                }
+
+                var validation = SentenceValidator.Validate(sentence);
+                if (!validation.IsValid)
+                {
+                    failed.Add(sentence);
+                    firstError ??= validation.Error;
+                    continue;
+                }
+
+                try
+                {
+                    var groups = await SentencePhraser.SuggestAsync(sentence, phrasing.Token);
+                    var result = _draft.AddPhrasedSentence(string.Join("\n", groups), select: false);
+                    if (result.IsValid)
+                    {
+                        added++;
+                    }
+                    else
+                    {
+                        failed.Add(sentence);
+                        firstError ??= result.Error;
+                    }
+                }
+                catch (Exception error) when (error is not OperationCanceledException)
+                {
+                    failed.Add(sentence);
+                    firstError ??= error is InvalidOperationException && !string.IsNullOrWhiteSpace(error.Message) ? error.Message : "The AI could not phrase it.";
+                }
+            }
+        }
+        finally
+        {
+            _phrasing = null;
+            phrasing.Dispose();
+        }
+
+        if (added > 0)
+        {
+            _draft.ClearSentenceSelection();
+            _onDraftChanged?.Invoke();
+            RefreshFromDraft(_draft);
+            if (SentenceList.Items.Count > 0)
+                SentenceList.ScrollIntoView(SentenceList.Items[^1]);
+        }
+
+        SetInput(string.Join(Environment.NewLine, failed));
+        RenderAddButtons();
+        var outcome = new AddSentencesResult(added, duplicates, failed, firstError);
+        if (added == 0 && failed.Count > 0)
+        {
+            _showResult?.Invoke(new ValidationResult(false, outcome.Message));
+            ShowAddStatus(null);
+        }
+        else
+        {
+            ShowAddStatus(outcome.Message.Replace("Added", "AI phrased and added", StringComparison.Ordinal), failed.Count > 0);
+        }
+    }
+
     /// <summary>Lets the AI split pasted text into clean sentences, one per line, to check before adding.</summary>
     private async void AiSplitButton_Click(object sender, RoutedEventArgs e) => await SplitWithAiAsync();
 
@@ -341,7 +438,6 @@ public partial class SetupPage : UserControl
         _splitting?.Cancel();
         var splitting = new CancellationTokenSource();
         _splitting = splitting;
-        AiSplitButton.IsEnabled = false;
         AiSplitButton.Content = "✨ Splitting…";
         RenderAddButtons();
         _showResult?.Invoke(new ValidationResult(true, null));
@@ -371,7 +467,6 @@ public partial class SetupPage : UserControl
             if (ReferenceEquals(_splitting, splitting))
             {
                 _splitting = null;
-                AiSplitButton.IsEnabled = true;
                 AiSplitButton.Content = "✨ AI split";
                 RenderAddButtons();
             }
@@ -380,9 +475,17 @@ public partial class SetupPage : UserControl
         }
     }
 
-    private void AddWithAiButton_Click(object sender, RoutedEventArgs e)
+    private async void AddWithAiButton_Click(object sender, RoutedEventArgs e)
     {
         if (_draft is null || (CommitListEdits is not null && !CommitListEdits().IsValid)) return;
+        // Several sentences in the box (e.g. after AI split): phrase and add each of them.
+        var sentences = PteFloatingSentence.Core.SentenceSplitter.Split(SentenceInput.Text);
+        if (sentences.Count > 1)
+        {
+            await PhraseAndAddAllAsync(sentences);
+            return;
+        }
+
         var validation = SentenceValidator.Validate(SentenceInput.Text);
         if (!validation.IsValid)
         {

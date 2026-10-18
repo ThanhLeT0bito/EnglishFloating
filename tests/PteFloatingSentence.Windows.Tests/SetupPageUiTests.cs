@@ -28,7 +28,7 @@ public sealed class SetupPageUiTests
 
             input.Text = "1. There was a lot of traffic this morning.\n2. You need to pass the written exam.\n3. Please raise your hand.";
             Assert.AreEqual("＋ Add 3 sentences", ((Button)page.FindName("AddSentenceButton")).Content);
-            Assert.IsFalse(((Button)page.FindName("AddWithAiButton")).IsEnabled, "AI phrasing is for one sentence");
+            Assert.AreEqual("✨ AI phrased (3)", ((Button)page.FindName("AddWithAiButton")).Content);
 
             Click(page, "AddSentenceButton");
 
@@ -82,6 +82,32 @@ public sealed class SetupPageUiTests
     }
 
     [TestMethod]
+    public void AiPhrased_AfterAiSplit_PhrasesAndAddsEverySentence()
+    {
+        RunOnSta(() =>
+        {
+            var draft = new StudyListDraft(AppSettings.Default, _ => { });
+            var page = new SetupPage { SentencePhraser = new FakePhraser() };
+            page.Initialize(draft, _ => { });
+            page.RefreshFromDraft(draft);
+            var before = draft.SelectedList.Sentences.Count;
+            var index = draft.SelectedList.CurrentSentenceIndex;
+            var input = (TextBox)page.FindName("SentenceInput");
+            input.Text = "We are looking for new ways to engage learners.\nPlease raise your hand.\nThis one fails.";
+
+            page.PhraseAndAddAllAsync(PteFloatingSentence.Core.SentenceSplitter.Split(input.Text)).GetAwaiter().GetResult();
+
+            var sentences = draft.SelectedList.Sentences;
+            Assert.AreEqual(before + 2, sentences.Count);
+            Assert.AreEqual("We are looking for new ways to engage learners.", sentences[before].Text);
+            Assert.IsTrue(sentences[before].PhraseBreakAfterWordIndices.Count > 0, "added with its reading groups");
+            Assert.AreEqual(index, draft.SelectedList.CurrentSentenceIndex, "the widget's sentence stays");
+            Assert.AreEqual("This one fails.", input.Text, "a sentence the AI could not phrase stays in the box");
+            StringAssert.StartsWith(((TextBlock)page.FindName("AddStatusText")).Text, "AI phrased and added 2 sentences");
+        });
+    }
+
+    [TestMethod]
     public void SettingsWindow_SentencesPageFillsTheWindowInsteadOfScrolling()
     {
         RunOnSta(() =>
@@ -119,6 +145,18 @@ public sealed class SetupPageUiTests
 
         if (exception is not null)
             ExceptionDispatchInfo.Capture(exception).Throw();
+    }
+
+    private sealed class FakePhraser : ISentencePhraser
+    {
+        public Task<IReadOnlyList<string>> SuggestAsync(string sentence, CancellationToken cancellationToken = default)
+        {
+            if (sentence.Contains("fails", StringComparison.Ordinal))
+                throw new InvalidOperationException("The AI returned an invalid sentence proposal. Please try again.");
+            var words = sentence.Split(' ');
+            var half = Math.Max(1, words.Length / 2);
+            return Task.FromResult<IReadOnlyList<string>>([string.Join(' ', words.Take(half)), string.Join(' ', words.Skip(half))]);
+        }
     }
 
     private sealed class FakeSplitter : ISentenceSplitter
