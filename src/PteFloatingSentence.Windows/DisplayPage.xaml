@@ -330,6 +330,17 @@
                                Margin="12,0,0,0" />
                 </StackPanel>
 
+                <!-- Pen button Section -->
+                <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="#FF38BDF8" Text="Pen button on the floating sentence" Margin="0,0,0,2" />
+                <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,6" TextWrapping="Wrap"
+                           Text="Choose what the pen next to the audio icon opens." />
+                <StackPanel Margin="0,0,0,16">
+                    <RadioButton x:Name="PenWritingOption" GroupName="PenAction" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"
+                                 Content="Writing practice — AI makes new Vietnamese sentences to translate" Checked="PenOption_Checked" />
+                    <RadioButton x:Name="PenPracticeOption" GroupName="PenAction" Foreground="{StaticResource TextSecondaryBrush}"
+                                 Content="Practice my list — hear each sentence of the active list and type it" Checked="PenOption_Checked" />
+                </StackPanel>
+
                 <!-- Audio Cache Section -->
                 <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="#FF38BDF8" Text="Audio Cache" Margin="0,0,0,6" />
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,16">

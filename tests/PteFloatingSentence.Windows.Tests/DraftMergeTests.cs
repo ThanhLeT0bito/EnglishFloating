@@ -134,6 +134,22 @@ public sealed class DraftMergeTests
     }
 
     [TestMethod]
+    public void PenAction_IsSavedAndKeptThroughAMerge()
+    {
+        AppSettings? saved = null;
+        var app = TwoLists();
+        var draft = new StudyListDraft(app, settings => saved = settings);
+        draft.SetPenAction(FloatingPenAction.ListPractice);
+
+        draft.UpdateSettingsFromApp(app with { ShowVocabularyCards = false });
+        Assert.AreEqual(FloatingPenAction.ListPractice, draft.Settings.PenAction);
+
+        draft.Save();
+        Assert.AreEqual(FloatingPenAction.ListPractice, SettingsUpdateMerger.MergeEditableFields(app, saved!).PenAction);
+        Assert.AreEqual(FloatingPenAction.Writing, SettingsUpdateMerger.MergeEditableFields(app, saved! with { PenAction = (FloatingPenAction)7 }).PenAction);
+    }
+
+    [TestMethod]
     public void Validate_ChecksWithoutSaving()
     {
         var saves = 0;

@@ -24,6 +24,7 @@ public static class SettingsUpdateMerger
         TtsVoice = submitted.TtsVoice,
         TtsSpeed = submitted.TtsSpeed,
         PracticeMode = submitted.PracticeMode,
-        PracticeAudioDelaySeconds = PracticeAudioDelay.Normalize(submitted.PracticeAudioDelaySeconds)
+        PracticeAudioDelaySeconds = PracticeAudioDelay.Normalize(submitted.PracticeAudioDelaySeconds),
+        PenAction = Enum.IsDefined(submitted.PenAction) ? submitted.PenAction : FloatingPenAction.Writing
     }, submitted);
 }

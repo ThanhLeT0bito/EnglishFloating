@@ -215,6 +215,7 @@ public partial class SettingsWindow : Window
         DisplayPageControl.LaunchAtWindowsSignInChanged += OnLaunchAtWindowsSignInChanged;
         DisplayPageControl.TtsPreferencesChanged += OnTtsPreferencesChanged;
         DisplayPageControl.PracticeAudioDelayChanged += OnPracticeAudioDelayChanged;
+        DisplayPageControl.PenActionChanged += OnPenActionChanged;
         GeminiPageControl.LoadState(_apiKeyConfigured);
         GeminiPageControl.ClearKeyRequested += OnClearKeyRequested;
         GeminiPageControl.ProviderChanged += OnAiProviderChanged;
@@ -277,6 +278,8 @@ public partial class SettingsWindow : Window
     private void OnTtsPreferencesChanged(string voice, double speed) =>
         _draft.SetTtsPreferences(voice, speed);
 
+    private void OnPenActionChanged(FloatingPenAction action) => _draft.SetPenAction(action);
+
     private void OnPracticeAudioDelayChanged(int seconds) =>
         _draft.SetPracticeAudioDelaySeconds(seconds);
 
@@ -319,6 +322,7 @@ public partial class SettingsWindow : Window
             DisplayPageControl.LaunchAtWindowsSignInChanged -= OnLaunchAtWindowsSignInChanged;
             DisplayPageControl.TtsPreferencesChanged -= OnTtsPreferencesChanged;
             DisplayPageControl.PracticeAudioDelayChanged -= OnPracticeAudioDelayChanged;
+            DisplayPageControl.PenActionChanged -= OnPenActionChanged;
         }
         if (GeminiPageControl is not null)
         {
@@ -637,6 +641,7 @@ public partial class SettingsWindow : Window
                 DisplayPageControl.TtsVoice,
                 DisplayPageControl.TtsSpeed);
             _draft.SetPracticeAudioDelaySeconds(DisplayPageControl.PracticeAudioDelaySeconds);
+            _draft.SetPenAction(DisplayPageControl.PenAction);
         }
         var result = _draft.Save();
         ShowResult(result);

@@ -123,6 +123,34 @@ public sealed class FloatingWritingTests
     }
 
     [TestMethod]
+    public void FloatingWindow_PenOpensWritingOrListPracticeAsConfigured()
+    {
+        RunOnSta(() =>
+        {
+            var listId = Guid.NewGuid();
+            var settings = AppSettings.Default with
+            {
+                ActiveListId = listId,
+                StudyLists = [new StudyList(listId, "List", 10, 0, [new StudySentence(Guid.NewGuid(), "There was a lot of traffic this morning.")])]
+            };
+            var window = new FloatingWindow(new NoopPlayer(), null, null) { WritingCoach = new FakeCoach() };
+            var pen = (Button)window.FindName("WritingButton");
+
+            window.ApplySettings(settings);
+            pen.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Assert.IsTrue(window.IsWritingMode);
+            window.ExitWriting();
+
+            window.ApplySettings(settings with { PenAction = FloatingPenAction.ListPractice });
+            StringAssert.Contains((string)pen.ToolTip, "Practice this list");
+            pen.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Assert.IsTrue(window.IsPracticeMode);
+            Assert.IsFalse(window.IsWritingMode);
+            window.Close();
+        });
+    }
+
+    [TestMethod]
     public void FloatingWindow_ExitWritingShowsTheVocabularyCardsAgain()
     {
         RunOnSta(() =>

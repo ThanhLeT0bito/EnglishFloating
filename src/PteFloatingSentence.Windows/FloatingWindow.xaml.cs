@@ -189,6 +189,7 @@ public partial class FloatingWindow : Window
         var practicePreferencesChanged = _settings.PracticeMode != settings.PracticeMode ||
             _settings.TtsVoice != settings.TtsVoice || _settings.TtsSpeed != settings.TtsSpeed;
         _settings = settings;
+        RenderPenButton();
         var defaults = AppSettings.Default;
         var activeList = StudyListRules.ActiveList(settings);
         var sentenceCount = activeList.Sentences.Count;
@@ -769,10 +770,23 @@ public partial class FloatingWindow : Window
             StartWriting();
     }
 
+    /// <summary>The pen opens Writing practice or practice of the active list, as chosen on Settings › Display.</summary>
     private void WritingButton_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        StartWriting();
+        if (_settings.PenAction == FloatingPenAction.ListPractice)
+            StartPractice();
+        else
+            StartWriting();
+    }
+
+    private void RenderPenButton()
+    {
+        if (WritingButton is null)
+            return;
+        WritingButton.ToolTip = _settings.PenAction == FloatingPenAction.ListPractice
+            ? "Practice this list: hear each sentence and type it"
+            : "Writing practice: translate Vietnamese into English";
     }
 
     private void WritingPanel_PreferencesChanged(AppSettings updated)

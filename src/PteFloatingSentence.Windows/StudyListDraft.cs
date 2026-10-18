@@ -110,6 +110,9 @@ public sealed class StudyListDraft
     public void SetPracticeMode(PracticeMode mode) =>
         _settings = _settings with { PracticeMode = mode };
 
+    public void SetPenAction(FloatingPenAction action) =>
+        _settings = _settings with { PenAction = Enum.IsDefined(action) ? action : FloatingPenAction.Writing };
+
     public void SetPracticeAudioDelaySeconds(int seconds) =>
         _settings = _settings with { PracticeAudioDelaySeconds = PracticeAudioDelay.Normalize(seconds) };
 
@@ -180,6 +183,7 @@ public sealed class StudyListDraft
             CustomFlashcardDecks = TakeList(s => s.CustomFlashcardDecks),
             FlashcardProgress = TakeList(s => s.FlashcardProgress),
             ShowSentenceOverlay = Take(s => s.ShowSentenceOverlay),
+            PenAction = Take(s => s.PenAction),
             ShowVocabularyCards = Take(s => s.ShowVocabularyCards),
             ShowFloatingFlashcard = Take(s => s.ShowFloatingFlashcard),
             ActiveFlashcardDeckKey = Take(s => s.ActiveFlashcardDeckKey),

@@ -26,6 +26,9 @@ public sealed record AppSettings
     public double TtsSpeed { get; init; } = 1.0;
     public PracticeMode PracticeMode { get; init; } = PracticeMode.TextHints;
     public int PracticeAudioDelaySeconds { get; init; } = PracticeAudioDelay.DefaultSeconds;
+
+    /// <summary>What the pen button on the floating sentence opens.</summary>
+    public FloatingPenAction PenAction { get; init; } = FloatingPenAction.Writing;
     public IReadOnlyList<WritingTopic> CustomWritingTopics { get; init; } = [];
     public IReadOnlyList<string> SelectedWritingTopicKeys { get; init; } = [];
     public WritingLevel WritingLevel { get; init; } = WritingLevel.Medium;
@@ -35,4 +38,14 @@ public sealed record AppSettings
     public bool WritingAutoPlayCorrected { get; init; } = false;
     public bool WritingFocusWeakPoints { get; init; } = false;
     public static AppSettings Default => StudyListRules.CreateDefault("Right-click this sentence to open Settings.");
+}
+
+/// <summary>What the pen button on the floating sentence opens.</summary>
+public enum FloatingPenAction
+{
+    /// <summary>Writing practice: the AI makes new sentences to translate.</summary>
+    Writing = 0,
+
+    /// <summary>Practice the active study list: hear each sentence and type it.</summary>
+    ListPractice = 1
 }

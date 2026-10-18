@@ -86,6 +86,25 @@ public partial class DisplayPage : UserControl
     public event Action<string, double>? TtsPreferencesChanged;
     public event Action<int>? PracticeAudioDelayChanged;
 
+    /// <summary>Raised when the learner picks what the floating pen button opens.</summary>
+    public event Action<FloatingPenAction>? PenActionChanged;
+
+    public FloatingPenAction PenAction
+    {
+        get => PenPracticeOption.IsChecked == true ? FloatingPenAction.ListPractice : FloatingPenAction.Writing;
+        set
+        {
+            PenPracticeOption.IsChecked = value == FloatingPenAction.ListPractice;
+            PenWritingOption.IsChecked = value != FloatingPenAction.ListPractice;
+        }
+    }
+
+    private void PenOption_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isRendering) return;
+        PenActionChanged?.Invoke(PenAction);
+    }
+
     public DisplayPage() : this(new AudioCacheManager())
     {
     }
@@ -117,6 +136,15 @@ public partial class DisplayPage : UserControl
             settings.TtsVoice,
             settings.TtsSpeed,
             settings.PracticeAudioDelaySeconds);
+        _isRendering = true;
+        try
+        {
+            PenAction = settings.PenAction;
+        }
+        finally
+        {
+            _isRendering = false;
+        }
     }
 
     public AppSettings ApplySettings(AppSettings settings)
@@ -131,7 +159,8 @@ public partial class DisplayPage : UserControl
             LaunchAtWindowsSignIn = LaunchAtWindowsSignIn,
             TtsVoice = TtsVoice,
             TtsSpeed = TtsSpeed,
-            PracticeAudioDelaySeconds = PracticeAudioDelaySeconds
+            PracticeAudioDelaySeconds = PracticeAudioDelaySeconds,
+            PenAction = PenAction
         };
     }
 
