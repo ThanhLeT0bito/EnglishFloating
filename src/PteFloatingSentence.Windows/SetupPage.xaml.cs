@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using Color = System.Windows.Media.Color;
 using UserControl = System.Windows.Controls.UserControl;
 using MessageBox = System.Windows.MessageBox;
 using ValidationResult = PteFloatingSentence.Core.ValidationResult;
@@ -14,7 +16,12 @@ public partial class SetupPage : UserControl
     private Action<ValidationResult>? _showResult;
     private Action? _onDraftChanged;
     private bool _isRendering;
+    private bool _settingInput;
+    private CancellationTokenSource? _splitting;
     public ISentencePhraser? SentencePhraser { get; set; }
+
+    /// <summary>AI that splits pasted text into clean sentences (the "AI split" button); null without an AI key.</summary>
+    public ISentenceSplitter? AiSplitter { get; set; }
 
     public Func<ValidationResult>? CommitListEdits { get; set; }
     public Action<Guid>? SelectList { get; set; }
@@ -230,13 +237,147 @@ public partial class SetupPage : UserControl
         SelectSentence?.Invoke(sentenceId);
     }
 
+    /// <summary>
+    /// Adds what is in the box: one sentence as before, or — when several are pasted (one per line, a numbered list
+    /// or a paragraph) — each of them. Sentences that cannot be added stay in the box to fix.
+    /// </summary>
     internal void AddSentenceButton_Click(object sender, RoutedEventArgs e)
     {
         if (CommitListEdits is not null && !CommitListEdits().IsValid)
             return;
 
-        var result = AddSentence?.Invoke(SentenceInput.Text) ?? new ValidationResult(true, null);
-        _showResult?.Invoke(result);
+        var sentences = PteFloatingSentence.Core.SentenceSplitter.Split(SentenceInput.Text);
+        if (sentences.Count <= 1 || _draft is null)
+        {
+            var result = AddSentence?.Invoke(sentences.Count == 1 ? sentences[0] : SentenceInput.Text) ?? new ValidationResult(true, null);
+            _showResult?.Invoke(result);
+            if (result.IsValid)
+                ShowAddStatus(null);
+            return;
+        }
+
+        var outcome = _draft.AddSentences(sentences);
+        if (outcome.Added > 0)
+        {
+            _draft.ClearSentenceSelection();
+            _onDraftChanged?.Invoke();
+            RefreshFromDraft(_draft);
+            if (SentenceList.Items.Count > 0)
+                SentenceList.ScrollIntoView(SentenceList.Items[^1]);
+        }
+
+        SetInput(string.Join(Environment.NewLine, outcome.Rejected));
+        var message = outcome.Message;
+        if (outcome.Added == 0 && outcome.Rejected.Count > 0)
+        {
+            _showResult?.Invoke(new ValidationResult(false, message));
+            ShowAddStatus(null);
+        }
+        else
+        {
+            _showResult?.Invoke(new ValidationResult(true, null));
+            ShowAddStatus(message, outcome.Rejected.Count > 0);
+        }
+    }
+
+    private void SentenceInput_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        RenderAddButtons();
+        // The result of the last add or AI split no longer describes what is in the box.
+        if (!_settingInput && !_isRendering)
+            ShowAddStatus(null);
+    }
+
+    /// <summary>"＋ Add 5 sentences" when several are in the box; AI phrasing works on one sentence only.</summary>
+    private void RenderAddButtons()
+    {
+        if (AddSentenceButton is null)
+            return;
+
+        var count = PteFloatingSentence.Core.SentenceSplitter.Split(SentenceInput.Text).Count;
+        AddSentenceButton.Content = count > 1 ? $"＋ Add {count} sentences" : "＋ Add sentence";
+        AddWithAiButton.IsEnabled = count <= 1 && _splitting is null;
+        SentencePlaceholder.Visibility = string.IsNullOrEmpty(SentenceInput.Text) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void SetInput(string text)
+    {
+        _settingInput = true;
+        try
+        {
+            SentenceInput.Text = text;
+        }
+        finally
+        {
+            _settingInput = false;
+        }
+    }
+
+    private void ShowAddStatus(string? text, bool warning = false)
+    {
+        AddStatusText.Visibility = string.IsNullOrEmpty(text) ? Visibility.Collapsed : Visibility.Visible;
+        AddStatusText.Text = text ?? string.Empty;
+        AddStatusText.Foreground = new SolidColorBrush(warning ? Color.FromRgb(0xFB, 0xBF, 0x24) : Color.FromRgb(0x34, 0xD3, 0x99));
+    }
+
+    /// <summary>Lets the AI split pasted text into clean sentences, one per line, to check before adding.</summary>
+    private async void AiSplitButton_Click(object sender, RoutedEventArgs e) => await SplitWithAiAsync();
+
+    public async Task SplitWithAiAsync()
+    {
+        if (AiSplitter is null)
+        {
+            _showResult?.Invoke(new ValidationResult(false, "AI is unavailable. Add an API key on the AI page."));
+            return;
+        }
+
+        var text = SentenceInput.Text;
+        if (!text.Any(char.IsLetter))
+        {
+            _showResult?.Invoke(new ValidationResult(false, AiSentenceSplitter.EmptyMessage));
+            return;
+        }
+
+        _splitting?.Cancel();
+        var splitting = new CancellationTokenSource();
+        _splitting = splitting;
+        AiSplitButton.IsEnabled = false;
+        AiSplitButton.Content = "✨ Splitting…";
+        RenderAddButtons();
+        _showResult?.Invoke(new ValidationResult(true, null));
+        try
+        {
+            var sentences = await AiSplitter.SplitAsync(text, splitting.Token);
+            if (!ReferenceEquals(_splitting, splitting))
+                return;
+
+            SetInput(string.Join(Environment.NewLine, sentences));
+            ShowAddStatus(sentences.Count == 1
+                ? "AI found 1 sentence. Check it, then click Add."
+                : $"AI found {sentences.Count} sentences, one per line. Check them, then click Add {sentences.Count} sentences.");
+        }
+        catch (OperationCanceledException) when (splitting.IsCancellationRequested)
+        {
+        }
+        catch (Exception error)
+        {
+            if (ReferenceEquals(_splitting, splitting))
+                _showResult?.Invoke(new ValidationResult(false, error is InvalidOperationException && !string.IsNullOrWhiteSpace(error.Message)
+                    ? error.Message
+                    : "Could not split the text. Please try again."));
+        }
+        finally
+        {
+            if (ReferenceEquals(_splitting, splitting))
+            {
+                _splitting = null;
+                AiSplitButton.IsEnabled = true;
+                AiSplitButton.Content = "✨ AI split";
+                RenderAddButtons();
+            }
+
+            splitting.Dispose();
+        }
     }
 
     private void AddWithAiButton_Click(object sender, RoutedEventArgs e)

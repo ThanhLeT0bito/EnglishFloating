@@ -81,7 +81,7 @@ public sealed class JsonSettingsStore
     }
 
     private static AppSettings NormalizeVersion2(AppSettings settings) =>
-        NormalizeDisplay(StudyListRules.Normalize(settings));
+        WritingTopicRules.Normalize(NormalizeDisplay(StudyListRules.Normalize(settings)));
 
     private static AppSettings NormalizeDisplay(AppSettings settings)
     {
@@ -90,6 +90,7 @@ public sealed class JsonSettingsStore
         {
             Sentence = StudyListRules.NormalizeSentence(settings.Sentence),
             FontSize = settings.FontSize is >= 12 and <= 96 ? settings.FontSize : defaults.FontSize,
+            AiProvider = AiProviderRules.Normalize(settings.AiProvider),
             PracticeAudioDelaySeconds = PracticeAudioDelay.Normalize(settings.PracticeAudioDelaySeconds),
             BackgroundOpacity = settings.BackgroundOpacity is >= 0 and <= 1 ? settings.BackgroundOpacity : defaults.BackgroundOpacity,
             TextColor = settings.TextColor is not null && ColorPattern.IsMatch(settings.TextColor)

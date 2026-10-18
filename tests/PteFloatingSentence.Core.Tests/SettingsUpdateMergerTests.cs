@@ -33,6 +33,39 @@ public sealed class SettingsUpdateMergerTests
     }
 
     [TestMethod]
+    public void MergeEditableFields_RetainsSubmittedWritingPreferences()
+    {
+        var latest = AppSettings.Default;
+        var (withTopic, _) = WritingTopicRules.AddCustom(latest, "Job interviews");
+        var key = withTopic.CustomWritingTopics.Single().Key;
+        var submitted = WritingTopicRules.ToggleSelection(withTopic, key) with
+        {
+            WritingLevel = WritingLevel.Hard,
+            WritingExplanationLanguage = WritingExplanationLanguage.Vietnamese
+        };
+
+        var merged = SettingsUpdateMerger.MergeEditableFields(latest, submitted);
+
+        Assert.AreEqual("Job interviews", merged.CustomWritingTopics.Single().Name);
+        CollectionAssert.AreEqual(new[] { key }, merged.SelectedWritingTopicKeys.ToArray());
+        Assert.AreEqual(WritingLevel.Hard, merged.WritingLevel);
+        Assert.AreEqual(WritingExplanationLanguage.Vietnamese, merged.WritingExplanationLanguage);
+    }
+
+    [TestMethod]
+    public void MergeEditableFields_NormalizesWritingPreferences()
+    {
+        var merged = SettingsUpdateMerger.MergeEditableFields(AppSettings.Default, AppSettings.Default with
+        {
+            SelectedWritingTopicKeys = ["unknown", "it-work"],
+            WritingLevel = (WritingLevel)9
+        });
+
+        CollectionAssert.AreEqual(new[] { "it-work" }, merged.SelectedWritingTopicKeys.ToArray());
+        Assert.AreEqual(WritingLevel.Medium, merged.WritingLevel);
+    }
+
+    [TestMethod]
     public void MergeEditableFields_RetainsSubmittedPracticeMode()
     {
         var latest = AppSettings.Default;

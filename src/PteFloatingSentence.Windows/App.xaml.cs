@@ -14,8 +14,16 @@ public partial class App : System.Windows.Application
     private readonly JsonSettingsStore _settingsStore = new();
     private readonly SettingsPersistenceQueue _persistenceQueue;
     private readonly ProtectedApiKeyStore _apiKeyStore = new();
-    private GeminiVocabularyExplainer? _explainer;
-    private GeminiSentencePhraser? _sentencePhraser;
+    private readonly ProtectedApiKeyStore _groqKeyStore = new(fileName: ProtectedApiKeyStore.GroqFileName);
+    private readonly ProtectedApiKeyStore _claudeKeyStore = new(fileName: ProtectedApiKeyStore.ClaudeFileName);
+    private readonly List<JsonLlmClientBase> _aiClients = [];
+    private SwitchingJsonClient? _aiClient;
+    private AiVocabularyExplainer? _explainer;
+    private AiSentencePhraser? _sentencePhraser;
+    private AiSentenceSplitter? _sentenceSplitter;
+    private AiWritingCoach? _writingCoach;
+    private readonly WritingHistoryBook _writingHistory = new(new JsonWritingHistoryStore());
+    private GrammarLessonLibrary? _grammarLibrary;
     private VocabularyWorkflow? _vocabularyWorkflow;
     private Core.AppSettings _settings = Core.AppSettings.Default;
     private FloatingWindow? _floatingWindow;
@@ -24,6 +32,9 @@ public partial class App : System.Windows.Application
     private readonly WindowsStartupRegistration _startupRegistration = new();
     private SingleInstanceGuard? _singleInstanceGuard;
     private bool _isShuttingDown;
+
+    private static readonly TimeSpan LessonTimeout = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan LessonAttemptTimeout = TimeSpan.FromSeconds(45);
 
     public App()
     {
@@ -53,8 +64,33 @@ public partial class App : System.Windows.Application
         var position = Core.WindowPlacementNormalizer.Normalize(_settings, displays);
         _settings = _settings with { Left = position.Left, Top = position.Top };
 
-        _explainer = new GeminiVocabularyExplainer(() => _apiKeyStore.Load());
-        _sentencePhraser = new GeminiSentencePhraser(() => _apiKeyStore.Load());
+        var gemini = new GeminiJsonClient(() => _apiKeyStore.Load());
+        var groq = OpenAiCompatibleJsonClient.ForGroq(() => _groqKeyStore.Load());
+        var claude = new AnthropicJsonClient(() => _claudeKeyStore.Load());
+        _aiClients.AddRange([gemini, groq, claude]);
+        _aiClient = new SwitchingJsonClient(() => _settings.AiProvider, new Dictionary<Core.AiProvider, IJsonLlmClient>
+        {
+            [Core.AiProvider.Gemini] = gemini,
+            [Core.AiProvider.Groq] = groq,
+            [Core.AiProvider.Claude] = claude
+        });
+        _explainer = new AiVocabularyExplainer(_aiClient);
+        _sentencePhraser = new AiSentencePhraser(_aiClient);
+        _sentenceSplitter = new AiSentenceSplitter(_aiClient);
+        _writingCoach = new AiWritingCoach(_aiClient);
+
+        // Lessons are long answers: give them their own clients with more time per request.
+        var lessonGemini = new GeminiJsonClient(() => _apiKeyStore.Load(), timeout: LessonTimeout, attemptTimeout: LessonAttemptTimeout);
+        var lessonGroq = OpenAiCompatibleJsonClient.ForGroq(() => _groqKeyStore.Load(), timeout: LessonTimeout, attemptTimeout: LessonAttemptTimeout);
+        var lessonClaude = new AnthropicJsonClient(() => _claudeKeyStore.Load(), timeout: LessonTimeout, attemptTimeout: LessonAttemptTimeout);
+        _aiClients.AddRange([lessonGemini, lessonGroq, lessonClaude]);
+        var lessonClient = new SwitchingJsonClient(() => _settings.AiProvider, new Dictionary<Core.AiProvider, IJsonLlmClient>
+        {
+            [Core.AiProvider.Gemini] = lessonGemini,
+            [Core.AiProvider.Groq] = lessonGroq,
+            [Core.AiProvider.Claude] = lessonClaude
+        });
+        _grammarLibrary = new GrammarLessonLibrary(new AiGrammarTutor(lessonClient), new JsonGrammarLessonStore());
         _vocabularyWorkflow = new VocabularyWorkflow(_explainer, () => _settings, SaveSettings);
 
         _floatingWindow = new FloatingWindow { Left = position.Left, Top = position.Top };
@@ -88,6 +124,28 @@ public partial class App : System.Windows.Application
             PersistSettings();
         };
 
+        _floatingWindow.WritingCoach = _writingCoach;
+        _floatingWindow.WritingHistory = _writingHistory;
+        _floatingWindow.GrammarTopicRequested += (_, topicKey) =>
+        {
+            if (_isShuttingDown) return;
+            OpenSettings(SettingsPageId.Grammar);
+            _settingsWindow?.OpenGrammarTopic(topicKey);
+        };
+        _floatingWindow.WritingPreferencesChanged += (_, updated) =>
+        {
+            if (_isShuttingDown) return;
+            _settings = Core.WritingTopicRules.CopyPreferences(_settings, updated);
+            _settingsWindow?.UpdateSettingsFromApp(_settings);
+            PersistSettings();
+        };
+        _floatingWindow.SaveWritingSentence = text =>
+        {
+            if (_isShuttingDown) return new Core.ValidationResult(false, "The app is closing.");
+            var draft = new StudyListDraft(_settings, SaveSettings);
+            var result = draft.AddSentenceToList(Core.StudyListRules.ActiveList(_settings).Id, text);
+            return result.IsValid ? draft.Save() : result;
+        };
         _floatingWindow.SettingsRequested += (_, _) => OpenSettings();
         _floatingWindow.ExitRequested += async (_, _) => await ShutdownAsync();
         _floatingWindow.PreviousRequested += (_, _) => NavigateCurrentSentence(-1);
@@ -162,9 +220,10 @@ public partial class App : System.Windows.Application
     {
         if (_settingsWindow is not null)
         {
+            // Settings opens maximized; a minimized window comes back at the size it had before.
             if (_settingsWindow.WindowState == WindowState.Minimized)
             {
-                _settingsWindow.WindowState = WindowState.Normal;
+                _settingsWindow.WindowState = _settingsWindow.RestoreState;
             }
             _settingsWindow.UpdateSettingsFromApp(_settings);
             _settingsWindow.NavigateTo(page);
@@ -172,7 +231,7 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore, _explainer, _sentencePhraser);
+        _settingsWindow = new SettingsWindow(_settings, SaveSettings, _apiKeyStore, _explainer, _sentencePhraser, _writingCoach, _groqKeyStore, _claudeKeyStore, _writingHistory, _grammarLibrary, _sentenceSplitter);
         void OnStartPractice(object? sender, Guid listId) => _floatingWindow?.StartPractice(listId);
         _settingsWindow.StartPracticeRequested += OnStartPractice;
         _settingsWindow.Closed += (_, _) =>
@@ -226,8 +285,8 @@ public partial class App : System.Windows.Application
         _settingsWindow = null;
         _displayController?.Dispose();
         _vocabularyWorkflow?.Dispose();
-        _explainer?.Dispose();
-        _sentencePhraser?.Dispose();
+        foreach (var client in _aiClients)
+            client.Dispose();
         await _persistenceQueue.FlushAsync();
         Shutdown();
     }

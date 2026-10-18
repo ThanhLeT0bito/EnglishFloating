@@ -21,6 +21,90 @@ public class JsonSettingsStoreTests
     }
 
     [TestMethod]
+    public async Task LoadAsync_LegacySettings_DefaultsToGemini()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        await File.WriteAllTextAsync(path, "{\"Version\":2,\"Sentence\":\"Legacy\",\"GeminiApiKeyConfigured\":true}");
+
+        var loaded = await store.LoadAsync();
+
+        Assert.AreEqual(AiProvider.Gemini, loaded.AiProvider);
+        Assert.IsTrue(loaded.GeminiApiKeyConfigured);
+        Assert.IsFalse(loaded.GroqApiKeyConfigured);
+    }
+
+    [TestMethod]
+    public async Task SaveAsync_RoundTripsAiProviderAndNormalizesUnknownValue()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+
+        await store.SaveAsync(AppSettings.Default with { AiProvider = AiProvider.Groq, GroqApiKeyConfigured = true });
+        var loaded = await store.LoadAsync();
+        await File.WriteAllTextAsync(path, "{\"Version\":2,\"Sentence\":\"Legacy\",\"AiProvider\":7}");
+        var unknown = await store.LoadAsync();
+
+        Assert.AreEqual(AiProvider.Groq, loaded.AiProvider);
+        Assert.IsTrue(loaded.GroqApiKeyConfigured);
+        Assert.AreEqual(AiProvider.Gemini, unknown.AiProvider);
+        Assert.IsFalse(File.ReadAllText(path).Contains("gsk-"));
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_LegacySettings_DefaultsWritingPreferences()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        await File.WriteAllTextAsync(path, "{\"Version\":2,\"Sentence\":\"Legacy\"}");
+
+        var loaded = await store.LoadAsync();
+
+        Assert.AreEqual(0, loaded.CustomWritingTopics.Count);
+        Assert.AreEqual(0, loaded.SelectedWritingTopicKeys.Count);
+        Assert.AreEqual(WritingLevel.Medium, loaded.WritingLevel);
+        Assert.AreEqual(WritingExplanationLanguage.English, loaded.WritingExplanationLanguage);
+    }
+
+    [TestMethod]
+    public async Task SaveAsync_RoundTripsWritingPreferences()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        var (settings, _) = WritingTopicRules.AddCustom(AppSettings.Default, "Job interviews");
+        var key = settings.CustomWritingTopics.Single().Key;
+        settings = WritingTopicRules.ToggleSelection(settings, key);
+        settings = WritingTopicRules.ToggleSelection(settings, "it-work") with
+        {
+            WritingLevel = WritingLevel.Easy,
+            WritingExplanationLanguage = WritingExplanationLanguage.Vietnamese
+        };
+
+        await store.SaveAsync(settings);
+        var loaded = await store.LoadAsync();
+
+        Assert.AreEqual(new WritingTopic(key, "Job interviews"), loaded.CustomWritingTopics.Single());
+        CollectionAssert.AreEqual(new[] { key, "it-work" }, loaded.SelectedWritingTopicKeys.ToArray());
+        Assert.AreEqual(WritingLevel.Easy, loaded.WritingLevel);
+        Assert.AreEqual(WritingExplanationLanguage.Vietnamese, loaded.WritingExplanationLanguage);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_DropsUnknownWritingTopicSelection()
+    {
+        var path = CreateSettingsPath();
+        var store = new JsonSettingsStore(path);
+        await File.WriteAllTextAsync(path, """
+            {"Version":2,"Sentence":"Legacy","SelectedWritingTopicKeys":["it-work","custom:gone"],"WritingLevel":2}
+            """);
+
+        var loaded = await store.LoadAsync();
+
+        CollectionAssert.AreEqual(new[] { "it-work" }, loaded.SelectedWritingTopicKeys.ToArray());
+        Assert.AreEqual(WritingLevel.Hard, loaded.WritingLevel);
+    }
+
+    [TestMethod]
     public async Task LoadAsync_LegacySettings_DefaultsPracticeModeToTextHints()
     {
         var path = CreateSettingsPath();

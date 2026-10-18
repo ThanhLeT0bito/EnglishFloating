@@ -8,6 +8,7 @@
         MinWidth="860"
         MinHeight="600"
         WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
         Topmost="True"
         Background="#FF0F172A"
         Foreground="#FFE2E8F0">
@@ -295,9 +296,23 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <!-- Small caption above a group of pages; it cannot be selected or focused. -->
+        <Style x:Key="NavGroupHeaderStyle" TargetType="ListBoxItem">
+            <Setter Property="IsEnabled" Value="False" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Margin" Value="0,14,0,2" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <ContentPresenter Margin="14,0,0,0" TextElement.FontSize="11" TextElement.FontWeight="Bold" TextElement.Foreground="#FF64748B" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="NavRailItemStyle" TargetType="ListBoxItem">
-            <Setter Property="Padding" Value="14,10" />
-            <Setter Property="Margin" Value="0,3" />
+            <Setter Property="Padding" Value="14,9" />
+            <Setter Property="Margin" Value="0,2" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
@@ -379,23 +394,44 @@
                          BorderThickness="0"
                          ItemContainerStyle="{StaticResource NavRailItemStyle}"
                          SelectionChanged="SettingsNavigation_SelectionChanged">
+                    <!-- Grouped by purpose; inside a group, in the order you use the pages. -->
+                    <ListBoxItem Style="{StaticResource NavGroupHeaderStyle}" Margin="0,0,0,2">
+                        <TextBlock Text="SENTENCES &amp; VOCABULARY" />
+                    </ListBoxItem>
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Setup}">
                         <TextBlock Text="Sentences" FontSize="14" />
-                    </ListBoxItem>
-                    <ListBoxItem Tag="{x:Static local:SettingsPageId.Flashcards}">
-                        <TextBlock Text="Flashcards" FontSize="14" />
-                    </ListBoxItem>
-                    <ListBoxItem Tag="{x:Static local:SettingsPageId.Display}">
-                        <TextBlock Text="Display" FontSize="14" />
-                    </ListBoxItem>
-                    <ListBoxItem Tag="{x:Static local:SettingsPageId.Review}">
-                        <TextBlock Text="Review" FontSize="14" />
                     </ListBoxItem>
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.ReviewPractice}">
                         <TextBlock Text="Practice" FontSize="14" />
                     </ListBoxItem>
+                    <ListBoxItem Tag="{x:Static local:SettingsPageId.Flashcards}">
+                        <TextBlock Text="Flashcards" FontSize="14" />
+                    </ListBoxItem>
+                    <ListBoxItem Tag="{x:Static local:SettingsPageId.Review}">
+                        <TextBlock Text="Review" FontSize="14" />
+                    </ListBoxItem>
+
+                    <ListBoxItem Style="{StaticResource NavGroupHeaderStyle}">
+                        <TextBlock Text="WRITING &amp; GRAMMAR" />
+                    </ListBoxItem>
+                    <ListBoxItem Tag="{x:Static local:SettingsPageId.Roadmap}">
+                        <TextBlock Text="Roadmap" FontSize="14" />
+                    </ListBoxItem>
+                    <ListBoxItem Tag="{x:Static local:SettingsPageId.Writing}">
+                        <TextBlock Text="Writing" FontSize="14" />
+                    </ListBoxItem>
+                    <ListBoxItem Tag="{x:Static local:SettingsPageId.Grammar}">
+                        <TextBlock Text="Grammar" FontSize="14" />
+                    </ListBoxItem>
+
+                    <ListBoxItem Style="{StaticResource NavGroupHeaderStyle}">
+                        <TextBlock Text="APP" />
+                    </ListBoxItem>
+                    <ListBoxItem Tag="{x:Static local:SettingsPageId.Display}">
+                        <TextBlock Text="Display" FontSize="14" />
+                    </ListBoxItem>
                     <ListBoxItem Tag="{x:Static local:SettingsPageId.Gemini}">
-                        <TextBlock Text="Gemini" FontSize="14" />
+                        <TextBlock Text="AI" FontSize="14" />
                     </ListBoxItem>
                 </ListBox>
             </DockPanel>
@@ -414,6 +450,27 @@
                 <StackPanel Grid.Row="0" Margin="0,0,0,16">
                     <TextBlock x:Name="PageTitle" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Sentences" />
                     <TextBlock x:Name="PageSubtitle" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,4,0,0" Text="Configure study lists and practice sentences" />
+
+                    <!-- Today's roadmap session: current step, next step and end -->
+                    <Border x:Name="SessionBanner" Background="#1A2563EB" BorderBrush="#663B82F6" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,12,0,0" Visibility="Collapsed">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="SessionGlyph" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#FF93C5FD" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBlock x:Name="SessionBannerText" Grid.Column="1" FontSize="13" FontWeight="SemiBold" Foreground="#FF93C5FD" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            <Button x:Name="SessionRoadmapButton" Grid.Column="2" Content="Roadmap" Style="{StaticResource SecondaryButton}" Padding="10,4" Margin="10,0,0,0"
+                                    ToolTip="See today's plan and your stages" Click="SessionRoadmapButton_Click" />
+                            <Button x:Name="SessionNextButton" Grid.Column="3" Content="Next step →" Padding="10,4" Margin="8,0,0,0"
+                                    ToolTip="Go to the next step (a step that is not done is skipped)" Click="SessionNextButton_Click" />
+                            <Button x:Name="SessionEndButton" Grid.Column="4" Content="End" Style="{StaticResource SecondaryButton}" Padding="10,4" Margin="8,0,0,0"
+                                    ToolTip="End today's session and see the summary" Click="SessionEndButton_Click" />
+                        </Grid>
+                    </Border>
                 </StackPanel>
 
                 <!-- Content Host inside ScrollViewer -->
@@ -444,6 +501,21 @@
                             <!-- Review Practice Section -->
                             <Grid x:Name="ReviewPracticeSection" Visibility="Collapsed">
                                 <local:ReviewPracticePage x:Name="ReviewPracticePageControl" />
+                            </Grid>
+
+                            <!-- Roadmap Section -->
+                            <Grid x:Name="RoadmapSection" Visibility="Collapsed">
+                                <local:RoadmapPage x:Name="RoadmapPageControl" />
+                            </Grid>
+
+                            <!-- Writing Section -->
+                            <Grid x:Name="WritingSection" Visibility="Collapsed">
+                                <local:WritingPage x:Name="WritingPageControl" />
+                            </Grid>
+
+                            <!-- Grammar Section -->
+                            <Grid x:Name="GrammarSection" Visibility="Collapsed">
+                                <local:GrammarPage x:Name="GrammarPageControl" />
                             </Grid>
 
                             <!-- Gemini Section -->

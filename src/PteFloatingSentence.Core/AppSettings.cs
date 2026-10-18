@@ -12,6 +12,9 @@ public sealed record AppSettings
     public double Left { get; init; } = 100;
     public double Top { get; init; } = 100;
     public bool GeminiApiKeyConfigured { get; init; } = false;
+    public bool GroqApiKeyConfigured { get; init; } = false;
+    public bool ClaudeApiKeyConfigured { get; init; } = false;
+    public AiProvider AiProvider { get; init; } = AiProvider.Gemini;
     public bool ShowSentenceOverlay { get; init; } = true;
     public bool ShowVocabularyCards { get; init; } = true;
     public IReadOnlyList<CustomFlashcardDeck> CustomFlashcardDecks { get; init; } = [];
@@ -23,5 +26,13 @@ public sealed record AppSettings
     public double TtsSpeed { get; init; } = 1.0;
     public PracticeMode PracticeMode { get; init; } = PracticeMode.TextHints;
     public int PracticeAudioDelaySeconds { get; init; } = PracticeAudioDelay.DefaultSeconds;
+    public IReadOnlyList<WritingTopic> CustomWritingTopics { get; init; } = [];
+    public IReadOnlyList<string> SelectedWritingTopicKeys { get; init; } = [];
+    public WritingLevel WritingLevel { get; init; } = WritingLevel.Medium;
+    public WritingExplanationLanguage WritingExplanationLanguage { get; init; } = WritingExplanationLanguage.English;
+    public WritingPracticeMode WritingPracticeMode { get; init; } = WritingPracticeMode.Translate;
+    public bool WritingRetypeEnabled { get; init; } = true;
+    public bool WritingAutoPlayCorrected { get; init; } = false;
+    public bool WritingFocusWeakPoints { get; init; } = false;
     public static AppSettings Default => StudyListRules.CreateDefault("Right-click this sentence to open Settings.");
 }

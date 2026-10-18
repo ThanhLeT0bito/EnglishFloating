@@ -12,6 +12,7 @@ using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using KeyEventHandler = System.Windows.Input.KeyEventHandler;
 using TextBox = System.Windows.Controls.TextBox;
 using UserControl = System.Windows.Controls.UserControl;
+using ValidationResult = PteFloatingSentence.Core.ValidationResult;
 using PteFloatingSentence.Core;
 using PteFloatingSentence.Windows.Infrastructure;
 
@@ -48,6 +49,42 @@ public partial class FloatingWindow : Window
     }
 
     public bool IsPracticeMode { get; private set; }
+    public bool IsWritingMode { get; private set; }
+
+    /// <summary>Raised with updated settings when topics, level or language change in floating writing.</summary>
+    public event EventHandler<AppSettings>? WritingPreferencesChanged;
+
+    /// <summary>Raised with a grammar topic key when the learner asks for its lesson from floating writing.</summary>
+    public event EventHandler<string>? GrammarTopicRequested;
+
+    /// <summary>Adds a corrected writing sentence to the active study list; supplied by the app.</summary>
+    public Func<string, ValidationResult>? SaveWritingSentence { get; set; }
+
+    private IWritingCoach? _writingCoach;
+
+    /// <summary>The AI coach used by floating writing practice.</summary>
+    public IWritingCoach? WritingCoach
+    {
+        get => _writingCoach;
+        set
+        {
+            _writingCoach = value;
+            WritingPanel.SetCoach(value);
+        }
+    }
+
+    private WritingHistoryBook? _writingHistory;
+
+    /// <summary>The shared mistake notebook used by floating writing practice.</summary>
+    public WritingHistoryBook? WritingHistory
+    {
+        get => _writingHistory;
+        set
+        {
+            _writingHistory = value;
+            WritingPanel.SetHistory(value);
+        }
+    }
     public event EventHandler? PracticeModeChanged;
     public event EventHandler<(Guid ListId, Guid SentenceId, bool Completed)>? SentenceCompleted;
 
@@ -107,6 +144,11 @@ public partial class FloatingWindow : Window
 
         InitializeComponent();
         IsVisibleChanged += FloatingWindow_IsVisibleChanged;
+        WritingPanel.PreferencesChanged += WritingPanel_PreferencesChanged;
+        WritingPanel.ExitRequested += ExitWriting;
+        WritingPanel.AudioRequested += WritingPanel_AudioRequested;
+        WritingPanel.SaveSentence = text => SaveWritingSentence?.Invoke(text) ?? new ValidationResult(false, "Saving is not available.");
+        WritingPanel.GrammarTopicRequested += WritingPanel_GrammarTopicRequested;
     }
 
     public event EventHandler? SettingsRequested;
@@ -182,6 +224,13 @@ public partial class FloatingWindow : Window
         var fontSize = IsValidFontSize(settings.FontSize) ? settings.FontSize : defaults.FontSize;
         var foregroundBrush = ToBrush(settings.TextColor, defaults.TextColor);
         SentenceBackground.Background = ToBlackBackground(settings.BackgroundOpacity, defaults.BackgroundOpacity);
+
+        if (IsWritingMode)
+        {
+            WritingPanel.UpdateSettings(settings);
+            ShowWritingContainer();
+            return;
+        }
 
         if (IsPracticeMode)
         {
@@ -560,7 +609,9 @@ public partial class FloatingWindow : Window
             (PracticeExitButton is not null && IsWithinButtonTree(e.OriginalSource, PracticeExitButton)) ||
             IsWithinElementTree(e.OriginalSource, SentenceBox) ||
             IsWithinElementTree(e.OriginalSource, PracticeProjectionPanel) ||
-            IsWithinElementTree(e.OriginalSource, VocabularyPanel))
+            IsWithinElementTree(e.OriginalSource, VocabularyPanel) ||
+            (WritingButton is not null && IsWithinButtonTree(e.OriginalSource, WritingButton)) ||
+            (IsWritingMode && IsWithinWritingControl(e.OriginalSource)))
         {
             return;
         }
@@ -580,6 +631,8 @@ public partial class FloatingWindow : Window
 
     public void StartPractice(Guid? listId = null)
     {
+        if (IsWritingMode)
+            ExitWriting();
         CancelAudioCountdown();
         StopAndResetAudio();
         var targetList = listId.HasValue
@@ -658,6 +711,102 @@ public partial class FloatingWindow : Window
         }
 
         PracticeModeChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    // ---- Writing mode -------------------------------------------------------------------------
+
+    /// <summary>Shows Vietnamese → English writing practice in place of the sentence.</summary>
+    public void StartWriting()
+    {
+        if (IsPracticeMode)
+            ExitPractice();
+        if (IsWritingMode)
+            return;
+
+        StopAndResetAudio();
+        IsWritingMode = true;
+        ShowWritingContainer();
+        if (WritingMenuItem is not null)
+            WritingMenuItem.Header = "Exit Writing";
+        if (IsVisible)
+            Activate(); // so typing goes straight into the input bar
+        _ = WritingPanel.ActivateAsync(_settings);
+    }
+
+    public void ExitWriting()
+    {
+        if (!IsWritingMode)
+            return;
+
+        WritingPanel.Deactivate();
+        StopAndResetAudio();
+        IsWritingMode = false;
+        WritingPanel.Visibility = Visibility.Collapsed;
+        if (WritingMenuItem is not null)
+            WritingMenuItem.Header = "Start Writing";
+        // Writing hid the vocabulary cards; render them again even if the sentence has not changed.
+        _vocabularyRenderSignature = null;
+        _vocabularyRenderVisibility = null;
+        ApplySettings(_settings);
+    }
+
+    private void ShowWritingContainer()
+    {
+        SentenceBox.Visibility = Visibility.Collapsed;
+        NormalSentenceContainer.Visibility = Visibility.Collapsed;
+        PracticeContainer.Visibility = Visibility.Collapsed;
+        VocabularyPanel.Visibility = Visibility.Collapsed;
+        WritingPanel.Visibility = Visibility.Visible;
+        _hasMultipleSentences = false;
+        UpdateNavigationVisibility(isPointerOver: false);
+    }
+
+    private void WritingMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsWritingMode)
+            ExitWriting();
+        else
+            StartWriting();
+    }
+
+    private void WritingButton_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        StartWriting();
+    }
+
+    private void WritingPanel_PreferencesChanged(AppSettings updated)
+    {
+        _settings = WritingTopicRules.CopyPreferences(_settings, updated);
+        WritingPreferencesChanged?.Invoke(this, _settings);
+    }
+
+    private void WritingPanel_GrammarTopicRequested(string topicKey) => GrammarTopicRequested?.Invoke(this, topicKey);
+
+    private async void WritingPanel_AudioRequested(WritingAudioRequest request)
+    {
+        var voice = string.IsNullOrWhiteSpace(_settings.TtsVoice) ? EdgeNeuralTtsService.DefaultVoice : _settings.TtsVoice;
+        var normal = WritingPresentation.NormalSpeed(_settings.TtsSpeed);
+        var speed = request.Slow ? WritingPresentation.SlowSpeed(normal) : normal;
+        if (request.Restart)
+            _audioPlayback.Stop();
+        await _audioPlayback.ToggleAsync(request.Text, voice, speed);
+    }
+
+    /// <summary>Clicks and typing inside the writing panel's controls must not start a window drag.</summary>
+    private bool IsWithinWritingControl(object originalSource)
+    {
+        for (var current = originalSource as DependencyObject; current is not null; current = GetAnyParent(current))
+        {
+            if (ReferenceEquals(current, WritingPanel))
+                return false;
+            if (current is System.Windows.Controls.Primitives.ButtonBase
+                or System.Windows.Controls.Primitives.TextBoxBase
+                or System.Windows.Controls.Primitives.ScrollBar)
+                return true;
+        }
+
+        return false;
     }
 
     private void PracticeMenuItem_Click(object sender, RoutedEventArgs e)
@@ -1213,6 +1362,11 @@ public partial class FloatingWindow : Window
             _audioCountdownTimer = null;
         }
         IsVisibleChanged -= FloatingWindow_IsVisibleChanged;
+        WritingPanel.PreferencesChanged -= WritingPanel_PreferencesChanged;
+        WritingPanel.ExitRequested -= ExitWriting;
+        WritingPanel.AudioRequested -= WritingPanel_AudioRequested;
+        WritingPanel.GrammarTopicRequested -= WritingPanel_GrammarTopicRequested;
+        WritingPanel.Dispose();
         DetachPracticeEventHandlers();
         _audioPlayback.StateChanged -= AudioPlayback_StateChanged;
         _audioPlayback.Dispose();
