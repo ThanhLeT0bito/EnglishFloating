@@ -195,6 +195,7 @@ public partial class SettingsWindow : Window
         IVocabularyChecker? vocabularyChecker = null)
     {
         InitializeComponent();
+        DarkTitleBar.Apply(this);
         ApplyTopmost();
         KeyDown += SettingsWindow_KeyDown;
         _draft = new StudyListDraft(initial, save);

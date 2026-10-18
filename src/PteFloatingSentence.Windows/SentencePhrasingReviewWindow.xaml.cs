@@ -21,6 +21,7 @@ public partial class SentencePhrasingReviewWindow : Window
         _original = original;
         _phraser = phraser;
         InitializeComponent();
+        DarkTitleBar.Apply(this);
         OriginalText.Text = original;
     }
 
