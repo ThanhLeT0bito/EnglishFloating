@@ -46,6 +46,12 @@ public partial class SettingsWindow : Window
     {
         base.OnActivated(e);
         ApplyTopmost();
+        // Maximized, come back above the floating sentence and flashcard windows, which are always on top.
+        if (WindowState == WindowState.Maximized)
+        {
+            Topmost = false;
+            Topmost = true;
+        }
     }
 
     protected override void OnDeactivated(EventArgs e)
@@ -120,7 +126,8 @@ public partial class SettingsWindow : Window
 
         if (PageScrollViewer is not null)
         {
-            PageScrollViewer.VerticalScrollBarVisibility = SelectedPage == SettingsPageId.Flashcards
+            // These pages fit the window and scroll their own lists, so their lists can use the full height.
+            PageScrollViewer.VerticalScrollBarVisibility = SelectedPage is SettingsPageId.Flashcards or SettingsPageId.Setup
                 ? ScrollBarVisibility.Disabled
                 : ScrollBarVisibility.Auto;
             PageScrollViewer.ScrollToTop();
@@ -184,7 +191,7 @@ public partial class SettingsWindow : Window
 
     public SettingsWindow(AppSettings initial, Action<AppSettings> save, ProtectedApiKeyStore? apiKeyStore = null, IVocabularyExplainer? explainer = null, ISentencePhraser? sentencePhraser = null, IWritingCoach? writingCoach = null,
         ProtectedApiKeyStore? groqKeyStore = null, ProtectedApiKeyStore? claudeKeyStore = null, WritingHistoryBook? writingHistory = null,
-        GrammarLessonLibrary? grammarLibrary = null)
+        GrammarLessonLibrary? grammarLibrary = null, ISentenceSplitter? sentenceSplitter = null)
     {
         InitializeComponent();
         ApplyTopmost();
@@ -200,6 +207,7 @@ public partial class SettingsWindow : Window
         _setupPageStartPracticeHandler = OnSetupPageStartPracticeRequested;
         SetupPageControl.Initialize(_draft, ShowResult, () => RefreshUi());
         SetupPageControl.SentencePhraser = sentencePhraser;
+        SetupPageControl.AiSplitter = sentenceSplitter;
         SetupPageControl.StartPracticeRequested += _setupPageStartPracticeHandler;
         DisplayPageControl.LoadSettings(_draft.Settings);
         DisplayPageControl.DisplayPreferencesChanged += OnDisplayPreferencesChanged;

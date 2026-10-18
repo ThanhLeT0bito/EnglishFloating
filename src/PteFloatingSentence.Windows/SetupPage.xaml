@@ -149,7 +149,14 @@
                                 Margin="{TemplateBinding Margin}"
                                 SnapsToDevicePixels="True">
                             <ContentPresenter Content="{TemplateBinding Content}"
-                                              ContentTemplate="{TemplateBinding ContentTemplate}" />
+                                              ContentTemplate="{TemplateBinding ContentTemplate}">
+                                <!-- Long list names and sentences wrap instead of being cut off. -->
+                                <ContentPresenter.Resources>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextWrapping" Value="Wrap" />
+                                    </Style>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -195,10 +202,10 @@
                     <TextBlock FontSize="11" Margin="0,1,0,0" Foreground="{StaticResource TextMutedBrush}" Text="Organize daily practice" />
                 </StackPanel>
 
+                <!-- Fills the sidebar from the top and scrolls when there are many lists. -->
                 <ListBox x:Name="StudyListList"
                          Grid.Row="1"
                          MinHeight="100"
-                         MaxHeight="360"
                          SelectionChanged="StudyListList_SelectionChanged" />
 
                 <Button x:Name="NewListButton"
@@ -222,7 +229,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
@@ -262,11 +269,10 @@
                     <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="Sentences (in order)" />
                 </Grid>
 
-                <!-- Row 3: Sentence List (Constrained with internal scroll to keep Add box visible) -->
+                <!-- Row 3: Sentence List: takes the free height and scrolls inside, so the Add box stays visible -->
                 <ListBox x:Name="SentenceList"
                          Grid.Row="3"
-                         MinHeight="120"
-                         MaxHeight="220"
+                         MinHeight="80"
                          SelectionChanged="SentenceList_SelectionChanged" />
 
                 <!-- Row 4: Compact Sentence Editor & Add Form -->
@@ -275,21 +281,40 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <!-- Sentence Input Textbox -->
-                        <TextBox x:Name="SentenceInput"
-                                 Grid.Row="0"
-                                 MinHeight="40"
-                                 MaxHeight="64"
-                                 AcceptsReturn="True"
-                                 TextWrapping="Wrap"
-                                 VerticalScrollBarVisibility="Auto"
-                                 VerticalContentAlignment="Top"
-                                 Padding="10,6" />
+                        <!-- Sentence Input: one sentence, or many pasted at once (one per line or split at . ? !) -->
+                        <Grid Grid.Row="0">
+                            <TextBox x:Name="SentenceInput"
+                                     MinHeight="44"
+                                     MaxHeight="150"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto"
+                                     VerticalContentAlignment="Top"
+                                     Padding="10,6"
+                                     TextChanged="SentenceInput_TextChanged" />
+                            <TextBlock x:Name="SentencePlaceholder"
+                                       Margin="13,8,13,0"
+                                       VerticalAlignment="Top"
+                                       IsHitTestVisible="False"
+                                       TextWrapping="Wrap"
+                                       FontSize="12.5"
+                                       Foreground="#FF64748B"
+                                       Text="Type a sentence — or paste many: one per line, a numbered list, or a paragraph (split at . ? !)." />
+                        </Grid>
+
+                        <!-- Result of adding or of the AI split -->
+                        <TextBlock x:Name="AddStatusText"
+                                   Grid.Row="1"
+                                   Margin="2,6,0,0"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   Visibility="Collapsed" />
 
                         <!-- Action Toolbar underneath input -->
-                        <Grid Grid.Row="1" Margin="0,6,0,0">
+                        <Grid Grid.Row="2" Margin="0,6,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
@@ -298,7 +323,10 @@
                             <!-- Add actions (Left) -->
                             <StackPanel Grid.Column="0" Orientation="Horizontal">
                                 <Button x:Name="AddSentenceButton" Content="＋ Add sentence" Click="AddSentenceButton_Click" />
-                                <Button x:Name="AddWithAiButton" Style="{StaticResource AiButtonStyle}" Content="✨ AI phrased" Click="AddWithAiButton_Click" />
+                                <Button x:Name="AddWithAiButton" Style="{StaticResource AiButtonStyle}" Content="✨ AI phrased" Click="AddWithAiButton_Click"
+                                        ToolTip="Check one sentence with AI and split it into reading groups" />
+                                <Button x:Name="AiSplitButton" Style="{StaticResource AiButtonStyle}" Content="✨ AI split" Click="AiSplitButton_Click"
+                                        ToolTip="Paste a paragraph, a numbered list or text from a PDF: AI splits it into clean sentences, one per line. Check them, then click Add." />
                             </StackPanel>
 
                             <!-- Selected actions (Right) -->

@@ -2,6 +2,24 @@ using PteFloatingSentence.Core;
 
 namespace PteFloatingSentence.Windows;
 
+/// <summary>What adding several sentences did: how many were added, skipped as duplicates, or rejected (with the first reason).</summary>
+public sealed record AddSentencesResult(int Added, int Duplicates, IReadOnlyList<string> Rejected, string? FirstError)
+{
+    /// <summary>"Added 5 sentences · 1 was already in the list · 1 not added: Use 20 words or fewer. Fix it in the box and add again."</summary>
+    public string Message
+    {
+        get
+        {
+            var parts = new List<string> { Added == 1 ? "Added 1 sentence" : $"Added {Added} sentences" };
+            if (Duplicates > 0)
+                parts.Add(Duplicates == 1 ? "1 was already in the list" : $"{Duplicates} were already in the list");
+            if (Rejected.Count > 0)
+                parts.Add($"{(Rejected.Count == 1 ? "1 not added" : $"{Rejected.Count} not added")}: {FirstError} Fix {(Rejected.Count == 1 ? "it" : "them")} in the box and add again");
+            return string.Join(" · ", parts) + ".";
+        }
+    }
+}
+
 /// <summary>
 /// An isolated, WPF-free editing session for the Settings study-list workspace.
 /// </summary>
@@ -334,6 +352,50 @@ public sealed class StudyListDraft
         return new(true, null);
     }
 
+    /// <summary>
+    /// Adds several sentences to the selected list in order. Sentences already in the list (ignoring case and spacing)
+    /// are skipped; ones that fail validation (e.g. over 20 words) are returned so the learner can fix them. The
+    /// selection and the widget's current sentence stay where they were.
+    /// </summary>
+    public AddSentencesResult AddSentences(IEnumerable<string> texts)
+    {
+        ArgumentNullException.ThrowIfNull(texts);
+        var known = SelectedList.Sentences.Select(sentence => SentenceKey(sentence.Text)).ToHashSet(StringComparer.Ordinal);
+        var added = new List<StudySentence>();
+        var rejected = new List<string>();
+        var duplicates = 0;
+        string? firstError = null;
+        foreach (var raw in texts)
+        {
+            var text = (raw ?? string.Empty).Trim();
+            if (text.Length == 0)
+                continue;
+            var validation = SentenceValidator.Validate(text);
+            if (!validation.IsValid)
+            {
+                rejected.Add(text);
+                firstError ??= validation.Error;
+                continue;
+            }
+
+            if (!known.Add(SentenceKey(text)))
+            {
+                duplicates++;
+                continue;
+            }
+
+            added.Add(new StudySentence(Guid.NewGuid(), text));
+        }
+
+        if (added.Count > 0)
+            ReplaceSelectedList(SelectedList with { Sentences = SelectedList.Sentences.Concat(added).ToList() });
+
+        return new AddSentencesResult(added.Count, duplicates, rejected, firstError);
+    }
+
+    private static string SentenceKey(string text) =>
+        string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant();
+
     /// <summary>Appends a sentence to any list without changing the selection (used by Writing practice).</summary>
     public ValidationResult AddSentenceToList(Guid listId, string? text)
     {
@@ -396,6 +458,9 @@ public sealed class StudyListDraft
         ReplaceSelectedList(SelectedList with { Sentences = sentences });
         SelectedSentenceId = null;
     }
+
+    /// <summary>No sentence selected: the editor box is free for new sentences.</summary>
+    public void ClearSentenceSelection() => SelectedSentenceId = null;
 
     public void SelectSentence(Guid sentenceId)
     {
