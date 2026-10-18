@@ -486,9 +486,9 @@ public class FlashcardUiTests
             var scrollViewer = window.FindName("PageScrollViewer") as System.Windows.Controls.ScrollViewer;
             Assert.IsNotNull(scrollViewer);
 
-            // Setup page has Auto scroll
+            // Setup page also fits the window and scrolls its own lists
             window.NavigateTo(SettingsPageId.Setup);
-            Assert.AreEqual(System.Windows.Controls.ScrollBarVisibility.Auto, scrollViewer.VerticalScrollBarVisibility);
+            Assert.AreEqual(System.Windows.Controls.ScrollBarVisibility.Disabled, scrollViewer.VerticalScrollBarVisibility);
 
             // Flashcards page has Disabled outer scroll so deck sidebar does not scroll away
             window.NavigateTo(SettingsPageId.Flashcards);

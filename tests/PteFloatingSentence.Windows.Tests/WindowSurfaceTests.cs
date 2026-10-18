@@ -873,15 +873,17 @@ public class WindowSurfaceTests
             window.Measure(new System.Windows.Size(window.MinWidth, window.MinHeight));
             window.Arrange(new System.Windows.Rect(0, 0, window.MinWidth, window.MinHeight));
 
-            var scrollViewer = FindDescendant<System.Windows.Controls.ScrollViewer>(window);
+            var scrollViewer = window.FindName("PageScrollViewer") as System.Windows.Controls.ScrollViewer;
             Assert.IsNotNull(scrollViewer);
-            Assert.AreEqual(System.Windows.Controls.ScrollBarVisibility.Auto, scrollViewer.VerticalScrollBarVisibility);
 
+            // Setup fits the window and scrolls its own lists; the other pages scroll inside the outer viewer.
             window.NavigateTo(SettingsPageId.Setup);
             window.Measure(new System.Windows.Size(window.MinWidth, window.MinHeight));
+            Assert.AreEqual(System.Windows.Controls.ScrollBarVisibility.Disabled, scrollViewer.VerticalScrollBarVisibility);
 
             window.NavigateTo(SettingsPageId.Review);
             window.Measure(new System.Windows.Size(window.MinWidth, window.MinHeight));
+            Assert.AreEqual(System.Windows.Controls.ScrollBarVisibility.Auto, scrollViewer.VerticalScrollBarVisibility);
 
             window.NavigateTo(SettingsPageId.ReviewPractice);
             window.Measure(new System.Windows.Size(window.MinWidth, window.MinHeight));
