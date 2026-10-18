@@ -239,7 +239,17 @@
 
                         <WrapPanel x:Name="PracticeProjectionPanel" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,4" />
 
-                        <TextBlock x:Name="PracticeFeedbackLabel" Margin="0,4,0,0" HorizontalAlignment="Center" FontSize="12" Foreground="#FFFCA5A5" Visibility="Collapsed" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,0">
+                            <TextBlock x:Name="PracticeFeedbackLabel" VerticalAlignment="Center" FontSize="12" Foreground="#FFFCA5A5" Visibility="Collapsed" />
+                            <Button x:Name="PracticeRevealButton"
+                                    Style="{StaticResource AudioButtonStyle}"
+                                    Content="&#xE7B3;"
+                                    Margin="6,0,0,0"
+                                    Focusable="False"
+                                    ToolTip="Show the answer"
+                                    Visibility="Collapsed"
+                                    Click="PracticeRevealButton_Click" />
+                        </StackPanel>
 
                         <Border x:Name="PracticeCompletionPanel" Margin="0,8,0,0" Background="#26059669" BorderBrush="#FF10B981" BorderThickness="1" CornerRadius="6" Padding="10,6" Visibility="Collapsed">
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
@@ -287,6 +297,12 @@
                             <StackPanel Grid.Column="0">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{Binding Phrase}" FontWeight="Bold" FontSize="14" Foreground="{Binding AccentBrush}" VerticalAlignment="Center" />
+                                    <Button Style="{StaticResource AudioButtonStyle}"
+                                            Margin="4,0,0,0"
+                                            Focusable="False"
+                                            ToolTip="Play the word"
+                                            Tag="{Binding Phrase}"
+                                            Click="VocabularyAudioButton_Click" />
                                     <TextBlock Text="{Binding PronunciationIpa}" Margin="8,0,0,0" FontSize="12" Foreground="#FF94A3B8" FontStyle="Italic" VerticalAlignment="Center" Visibility="{Binding IpaVisibility}" />
                                     <TextBlock Text="{Binding StatusText}" Margin="8,0,0,0" FontSize="11" Foreground="{Binding StatusBrush}" VerticalAlignment="Center" Visibility="{Binding StatusVisibility}" />
                                 </StackPanel>

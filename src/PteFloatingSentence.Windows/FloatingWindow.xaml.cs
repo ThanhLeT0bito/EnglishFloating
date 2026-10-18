@@ -847,6 +847,71 @@ public partial class FloatingWindow : Window
         ShowPracticeSentence(session.RestartList);
     }
 
+    /// <summary>The answer to the word typed wrong; hidden until the eye button is clicked.</summary>
+    private string? _practiceAnswer;
+    private bool _practiceAnswerShown;
+
+    /// <summary>True while the answer of the wrong word is shown next to "Try again."</summary>
+    internal bool IsPracticeAnswerShown => _practiceAnswer is not null && _practiceAnswerShown;
+
+    private void ShowPracticeMistake(string answer)
+    {
+        // Another wrong try at the same word keeps the answer as the learner left it.
+        if (!string.Equals(_practiceAnswer, answer, StringComparison.Ordinal))
+            _practiceAnswerShown = false;
+        _practiceAnswer = answer;
+        RenderPracticeFeedback();
+    }
+
+    private void HidePracticeFeedback()
+    {
+        _practiceAnswer = null;
+        _practiceAnswerShown = false;
+        RenderPracticeFeedback();
+    }
+
+    private void RenderPracticeFeedback()
+    {
+        if (_practiceAnswer is null)
+        {
+            PracticeFeedbackLabel.Text = string.Empty;
+            PracticeFeedbackLabel.Visibility = Visibility.Collapsed;
+            PracticeRevealButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        PracticeFeedbackLabel.Text = _practiceAnswerShown ? $"Try again. Answer: {_practiceAnswer}" : "Try again.";
+        PracticeFeedbackLabel.Foreground = new SolidColorBrush(Color.FromRgb(0xFC, 0xA5, 0xA5));
+        PracticeFeedbackLabel.Visibility = Visibility.Visible;
+        PracticeRevealButton.Content = _practiceAnswerShown ? "\uED1A" : "\uE7B3";
+        PracticeRevealButton.ToolTip = _practiceAnswerShown ? "Hide the answer" : "Show the answer";
+        PracticeRevealButton.Visibility = Visibility.Visible;
+    }
+
+    /// <summary>Shows or hides the answer of the word typed wrong.</summary>
+    internal void TogglePracticeAnswer()
+    {
+        if (_practiceAnswer is null) return;
+        _practiceAnswerShown = !_practiceAnswerShown;
+        RenderPracticeFeedback();
+    }
+
+    private void PracticeRevealButton_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        TogglePracticeAnswer();
+    }
+
+    private async void VocabularyAudioButton_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is not FrameworkElement { Tag: string phrase } || string.IsNullOrWhiteSpace(phrase)) return;
+
+        var voice = string.IsNullOrWhiteSpace(_settings.TtsVoice) ? EdgeNeuralTtsService.DefaultVoice : _settings.TtsVoice;
+        var speed = _settings.TtsSpeed is >= 0.8 and <= 1.2 ? _settings.TtsSpeed : 1.0;
+        await _audioPlayback.ToggleAsync(phrase.Trim(), voice, speed);
+    }
+
     private async void PracticeAudioButton_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
@@ -891,15 +956,14 @@ public partial class FloatingWindow : Window
         {
             PracticeProgressLabel.Text = "Practice · No sentences";
             PracticeCompletionPanel.Visibility = Visibility.Collapsed;
-            PracticeFeedbackLabel.Visibility = Visibility.Collapsed;
+            HidePracticeFeedback();
             PracticeProjectionPanel.Children.Clear();
             if (PracticeAudioButton is not null) PracticeAudioButton.IsEnabled = false;
             return;
         }
 
         PracticeProgressLabel.Text = $"Practice · Sentence {_practiceSession.SentenceIndex + 1} of {_practiceSession.List.Sentences.Count}";
-        PracticeFeedbackLabel.Visibility = Visibility.Collapsed;
-        PracticeFeedbackLabel.Text = string.Empty;
+        HidePracticeFeedback();
 
         if (PracticeAudioButton is not null)
         {
@@ -1010,7 +1074,7 @@ public partial class FloatingWindow : Window
             textBox.BorderThickness = new Thickness(0);
             textBox.IsReadOnly = true;
             textBox.Focusable = false;
-            PracticeFeedbackLabel.Visibility = Visibility.Collapsed;
+            HidePracticeFeedback();
 
             if (result.IsComplete)
             {
@@ -1026,9 +1090,7 @@ public partial class FloatingWindow : Window
             var tokenIndex = _practiceSession.CurrentReview.HiddenTokenIndexes[hiddenPos];
             var correctWord = _practiceSession.CurrentReview.Tokens[tokenIndex].SourceText;
             textBox.Foreground = new SolidColorBrush(Color.FromRgb(0xEF, 0x44, 0x44));
-            PracticeFeedbackLabel.Text = $"Try again. Answer: {correctWord}";
-            PracticeFeedbackLabel.Foreground = new SolidColorBrush(Color.FromRgb(0xFC, 0xA5, 0xA5));
-            PracticeFeedbackLabel.Visibility = Visibility.Visible;
+            ShowPracticeMistake(correctWord);
             textBox.SelectAll();
         }
 
@@ -1059,7 +1121,7 @@ public partial class FloatingWindow : Window
             targetBox.Focusable = false;
         }
 
-        PracticeFeedbackLabel.Visibility = Visibility.Collapsed;
+        HidePracticeFeedback();
         var result = _practiceSession.SkipCurrentWord();
         if (result.IsComplete)
         {

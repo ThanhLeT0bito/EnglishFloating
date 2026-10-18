@@ -151,6 +151,45 @@ public sealed class FloatingWritingTests
     }
 
     [TestMethod]
+    public void FloatingWindow_PracticeHidesTheAnswerUntilTheEyeIsClicked()
+    {
+        RunOnSta(() =>
+        {
+            var sentence = new StudySentence(Guid.NewGuid(), "You must wear a hard hat on the construction site");
+            var list = new StudyList(Guid.NewGuid(), "List", 10, 0, [sentence]);
+            var window = new FloatingWindow(new NoopPlayer(), null, null);
+            window.ApplySettings(AppSettings.Default with { StudyLists = [list], ActiveListId = list.Id });
+            window.StartPractice();
+
+            var panel = (System.Windows.Controls.WrapPanel)window.FindName("PracticeProjectionPanel");
+            var label = (TextBlock)window.FindName("PracticeFeedbackLabel");
+            var eye = (Button)window.FindName("PracticeRevealButton");
+            var box = panel.Children.OfType<TextBox>().First();
+            var projection = ReviewPracticeRules.CreateProjection(sentence);
+            var answer = projection.Tokens[projection.HiddenTokenIndexes[0]].SourceText;
+
+            window.SubmitPracticeAnswer(box, "wrongword");
+            Assert.AreEqual("Try again.", label.Text);
+            Assert.AreEqual(Visibility.Visible, eye.Visibility);
+
+            eye.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            StringAssert.Contains(label.Text, answer);
+            Assert.IsTrue(window.IsPracticeAnswerShown);
+
+            window.SubmitPracticeAnswer(box, "stillwrong");
+            StringAssert.Contains(label.Text, answer, "another wrong try keeps the answer shown");
+
+            window.TogglePracticeAnswer();
+            Assert.AreEqual("Try again.", label.Text);
+
+            window.SubmitPracticeAnswer(box, answer.Trim('.', ',', '!', '?'));
+            Assert.AreEqual(Visibility.Collapsed, label.Visibility);
+            Assert.AreEqual(Visibility.Collapsed, eye.Visibility);
+            window.Close();
+        });
+    }
+
+    [TestMethod]
     public void FloatingWindow_ExitWritingShowsTheVocabularyCardsAgain()
     {
         RunOnSta(() =>

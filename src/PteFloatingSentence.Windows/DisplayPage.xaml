@@ -189,6 +189,53 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- A selectable option card: radio dot, icon, title and a short description. -->
+        <Style x:Key="OptionCardRadio" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="Background" Value="{StaticResource PanelBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Card"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1.5"
+                                CornerRadius="8"
+                                Padding="12,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid Width="18" Height="18" Margin="0,1,10,0" VerticalAlignment="Top">
+                                    <Ellipse x:Name="Ring" Stroke="#FF64748B" StrokeThickness="1.5" />
+                                    <Ellipse x:Name="Dot" Width="8" Height="8" Fill="#FF60A5FA" Visibility="Collapsed" />
+                                </Grid>
+                                <ContentPresenter Grid.Column="1" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Card" Property="BorderBrush" Value="#FF475569" />
+                                <Setter TargetName="Card" Property="Background" Value="#FF1E293B" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Card" Property="BorderBrush" Value="#FF3B82F6" />
+                                <Setter TargetName="Card" Property="Background" Value="#FF172554" />
+                                <Setter TargetName="Ring" Property="Stroke" Value="#FF60A5FA" />
+                                <Setter TargetName="Dot" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Card" Property="BorderBrush" Value="#FF93C5FD" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <StackPanel Margin="0,4,0,0">
@@ -331,15 +378,38 @@
                 </StackPanel>
 
                 <!-- Pen button Section -->
-                <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="#FF38BDF8" Text="Pen button on the floating sentence" Margin="0,0,0,2" />
-                <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,6" TextWrapping="Wrap"
-                           Text="Choose what the pen next to the audio icon opens." />
-                <StackPanel Margin="0,0,0,16">
-                    <RadioButton x:Name="PenWritingOption" GroupName="PenAction" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6"
-                                 Content="Writing practice — AI makes new Vietnamese sentences to translate" Checked="PenOption_Checked" />
-                    <RadioButton x:Name="PenPracticeOption" GroupName="PenAction" Foreground="{StaticResource TextSecondaryBrush}"
-                                 Content="Practice my list — hear each sentence of the active list and type it" Checked="PenOption_Checked" />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                    <Border Width="22" Height="22" CornerRadius="5" Background="#FF1E293B" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" Margin="0,0,8,0" VerticalAlignment="Center">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE70F;" FontSize="11" Foreground="#FFE2E8F0" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="#FF38BDF8" VerticalAlignment="Center" Text="Pen button on the floating sentence" />
                 </StackPanel>
+                <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,8" TextWrapping="Wrap"
+                           Text="Pick what happens when you click the pen next to the audio icon. You can change this any time." />
+                <UniformGrid Columns="2" Margin="0,0,0,16">
+                    <RadioButton x:Name="PenWritingOption" GroupName="PenAction" Style="{StaticResource OptionCardRadio}" Margin="0,0,6,0"
+                                 AutomationProperties.Name="Writing practice" Checked="PenOption_Checked">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE70F;" FontSize="13" Foreground="#FF60A5FA" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="Writing practice" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Margin="0,4,0,0" FontSize="12" TextWrapping="Wrap" Foreground="{StaticResource TextMutedBrush}"
+                                       Text="AI gives you new Vietnamese sentences. Write them in English and get feedback." />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="PenPracticeOption" GroupName="PenAction" Style="{StaticResource OptionCardRadio}" Margin="6,0,0,0"
+                                 AutomationProperties.Name="Practice my list" Checked="PenOption_Checked">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE767;" FontSize="13" Foreground="#FF34D399" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="Practice my list" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Margin="0,4,0,0" FontSize="12" TextWrapping="Wrap" Foreground="{StaticResource TextMutedBrush}"
+                                       Text="Listen to each sentence of your active list and type the missing words." />
+                        </StackPanel>
+                    </RadioButton>
+                </UniformGrid>
 
                 <!-- Audio Cache Section -->
                 <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="#FF38BDF8" Text="Audio Cache" Margin="0,0,0,6" />
