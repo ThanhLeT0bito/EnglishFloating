@@ -108,6 +108,39 @@ public sealed class SetupPageUiTests
     }
 
     [TestMethod]
+    public void AiPhrased_ShowsTheWordsTheAiFixed_AndSkipsAFixedDuplicate()
+    {
+        RunOnSta(() =>
+        {
+            var draft = new StudyListDraft(AppSettings.Default, _ => { });
+            var page = new SetupPage { SentencePhraser = new FixingPhraser() };
+            page.Initialize(draft, _ => { });
+            page.RefreshFromDraft(draft);
+            var before = draft.SelectedList.Sentences.Count;
+
+            page.PhraseAndAddAllAsync(["Your Card can park in the building.", "Your car can park in the building."]).GetAwaiter().GetResult();
+
+            Assert.AreEqual(before + 1, draft.SelectedList.Sentences.Count, "the second sentence is the same once fixed");
+            Assert.AreEqual("Your car can park in the building.", draft.SelectedList.Sentences[before].Text);
+            StringAssert.Contains(((TextBlock)page.FindName("AddStatusText")).Text, "AI fixed: Card → car.");
+        });
+    }
+
+    [TestMethod]
+    public void CorrectionSummary_ListsAFewChanges()
+    {
+        Assert.AreEqual(string.Empty, SetupPage.CorrectionSummary([]));
+        Assert.AreEqual(" AI fixed: Card → car, form → from.", SetupPage.CorrectionSummary(["Card → car", "form → from"]));
+        StringAssert.EndsWith(SetupPage.CorrectionSummary(Enumerable.Range(0, 8).Select(i => $"a{i} → b{i}").ToList()), "and 2 more.");
+    }
+
+    private sealed class FixingPhraser : ISentencePhraser
+    {
+        public Task<IReadOnlyList<string>> SuggestAsync(string sentence, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<string>>(["Your car can park", "in the building."]);
+    }
+
+    [TestMethod]
     public void SettingsWindow_SentencesPageFillsTheWindowInsteadOfScrolling()
     {
         RunOnSta(() =>

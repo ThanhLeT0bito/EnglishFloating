@@ -73,9 +73,12 @@ public partial class SentencePhrasingReviewWindow : Window
         ConfirmButton.IsEnabled = proposal.Validation.IsValid;
         StatusText.Text = proposal.Validation.Error ?? "Nothing is added until you confirm.";
         PreviewText.Text = SentencePhrasing.GetDisplayText(proposal.Text, proposal.BreakAfterWordIndices);
+        var changes = SentenceCorrections.WordChanges(_original, proposal.Text);
         CorrectionNote.Text = proposal.Text == VocabularyRules.NormalizePhrase(_original)
             ? "Wording is unchanged. Review the reading groups."
-            : "Wording or punctuation changed. Compare with your original before confirming.";
+            : changes.Count > 0
+                ? $"AI fixed: {string.Join(", ", changes)}. Compare with your original before confirming."
+                : "Punctuation changed. Compare with your original before confirming.";
     }
 
     public bool TryConfirm()

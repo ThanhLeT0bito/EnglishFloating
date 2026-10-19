@@ -346,6 +346,7 @@ public partial class SetupPage : UserControl
         var added = 0;
         var duplicates = 0;
         var failed = new List<string>();
+        var corrections = new List<string>();
         string? firstError = null;
         try
         {
@@ -370,10 +371,19 @@ public partial class SetupPage : UserControl
                 try
                 {
                     var groups = await SentencePhraser.SuggestAsync(sentence, phrasing.Token);
+                    var corrected = SentencePhrasing.ParseGroups(string.Join("\n", groups)).Text;
+                    // The fixed sentence may already be in the list ("Your card can…" fixed to an existing "Your car can…").
+                    if (!string.Equals(corrected, VocabularyRules.NormalizePhrase(sentence), StringComparison.Ordinal) && _draft.HasSentence(corrected))
+                    {
+                        duplicates++;
+                        continue;
+                    }
+
                     var result = _draft.AddPhrasedSentence(string.Join("\n", groups), select: false);
                     if (result.IsValid)
                     {
                         added++;
+                        corrections.AddRange(SentenceCorrections.WordChanges(sentence, corrected));
                     }
                     else
                     {
@@ -413,8 +423,18 @@ public partial class SetupPage : UserControl
         }
         else
         {
-            ShowAddStatus(outcome.Message.Replace("Added", "AI phrased and added", StringComparison.Ordinal), failed.Count > 0);
+            ShowAddStatus(outcome.Message.Replace("Added", "AI phrased and added", StringComparison.Ordinal) + CorrectionSummary(corrections), failed.Count > 0);
         }
+    }
+
+    /// <summary>" AI fixed: Card → car, recieve → receive." — what the AI changed, so a wrong fix is easy to spot.</summary>
+    public static string CorrectionSummary(IReadOnlyList<string> corrections)
+    {
+        if (corrections.Count == 0)
+            return string.Empty;
+        const int Shown = 6;
+        var list = string.Join(", ", corrections.Take(Shown));
+        return corrections.Count > Shown ? $" AI fixed: {list} and {corrections.Count - Shown} more." : $" AI fixed: {list}.";
     }
 
     /// <summary>Lets the AI split pasted text into clean sentences, one per line, to check before adding.</summary>
