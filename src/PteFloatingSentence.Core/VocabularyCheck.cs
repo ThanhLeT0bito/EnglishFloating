@@ -232,7 +232,7 @@ public static class VocabularyCheckRules
         {
             if (char.IsLetterOrDigit(c))
                 builder.Append(c);
-            else if (c is '\'' or '’')
+            else if (c is '\'' or '’' or '‘' or '`' or '´' or 'ʼ')
                 builder.Append('\'');
             else if (char.IsWhiteSpace(c) || c is '-' or '–')
                 builder.Append(' ');

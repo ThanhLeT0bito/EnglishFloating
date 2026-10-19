@@ -269,4 +269,17 @@ public class ReviewPracticeTests
         Assert.IsTrue(review.Tokens.All(t => t.IsHidden));
         Assert.IsTrue(review.Tokens.All(t => t.DisplayText == "_"));
     }
+
+    [TestMethod]
+    public void CheckAnswer_StraightAndCurlyApostrophesAreTheSame()
+    {
+        var sentence = new StudySentence(Guid.NewGuid(), "I haven’t finished it");
+        var review = ReviewPracticeRules.CreateProjection(sentence, mode: PracticeMode.ListenAndWrite);
+        var position = review.HiddenTokenIndexes.ToList().IndexOf(1);
+
+        Assert.IsTrue(ReviewPracticeRules.CheckAnswer(review, position, "haven't").IsCorrect);
+        Assert.IsTrue(ReviewPracticeRules.CheckAnswer(review, position, "Haven’t").IsCorrect);
+        Assert.IsFalse(ReviewPracticeRules.CheckAnswer(review, position, "havent").IsCorrect);
+        Assert.IsTrue(ReviewPracticeRules.IsCorrectDictation("I haven’t finished it.", "I haven't finished it"));
+    }
 }

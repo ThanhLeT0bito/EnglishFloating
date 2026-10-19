@@ -28,13 +28,21 @@ public static class ReviewPracticeRules
         static string Normalize(string? text) => string.Join(" ",
             (text ?? string.Empty)
                 .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
-                .Select(TrimOuterPunctuation)
+                .Select(word => TrimOuterPunctuation(UnifyApostrophes(word)))
                 .Where(word => word.Length > 0));
 
         var normalizedExpected = Normalize(expected);
         return normalizedExpected.Length > 0
             && string.Equals(normalizedExpected, Normalize(answer), StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>
+    /// "haven’t" (curly apostrophe, from pasted text or the AI) and "haven't" (typed on a keyboard) are the same word.
+    /// </summary>
+    public static string UnifyApostrophes(string text) =>
+        text.IndexOfAny(['’', '‘', '`', '´', 'ʼ', '′']) < 0
+            ? text
+            : string.Concat(text.Select(c => c is '’' or '‘' or '`' or '´' or 'ʼ' or '′' ? '\'' : c));
 
     private static string TrimOuterPunctuation(string word)
     {
@@ -101,8 +109,8 @@ public static class ReviewPracticeRules
         var tokenIndex = review.HiddenTokenIndexes[hiddenPosition];
         var expectedToken = review.Tokens[tokenIndex];
 
-        var normalizedExpected = TrimOuterPunctuation(expectedToken.SourceText.Trim());
-        var normalizedActual = TrimOuterPunctuation((answer ?? string.Empty).Trim());
+        var normalizedExpected = TrimOuterPunctuation(UnifyApostrophes(expectedToken.SourceText.Trim()));
+        var normalizedActual = TrimOuterPunctuation(UnifyApostrophes((answer ?? string.Empty).Trim()));
 
         if (string.Equals(normalizedExpected, normalizedActual, StringComparison.OrdinalIgnoreCase))
         {

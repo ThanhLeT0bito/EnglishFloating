@@ -15,6 +15,7 @@ public sealed class VocabularyCheckTests
         Assert.AreEqual(WordAnswerResult.Correct, VocabularyCheckRules.CheckWord("Bibliography", "  bibliography. "));
         Assert.AreEqual(WordAnswerResult.Correct, VocabularyCheckRules.CheckWord("carry out", "Carry   out"));
         Assert.AreEqual(WordAnswerResult.Correct, VocabularyCheckRules.CheckWord("well-known", "well known"));
+        Assert.AreEqual(WordAnswerResult.Correct, VocabularyCheckRules.CheckWord("haven’t", "haven't"));
         Assert.AreEqual(WordAnswerResult.Close, VocabularyCheckRules.CheckWord("bibliography", "bibliografy"));
         Assert.AreEqual(WordAnswerResult.Close, VocabularyCheckRules.CheckWord("university", "univeristy"));
         Assert.AreEqual(WordAnswerResult.Wrong, VocabularyCheckRules.CheckWord("cat", "car"), "short words must be exact");
